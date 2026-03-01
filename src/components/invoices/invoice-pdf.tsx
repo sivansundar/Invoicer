@@ -49,7 +49,7 @@ const s = StyleSheet.create({
   separator: { borderBottomWidth: 0.5, borderBottomColor: "#e0e0e0", marginVertical: 12 },
   row: { flexDirection: "row" },
   col: { flex: 1 },
-  label: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 },
+  label: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, fontWeight: 700 },
   value: { fontSize: 9 },
   tableHeader: {
     flexDirection: "row",
@@ -58,7 +58,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
     marginBottom: 4,
   },
-  tableHeaderText: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 },
+  tableHeaderText: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 },
   tableRow: {
     flexDirection: "row",
     paddingVertical: 4,
@@ -137,7 +137,9 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
             <Text style={[s.value, { fontWeight: 700 }]}>
               {invoice.client.companyName}
             </Text>
-            <Text style={s.value}>{invoice.client.name}</Text>
+            {invoice.client.name && (
+              <Text style={s.value}>{invoice.client.name}</Text>
+            )}
             {invoice.client.address && (
               <Text style={[s.value, { color: "#666" }]}>
                 {invoice.client.address}

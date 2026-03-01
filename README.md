@@ -84,6 +84,25 @@ npm run build
 npm start
 ```
 
+### Docker
+
+Make sure [Docker Desktop](https://www.docker.com/products/docker-desktop/) is running, then:
+
+```bash
+# Build and start the container
+docker compose up --build
+
+# Run in the background
+docker compose up --build -d
+
+# Stop the container
+docker compose down
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> The app uses Next.js standalone output, so the image is small and self-contained. No environment variables or external services required.
+
 ---
 
 ## Usage

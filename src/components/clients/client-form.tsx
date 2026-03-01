@@ -32,7 +32,7 @@ export function ClientForm({ client }: ClientFormProps) {
     e.preventDefault();
     const clientData: Client = {
       id: client?.id ?? crypto.randomUUID(),
-      name: form.name,
+      name: form.name || undefined,
       companyName: form.companyName,
       address: form.address,
       email: form.email || undefined,
@@ -53,14 +53,13 @@ export function ClientForm({ client }: ClientFormProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-xs">
-                Contact Name *
+                Contact Name
               </Label>
               <Input
                 id="name"
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="John Doe"
-                required
                 className="text-sm"
               />
             </div>

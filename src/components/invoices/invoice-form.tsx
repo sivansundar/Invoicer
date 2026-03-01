@@ -90,7 +90,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     }
     const client = clients.find((c) => c.id === clientId);
     if (!client) return;
-    setClientName(client.name);
+    setClientName(client.name ?? "");
     setClientCompany(client.companyName);
     setClientAddress(client.address);
     setClientEmail(client.email ?? "");
@@ -108,8 +108,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   }, [items]);
 
   const handleSubmit = (status: "draft" | "sent") => {
-    if (!brandId || !clientName || !clientCompany || !billDate || !dueDate)
-      return;
+    if (!brandId || !clientCompany || !billDate || !dueDate) return;
 
     const invoice: Invoice = {
       id: isEdit ? existingInvoice.id : crypto.randomUUID(),
@@ -163,7 +162,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     router.push(`/invoices/${invoice.id}`);
   };
 
-  const isValid = !!(brandId && clientName && clientCompany && billDate && dueDate);
+  const isValid = !!(brandId && clientCompany && billDate && dueDate);
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -279,7 +278,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   </SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id} className="text-sm">
-                      {c.companyName} — {c.name}
+                      {c.companyName}{c.name ? ` — ${c.name}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -288,13 +287,12 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-xs">Contact Name *</Label>
+              <Label className="text-xs">Contact Name</Label>
               <Input
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="John Doe"
                 className="text-sm"
-                required
               />
             </div>
             <div className="space-y-2">

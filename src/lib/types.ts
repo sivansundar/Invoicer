@@ -23,7 +23,7 @@ export interface Brand {
 
 export interface Client {
   id: string;
-  name: string;
+  name?: string;
   companyName: string;
   address: string;
   email?: string;
@@ -32,7 +32,7 @@ export interface Client {
 }
 
 export interface InvoiceClient {
-  name: string;
+  name?: string;
   companyName: string;
   address: string;
   email?: string;

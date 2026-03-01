@@ -33,9 +33,11 @@ export function ClientCard({ client, onDelete }: ClientCardProps) {
           </div>
           <div>
             <CardTitle className="text-sm">{client.companyName}</CardTitle>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              {client.name}
-            </p>
+            {client.name && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {client.name}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -32,6 +32,9 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
             <p className="text-[10px] text-muted-foreground whitespace-pre-line">
               {brand.address}
             </p>
+            {brand.email && (
+              <p className="text-[10px] text-muted-foreground">{brand.email}</p>
+            )}
             {brand.gstNumber && (
               <p className="text-[10px] text-muted-foreground">
                 GST: {brand.gstNumber}
@@ -56,7 +59,7 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
       <div className="grid grid-cols-2 gap-8">
         <div className="space-y-3">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">
               Bill Date
             </p>
             <p className="text-xs tabular-nums">
@@ -64,7 +67,7 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
             </p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">
               Due Date
             </p>
             <p className="text-xs tabular-nums">
@@ -73,13 +76,15 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
           </div>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1">
             Billed To
           </p>
           <p className="text-xs font-medium">{invoice.client.companyName}</p>
-          <p className="text-xs text-muted-foreground">
-            {invoice.client.name}
-          </p>
+          {invoice.client.name && (
+            <p className="text-xs text-muted-foreground">
+              {invoice.client.name}
+            </p>
+          )}
           {invoice.client.address && (
             <p className="text-xs text-muted-foreground whitespace-pre-line">
               {invoice.client.address}
@@ -97,7 +102,7 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
 
       {/* Line Items */}
       <div>
-        <div className="grid grid-cols-[1fr_100px_80px_100px] gap-2 text-[10px] uppercase tracking-wider text-muted-foreground pb-2 border-b border-border">
+        <div className="grid grid-cols-[1fr_100px_80px_100px] gap-2 text-xs uppercase tracking-wider text-muted-foreground font-bold pb-2 border-b border-border">
           <span>Description</span>
           <span className="text-right">Amount</span>
           <span className="text-right">Tax</span>
@@ -153,7 +158,7 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
       {/* Bank Details */}
       <Separator />
       <div>
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-3">
           Payment Details
         </p>
         <div className="flex justify-between text-xs">
