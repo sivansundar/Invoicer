@@ -97,9 +97,9 @@ export function deleteInvoice(id: string): void {
 
 export function getNextInvoiceNumber(brandId: string): string {
   const brand = getBrand(brandId);
-  if (!brand) return "INV-001";
+  if (!brand) return "INV001";
   const num = brand.nextInvoiceNumber.toString().padStart(3, "0");
-  return `${brand.invoicePrefix}-${num}`;
+  return `${brand.invoicePrefix}${num}`;
 }
 
 export function incrementInvoiceNumber(brandId: string): void {

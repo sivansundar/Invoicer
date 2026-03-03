@@ -43,7 +43,7 @@ export function BrandCard({ brand, onDelete }: BrandCardProps) {
             <CardTitle className="text-sm">{brand.name}</CardTitle>
             <p className="text-[10px] text-muted-foreground mt-0.5">
               Prefix: {brand.invoicePrefix} &middot; Next: {brand.invoicePrefix}
-              -{brand.nextInvoiceNumber.toString().padStart(3, "0")}
+              {brand.nextInvoiceNumber.toString().padStart(3, "0")}
             </p>
           </div>
         </div>

@@ -104,17 +104,15 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {invoice.status === "draft" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1.5"
-              onClick={() => router.push(`/invoices/${invoice.id}/edit`)}
-            >
-              <Pencil className="h-3 w-3" />
-              Edit
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs gap-1.5"
+            onClick={() => router.push(`/invoices/${invoice.id}/edit`)}
+          >
+            <Pencil className="h-3 w-3" />
+            Edit
+          </Button>
           <PDFDownloadButton invoice={invoice} brand={brand} />
 
           <DropdownMenu>

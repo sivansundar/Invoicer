@@ -163,12 +163,11 @@ export function BrandForm({ brand }: BrandFormProps) {
                 }
                 placeholder="SS"
                 required
-                maxLength={5}
                 className="text-sm uppercase"
               />
               <p className="text-[10px] text-muted-foreground">
-                Invoices will be numbered {form.invoicePrefix || "XX"}-001,{" "}
-                {form.invoicePrefix || "XX"}-002, etc.
+                Invoices will be numbered {form.invoicePrefix || "XX"}001,{" "}
+                {form.invoicePrefix || "XX"}002, etc.
               </p>
             </div>
           </div>
