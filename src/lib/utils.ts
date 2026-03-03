@@ -6,10 +6,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-const CURRENCY_CONFIG: Record<Currency, { locale: string; decimals: number }> = {
-  INR: { locale: "en-IN", decimals: 0 },
-  USD: { locale: "en-US", decimals: 2 },
-  SGD: { locale: "en-SG", decimals: 2 },
+const CURRENCY_CONFIG: Record<Currency, { locale: string; decimals: number; symbol: string }> = {
+  INR: { locale: "en-IN", decimals: 0, symbol: "₹" },
+  USD: { locale: "en-US", decimals: 2, symbol: "$" },
+  SGD: { locale: "en-SG", decimals: 2, symbol: "S$" },
 }
 
 export function formatCurrency(n: number, currency: Currency, minDecimals?: number) {
@@ -28,5 +28,5 @@ export function formatCurrencyLabel(n: number, currency: Currency) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n)
-  return `${currency} ${num}`
+  return `${config.symbol}${num}`
 }

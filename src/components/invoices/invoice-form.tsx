@@ -219,13 +219,13 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="INR" className="text-sm">
-                INR — Indian Rupee
+                ₹ — Indian Rupee
               </SelectItem>
               <SelectItem value="USD" className="text-sm">
-                USD — US Dollar
+                $ — US Dollar
               </SelectItem>
               <SelectItem value="SGD" className="text-sm">
-                SGD — Singapore Dollar
+                S$ — Singapore Dollar
               </SelectItem>
             </SelectContent>
           </Select>
