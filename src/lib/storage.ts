@@ -98,13 +98,15 @@ export function deleteInvoice(id: string): void {
 export function getNextInvoiceNumber(brandId: string): string {
   const brand = getBrand(brandId);
   if (!brand) return "INV001";
-  const num = brand.nextInvoiceNumber.toString().padStart(3, "0");
-  return `${brand.invoicePrefix}${num}`;
+  const prefix = brand.invoicePrefix;
+  const existing = getInvoices()
+    .filter((i) => i.brandId === brandId && i.invoiceNumber.startsWith(prefix))
+    .map((i) => parseInt(i.invoiceNumber.slice(prefix.length), 10))
+    .filter((n) => !isNaN(n));
+  const next = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+  return `${prefix}${next.toString().padStart(3, "0")}`;
 }
 
-export function incrementInvoiceNumber(brandId: string): void {
-  const brand = getBrand(brandId);
-  if (!brand) return;
-  brand.nextInvoiceNumber += 1;
-  saveBrand(brand);
+export function incrementInvoiceNumber(_brandId: string): void {
+  // no-op: next number is now derived from existing invoices
 }
