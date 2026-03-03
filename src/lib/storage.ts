@@ -99,12 +99,14 @@ export function getNextInvoiceNumber(brandId: string): string {
   const brand = getBrand(brandId);
   if (!brand) return "INV001";
   const prefix = brand.invoicePrefix;
+  const year = new Date().getFullYear().toString();
+  const yearPrefix = `${prefix}${year}`;
   const existing = getInvoices()
-    .filter((i) => i.brandId === brandId && i.invoiceNumber.startsWith(prefix))
-    .map((i) => parseInt(i.invoiceNumber.slice(prefix.length), 10))
+    .filter((i) => i.brandId === brandId && i.invoiceNumber.startsWith(yearPrefix))
+    .map((i) => parseInt(i.invoiceNumber.slice(yearPrefix.length), 10))
     .filter((n) => !isNaN(n));
   const next = existing.length > 0 ? Math.max(...existing) + 1 : 1;
-  return `${prefix}${next.toString().padStart(3, "0")}`;
+  return `${yearPrefix}${next.toString().padStart(3, "0")}`;
 }
 
 export function incrementInvoiceNumber(_brandId: string): void {

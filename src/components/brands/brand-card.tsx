@@ -42,8 +42,7 @@ export function BrandCard({ brand, onDelete }: BrandCardProps) {
           <div>
             <CardTitle className="text-sm">{brand.name}</CardTitle>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              Prefix: {brand.invoicePrefix} &middot; Next: {brand.invoicePrefix}
-              {brand.nextInvoiceNumber.toString().padStart(3, "0")}
+              Prefix: {brand.invoicePrefix} &middot; Format: {brand.invoicePrefix}{new Date().getFullYear()}001
             </p>
           </div>
         </div>
