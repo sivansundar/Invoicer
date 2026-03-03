@@ -32,14 +32,8 @@ Font.register({
 Font.register({
   family: "Noto Sans",
   fonts: [
-    {
-      src: "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosans/static/NotoSans-Regular.ttf",
-      fontWeight: 400,
-    },
-    {
-      src: "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosans/static/NotoSans-Bold.ttf",
-      fontWeight: 700,
-    },
+    { src: "/fonts/NotoSans-Regular.ttf", fontWeight: 400 },
+    { src: "/fonts/NotoSans-Bold.ttf", fontWeight: 700 },
   ],
 });
 
