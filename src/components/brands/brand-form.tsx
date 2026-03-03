@@ -56,7 +56,7 @@ export function BrandForm({ brand }: BrandFormProps) {
       name: form.name,
       address: form.address,
       email: form.email,
-      phone: form.phone,
+      phone: form.phone || undefined,
       gstNumber: form.gstNumber || undefined,
       logo: form.logo || undefined,
       invoicePrefix: form.invoicePrefix.toUpperCase(),
@@ -127,14 +127,13 @@ export function BrandForm({ brand }: BrandFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-xs">
-                Phone *
+                Phone
               </Label>
               <Input
                 id="phone"
                 value={form.phone}
                 onChange={(e) => update("phone", e.target.value)}
                 placeholder="+91 9876543210"
-                required
                 className="text-sm"
               />
             </div>

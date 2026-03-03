@@ -12,7 +12,7 @@ export interface Brand {
   name: string;
   address: string;
   email: string;
-  phone: string;
+  phone?: string;
   gstNumber?: string;
   logo?: string; // base64 data URL
   bankDetails: BankDetails;
@@ -27,6 +27,7 @@ export interface Client {
   companyName: string;
   address: string;
   email?: string;
+  phone?: string;
   gstNumber?: string;
   createdAt: string;
 }
