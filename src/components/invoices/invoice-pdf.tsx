@@ -10,7 +10,7 @@ import {
   Font,
 } from "@react-pdf/renderer";
 import { Invoice, Brand } from "@/lib/types";
-import { formatCurrencyLabel } from "@/lib/utils";
+import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { format } from "date-fns";
 
 Font.register({
@@ -99,7 +99,8 @@ interface InvoicePDFProps {
 
 export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
   const cur = invoice.currency ?? "INR";
-  const fmtCurrency = (n: number) => formatCurrencyLabel(n, cur);
+  const symbol = getCurrencySymbol(cur);
+  const fmtAmount = (n: number) => formatCurrencyAmount(n, cur);
   return (
     <Document>
       <Page size="A4" style={s.page}>
@@ -187,10 +188,12 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
           return (
             <View key={item.id} style={s.tableRow}>
               <Text style={s.colDesc}>{item.description}</Text>
-              <Text style={[s.colAmount, { fontFamily: "Noto Sans" }]}>{fmtCurrency(item.amount)}</Text>
+              <Text style={s.colAmount}>
+                <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(item.amount)}
+              </Text>
               <Text style={[s.colTax, { color: "#888" }]}>{item.tax}%</Text>
-              <Text style={[s.colTotal, { fontFamily: "Noto Sans" }]}>
-                {fmtCurrency(item.amount + taxAmt)}
+              <Text style={s.colTotal}>
+                <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(item.amount + taxAmt)}
               </Text>
             </View>
           );
@@ -200,14 +203,14 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
         <View style={{ marginTop: 12, alignItems: "flex-end" }}>
           <View style={s.totalsRow}>
             <Text style={s.totalsLabel}>Subtotal</Text>
-            <Text style={[s.totalsValue, { fontFamily: "Noto Sans" }]}>
-              {fmtCurrency(invoice.subtotal)}
+            <Text style={s.totalsValue}>
+              <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.subtotal)}
             </Text>
           </View>
           <View style={s.totalsRow}>
             <Text style={s.totalsLabel}>Tax</Text>
-            <Text style={[s.totalsValue, { fontFamily: "Noto Sans" }]}>
-              {fmtCurrency(invoice.totalTax)}
+            <Text style={s.totalsValue}>
+              <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.totalTax)}
             </Text>
           </View>
           <View
@@ -215,7 +218,9 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
           />
           <View style={s.totalsRow}>
             <Text style={s.totalsBoldLabel}>Total</Text>
-            <Text style={[s.totalsBold, { fontFamily: "Noto Sans" }]}>{fmtCurrency(invoice.total)}</Text>
+            <Text style={s.totalsBold}>
+              <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.total)}
+            </Text>
           </View>
         </View>
 

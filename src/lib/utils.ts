@@ -30,3 +30,15 @@ export function formatCurrencyLabel(n: number, currency: Currency) {
   }).format(n)
   return `${config.symbol}${num}`
 }
+
+export function getCurrencySymbol(currency: Currency): string {
+  return CURRENCY_CONFIG[currency].symbol
+}
+
+export function formatCurrencyAmount(n: number, currency: Currency): string {
+  const config = CURRENCY_CONFIG[currency]
+  return new Intl.NumberFormat(config.locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n)
+}
