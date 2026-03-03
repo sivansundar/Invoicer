@@ -27,6 +27,22 @@ Font.register({
   ],
 });
 
+// Noto Sans is registered solely for currency amounts — JetBrains Mono lacks the
+// ₹ glyph, causing it to render as a corrupt character in react-pdf.
+Font.register({
+  family: "Noto Sans",
+  fonts: [
+    {
+      src: "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans/files/noto-sans-all-400-normal.woff2",
+      fontWeight: 400,
+    },
+    {
+      src: "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans/files/noto-sans-all-700-normal.woff2",
+      fontWeight: 700,
+    },
+  ],
+});
+
 const s = StyleSheet.create({
   page: {
     fontFamily: "JetBrains Mono",
@@ -177,9 +193,9 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
           return (
             <View key={item.id} style={s.tableRow}>
               <Text style={s.colDesc}>{item.description}</Text>
-              <Text style={s.colAmount}>{fmtCurrency(item.amount)}</Text>
+              <Text style={[s.colAmount, { fontFamily: "Noto Sans" }]}>{fmtCurrency(item.amount)}</Text>
               <Text style={[s.colTax, { color: "#888" }]}>{item.tax}%</Text>
-              <Text style={s.colTotal}>
+              <Text style={[s.colTotal, { fontFamily: "Noto Sans" }]}>
                 {fmtCurrency(item.amount + taxAmt)}
               </Text>
             </View>
@@ -190,13 +206,13 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
         <View style={{ marginTop: 12, alignItems: "flex-end" }}>
           <View style={s.totalsRow}>
             <Text style={s.totalsLabel}>Subtotal</Text>
-            <Text style={s.totalsValue}>
+            <Text style={[s.totalsValue, { fontFamily: "Noto Sans" }]}>
               {fmtCurrency(invoice.subtotal)}
             </Text>
           </View>
           <View style={s.totalsRow}>
             <Text style={s.totalsLabel}>Tax</Text>
-            <Text style={s.totalsValue}>
+            <Text style={[s.totalsValue, { fontFamily: "Noto Sans" }]}>
               {fmtCurrency(invoice.totalTax)}
             </Text>
           </View>
@@ -205,7 +221,7 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
           />
           <View style={s.totalsRow}>
             <Text style={s.totalsBoldLabel}>Total</Text>
-            <Text style={s.totalsBold}>{fmtCurrency(invoice.total)}</Text>
+            <Text style={[s.totalsBold, { fontFamily: "Noto Sans" }]}>{fmtCurrency(invoice.total)}</Text>
           </View>
         </View>
 
