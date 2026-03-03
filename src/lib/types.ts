@@ -14,6 +14,7 @@ export interface Brand {
   email: string;
   phone?: string;
   gstNumber?: string;
+  panNumber?: string;
   logo?: string; // base64 data URL
   bankDetails: BankDetails;
   invoicePrefix: string;

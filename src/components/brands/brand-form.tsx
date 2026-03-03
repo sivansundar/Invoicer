@@ -26,6 +26,7 @@ export function BrandForm({ brand }: BrandFormProps) {
     email: brand?.email ?? "",
     phone: brand?.phone ?? "",
     gstNumber: brand?.gstNumber ?? "",
+    panNumber: brand?.panNumber ?? "",
     logo: brand?.logo ?? "",
     invoicePrefix: brand?.invoicePrefix ?? "",
     accountName: brand?.bankDetails.accountName ?? "",
@@ -58,6 +59,7 @@ export function BrandForm({ brand }: BrandFormProps) {
       email: form.email,
       phone: form.phone || undefined,
       gstNumber: form.gstNumber || undefined,
+      panNumber: form.panNumber || undefined,
       logo: form.logo || undefined,
       invoicePrefix: form.invoicePrefix.toUpperCase(),
       nextInvoiceNumber: brand?.nextInvoiceNumber ?? 1,
@@ -151,6 +153,22 @@ export function BrandForm({ brand }: BrandFormProps) {
                 className="text-sm"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="panNumber" className="text-xs">
+                PAN Number
+              </Label>
+              <Input
+                id="panNumber"
+                value={form.panNumber}
+                onChange={(e) =>
+                  update("panNumber", e.target.value.toUpperCase())
+                }
+                placeholder="Optional"
+                className="text-sm uppercase"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="invoicePrefix" className="text-xs">
                 Invoice Prefix *

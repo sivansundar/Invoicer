@@ -100,11 +100,21 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
             <View>
               <Text style={s.brandName}>{brand.name}</Text>
               <Text style={s.brandDetail}>{brand.address}</Text>
-              <Text style={s.brandDetail}>
-                {brand.email}{brand.phone ? ` | ${brand.phone}` : ""}
-              </Text>
+              {brand.phone && (
+                <Text style={s.brandDetail}>{brand.phone}</Text>
+              )}
               {brand.gstNumber && (
                 <Text style={s.brandDetail}>GST: {brand.gstNumber}</Text>
+              )}
+              <Text style={[s.brandDetail, { marginTop: 4 }]}>
+                <Text style={{ fontWeight: 700 }}>Email: </Text>
+                {brand.email}
+              </Text>
+              {brand.panNumber && (
+                <Text style={[s.brandDetail, { marginTop: 4 }]}>
+                  <Text style={{ fontWeight: 700 }}>PAN: </Text>
+                  {brand.panNumber}
+                </Text>
               )}
             </View>
           </View>
