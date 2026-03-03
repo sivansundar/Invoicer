@@ -94,7 +94,7 @@ export function BrandCard({ brand, onDelete }: BrandCardProps) {
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground space-y-1">
         <p>{brand.email}</p>
-        <p>{brand.phone}</p>
+        {brand.phone && <p>{brand.phone}</p>}
         {brand.gstNumber && <p>GST: {brand.gstNumber}</p>}
         <p className="text-[10px] pt-1">
           Bank: {brand.bankDetails.bankName} &middot;{" "}

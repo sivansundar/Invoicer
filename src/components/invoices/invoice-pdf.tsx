@@ -101,7 +101,7 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
               <Text style={s.brandName}>{brand.name}</Text>
               <Text style={s.brandDetail}>{brand.address}</Text>
               <Text style={s.brandDetail}>
-                {brand.email} | {brand.phone}
+                {brand.email}{brand.phone ? ` | ${brand.phone}` : ""}
               </Text>
               {brand.gstNumber && (
                 <Text style={s.brandDetail}>GST: {brand.gstNumber}</Text>

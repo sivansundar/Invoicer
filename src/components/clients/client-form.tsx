@@ -22,6 +22,7 @@ export function ClientForm({ client }: ClientFormProps) {
     companyName: client?.companyName ?? "",
     address: client?.address ?? "",
     email: client?.email ?? "",
+    phone: client?.phone ?? "",
     gstNumber: client?.gstNumber ?? "",
   });
 
@@ -36,6 +37,7 @@ export function ClientForm({ client }: ClientFormProps) {
       companyName: form.companyName,
       address: form.address,
       email: form.email || undefined,
+      phone: form.phone || undefined,
       gstNumber: form.gstNumber || undefined,
       createdAt: client?.createdAt ?? new Date().toISOString(),
     };
@@ -104,6 +106,20 @@ export function ClientForm({ client }: ClientFormProps) {
                 className="text-sm"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-xs">
+                Phone
+              </Label>
+              <Input
+                id="phone"
+                value={form.phone}
+                onChange={(e) => update("phone", e.target.value)}
+                placeholder="Optional"
+                className="text-sm"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="gstNumber" className="text-xs">
                 GST Number

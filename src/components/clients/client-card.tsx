@@ -87,6 +87,7 @@ export function ClientCard({ client, onDelete }: ClientCardProps) {
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground space-y-1">
         {client.email && <p>{client.email}</p>}
+        {client.phone && <p>{client.phone}</p>}
         {client.address && <p>{client.address}</p>}
         {client.gstNumber && <p>GST: {client.gstNumber}</p>}
       </CardContent>
