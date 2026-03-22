@@ -102,6 +102,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     if (!client) return;
     setClientName(client.name ?? "");
     setClientCompany(client.companyName);
+    if (client.companyName) setErrors((prev) => ({ ...prev, clientCompany: false }));
     setClientAddress(client.address);
     setClientEmail(client.email ?? "");
     setClientGst(client.gstNumber ?? "");
