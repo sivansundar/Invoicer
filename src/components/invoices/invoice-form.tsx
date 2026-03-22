@@ -19,7 +19,7 @@ import { LineItemsTable } from "./line-items-table";
 import { useBrands } from "@/hooks/use-brands";
 import { useClients } from "@/hooks/use-clients";
 import { Invoice, LineItem, Currency } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import {
   getNextInvoiceNumber,
   incrementInvoiceNumber,
@@ -70,6 +70,15 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       { id: crypto.randomUUID(), description: "", amount: 0, tax: 0 },
     ]
   );
+  const [errors, setErrors] = useState<{
+    brandId?: boolean;
+    clientCompany?: boolean;
+    billDate?: boolean;
+    dueDate?: boolean;
+  }>({});
+  const [isDirty, setIsDirty] = useState(false);
+
+  const markDirty = () => setIsDirty(true);
 
   const invoiceNumber = isEdit
     ? existingInvoice.invoiceNumber
@@ -78,6 +87,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     : "—";
 
   const handleClientSelect = (clientId: string) => {
+    markDirty();
     setSelectedClientId(clientId);
     if (clientId === "manual") {
       setClientName("");
@@ -108,7 +118,29 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   }, [items]);
 
   const handleSubmit = (status: "draft" | "sent") => {
-    if (!brandId || !clientCompany || !billDate || !dueDate) return;
+    if (status !== "draft") {
+      const newErrors = {
+        brandId: !brandId,
+        clientCompany: !clientCompany,
+        billDate: !billDate,
+        dueDate: !dueDate,
+      };
+      const hasErrors = Object.values(newErrors).some(Boolean);
+      if (hasErrors) {
+        setErrors(newErrors);
+        const firstErrorId = newErrors.brandId
+          ? "field-brand"
+          : newErrors.clientCompany
+          ? "field-company"
+          : newErrors.billDate
+          ? "field-billdate"
+          : "field-duedate";
+        document
+          .getElementById(firstErrorId)
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
 
     const invoice: Invoice = {
       id: isEdit ? existingInvoice.id : crypto.randomUUID(),
@@ -162,8 +194,6 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     router.push(`/invoices/${invoice.id}`);
   };
 
-  const isValid = !!(brandId && clientCompany && billDate && dueDate);
-
   return (
     <div className="space-y-8 max-w-3xl">
       {/* Brand Selection + Invoice Number */}
@@ -172,15 +202,22 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           Invoice Details
         </h3>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Brand *</Label>
+          <div className="space-y-2" id="field-brand">
+            <Label className="text-xs">Brand <span className="text-destructive">*</span></Label>
             {isEdit ? (
               <div className="h-9 flex items-center px-3 bg-muted rounded-md text-sm">
                 {brands.find((b) => b.id === brandId)?.name ?? brandId}
               </div>
             ) : (
-              <Select value={brandId} onValueChange={setBrandId}>
-                <SelectTrigger className="text-sm">
+              <Select
+                value={brandId}
+                onValueChange={(v) => {
+                  setBrandId(v);
+                  markDirty();
+                  if (v) setErrors((prev) => ({ ...prev, brandId: false }));
+                }}
+              >
+                <SelectTrigger className={cn("text-sm", errors.brandId && "border-destructive")}>
                   <SelectValue placeholder="Select brand" />
                 </SelectTrigger>
                 <SelectContent>
@@ -209,10 +246,10 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           </div>
         </div>
         <div className="space-y-2">
-          <Label className="text-xs">Currency *</Label>
+          <Label className="text-xs">Currency <span className="text-destructive">*</span></Label>
           <Select
             value={currency}
-            onValueChange={(v) => setCurrency(v as Currency)}
+            onValueChange={(v) => { setCurrency(v as Currency); markDirty(); }}
           >
             <SelectTrigger className="text-sm w-48">
               <SelectValue />
@@ -231,23 +268,31 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           </Select>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Bill Date *</Label>
+          <div className="space-y-2" id="field-billdate">
+            <Label className="text-xs">Bill Date <span className="text-destructive">*</span></Label>
             <Input
               type="date"
               value={billDate}
-              onChange={(e) => setBillDate(e.target.value)}
-              className="text-sm"
+              onChange={(e) => {
+                setBillDate(e.target.value);
+                markDirty();
+                if (e.target.value) setErrors((prev) => ({ ...prev, billDate: false }));
+              }}
+              className={cn("text-sm", errors.billDate && "border-destructive")}
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Due Date *</Label>
+          <div className="space-y-2" id="field-duedate">
+            <Label className="text-xs">Due Date <span className="text-destructive">*</span></Label>
             <Input
               type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="text-sm"
+              onChange={(e) => {
+                setDueDate(e.target.value);
+                markDirty();
+                if (e.target.value) setErrors((prev) => ({ ...prev, dueDate: false }));
+              }}
+              className={cn("text-sm", errors.dueDate && "border-destructive")}
               required
             />
           </div>
@@ -290,18 +335,22 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               <Label className="text-xs">Contact Name</Label>
               <Input
                 value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
+                onChange={(e) => { setClientName(e.target.value); markDirty(); }}
                 placeholder="John Doe"
                 className="text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Company Name *</Label>
+            <div className="space-y-2" id="field-company">
+              <Label className="text-xs">Company Name <span className="text-destructive">*</span></Label>
               <Input
                 value={clientCompany}
-                onChange={(e) => setClientCompany(e.target.value)}
+                onChange={(e) => {
+                  setClientCompany(e.target.value);
+                  markDirty();
+                  if (e.target.value) setErrors((prev) => ({ ...prev, clientCompany: false }));
+                }}
                 placeholder="Acme Corp"
-                className="text-sm"
+                className={cn("text-sm", errors.clientCompany && "border-destructive")}
                 required
               />
             </div>
@@ -310,7 +359,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             <Label className="text-xs">Address</Label>
             <Textarea
               value={clientAddress}
-              onChange={(e) => setClientAddress(e.target.value)}
+              onChange={(e) => { setClientAddress(e.target.value); markDirty(); }}
               placeholder="Client address"
               rows={2}
               className="text-sm"
@@ -322,7 +371,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               <Input
                 type="email"
                 value={clientEmail}
-                onChange={(e) => setClientEmail(e.target.value)}
+                onChange={(e) => { setClientEmail(e.target.value); markDirty(); }}
                 placeholder="Optional"
                 className="text-sm"
               />
@@ -331,7 +380,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               <Label className="text-xs">GST Number</Label>
               <Input
                 value={clientGst}
-                onChange={(e) => setClientGst(e.target.value)}
+                onChange={(e) => { setClientGst(e.target.value); markDirty(); }}
                 placeholder="Optional"
                 className="text-sm"
               />
@@ -364,7 +413,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Services
         </h3>
-        <LineItemsTable items={items} onChange={setItems} currency={currency} />
+        <LineItemsTable items={items} onChange={(items) => { setItems(items); markDirty(); }} currency={currency} />
       </div>
 
       <Separator />
@@ -401,7 +450,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         <Label className="text-xs">Notes / Terms</Label>
         <Textarea
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => { setNotes(e.target.value); markDirty(); }}
           placeholder="Payment terms, notes, etc."
           rows={3}
           className="text-sm"
@@ -416,7 +465,6 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               size="sm"
               className="text-xs"
               onClick={() => handleSubmit("draft")}
-              disabled={!isValid}
             >
               Save Changes
             </Button>
@@ -425,7 +473,6 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               size="sm"
               className="text-xs"
               onClick={() => handleSubmit("sent")}
-              disabled={!isValid}
             >
               Mark as Sent
             </Button>
@@ -436,7 +483,6 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               size="sm"
               className="text-xs"
               onClick={() => handleSubmit("sent")}
-              disabled={!isValid}
             >
               Create Invoice
             </Button>
@@ -445,7 +491,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               size="sm"
               className="text-xs"
               onClick={() => handleSubmit("draft")}
-              disabled={!isValid}
+              disabled={!isDirty}
             >
               Save as Draft
             </Button>
