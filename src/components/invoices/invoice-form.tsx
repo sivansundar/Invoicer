@@ -22,7 +22,6 @@ import { Invoice, LineItem, Currency } from "@/lib/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   getNextInvoiceNumber,
-  incrementInvoiceNumber,
   saveInvoice,
   saveClient,
   getClients,
@@ -111,10 +110,9 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
 
   const { subtotal, totalTax, total } = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-    const totalTax = items.reduce(
-      (sum, item) => sum + (item.amount * item.tax) / 100,
-      0
-    );
+    const totalTax = Math.round(
+      items.reduce((sum, item) => sum + (item.amount * item.tax) / 100, 0) * 100
+    ) / 100;
     return { subtotal, totalTax, total: subtotal + totalTax };
   }, [items]);
 
@@ -170,10 +168,6 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     };
 
     saveInvoice(invoice);
-
-    if (!isEdit) {
-      incrementInvoiceNumber(brandId);
-    }
 
     if (!isEdit && saveClientChecked) {
       const existing = getClients().find(

@@ -57,6 +57,16 @@ export default function InvoiceDetailPage() {
 
   const updateStatus = (status: InvoiceStatus) => {
     if (!invoice) return;
+    if (status !== "draft") {
+      const missing: string[] = [];
+      if (!invoice.dueDate) missing.push("Due Date");
+      if (!invoice.client.companyName) missing.push("Company Name");
+      if (!invoice.billDate) missing.push("Bill Date");
+      if (missing.length > 0) {
+        alert(`Cannot change status: the following required fields are missing:\n• ${missing.join("\n• ")}`);
+        return;
+      }
+    }
     const updated = { ...invoice, status, updatedAt: new Date().toISOString() };
     saveInvoice(updated);
     setInvoice(updated);

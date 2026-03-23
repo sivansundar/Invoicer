@@ -71,7 +71,9 @@ export function InvoiceView({ invoice, brand }: InvoiceViewProps) {
               Due Date
             </p>
             <p className="text-xs tabular-nums">
-              {format(new Date(invoice.dueDate), "dd MMM yyyy")}
+              {invoice.dueDate
+                ? format(new Date(invoice.dueDate), "dd MMM yyyy")
+                : "—"}
             </p>
           </div>
         </div>

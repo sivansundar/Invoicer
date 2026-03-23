@@ -27,6 +27,8 @@ export function PDFDownloadButton({ invoice, brand }: PDFDownloadButtonProps) {
       a.download = `${invoice.invoiceNumber}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+    } catch {
+      alert("Failed to generate PDF. Please try again.");
     } finally {
       setGenerating(false);
     }

@@ -109,6 +109,3 @@ export function getNextInvoiceNumber(brandId: string): string {
   return `${yearPrefix}${next.toString().padStart(3, "0")}`;
 }
 
-export function incrementInvoiceNumber(_brandId: string): void {
-  // no-op: next number is now derived from existing invoices
-}

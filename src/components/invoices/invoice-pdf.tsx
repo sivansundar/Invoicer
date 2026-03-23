@@ -76,13 +76,13 @@ const s = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   colDesc: { flex: 1 },
-  colAmount: { width: 80, textAlign: "right" },
-  colTax: { width: 60, textAlign: "right" },
-  colTotal: { width: 80, textAlign: "right" },
+  colAmount: { width: 100, textAlign: "right" },
+  colTax: { width: 70, textAlign: "right" },
+  colTotal: { width: 100, textAlign: "right" },
   totalsRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 2 },
   totalsLabel: { fontSize: 9, color: "#666", width: 80 },
-  totalsValue: { fontSize: 9, width: 80, textAlign: "right" },
-  totalsBold: { fontSize: 11, fontWeight: 700, width: 80, textAlign: "right" },
+  totalsValue: { fontSize: 9, width: 160, textAlign: "right" },
+  totalsBold: { fontSize: 11, fontWeight: 700, width: 160, textAlign: "right" },
   totalsBoldLabel: { fontSize: 11, fontWeight: 700, width: 80 },
   bankColumns: { flexDirection: "row", justifyContent: "space-between" },
   bankColumn: { width: "48%" },
@@ -149,7 +149,7 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
             <View>
               <Text style={s.label}>Due Date</Text>
               <Text style={s.value}>
-                {format(new Date(invoice.dueDate), "dd MMM yyyy")}
+                {invoice.dueDate ? format(new Date(invoice.dueDate), "dd MMM yyyy") : "—"}
               </Text>
             </View>
           </View>
@@ -213,13 +213,11 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
               <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.totalTax)}
             </Text>
           </View>
-          <View
-            style={[s.separator, { width: 160, marginVertical: 4 }]}
-          />
+          <View style={[s.separator, { width: 240, marginVertical: 4 }]} />
           <View style={s.totalsRow}>
             <Text style={s.totalsBoldLabel}>Total</Text>
             <Text style={s.totalsBold}>
-              <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.total)}
+              <Text style={{ fontFamily: "Noto Sans", fontWeight: 700 }}>{symbol}</Text>{fmtAmount(invoice.total)}
             </Text>
           </View>
         </View>
