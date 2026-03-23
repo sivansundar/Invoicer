@@ -1,36 +1,51 @@
 # Invoicer
 
-A simple, local-first invoicing tool. No accounts, no database, no backend — just your browser.
+**A local-first invoicing tool. No accounts. No servers. No subscriptions.**
 
-Create professional invoices, export them as PDFs, and manage your clients and brands entirely client-side. Everything lives in `localStorage`. Export your data to JSON at any time to back it up or move it to another device.
+Invoicer runs entirely in your browser. Create professional invoices, generate PDFs, manage clients and brands — all stored in `localStorage`. Your data never leaves your machine.
 
 ---
 
 ## Features
 
-**Invoices**
-- Create invoices with line items, tax rates, bill/due dates, currency, and notes
-- Edit invoices in Draft status at any time
-- Track status: `Draft → Sent → Paid` or `Overdue`
-- Export any invoice as a print-ready PDF
+### Invoices
 
-**Brands**
-- Set up multiple brands (the businesses you invoice from)
-- Each brand has its own name, address, logo, GST/PAN, bank details, and invoice number prefix
-- Invoice numbers auto-increment per year (e.g. `INV-2026001`)
+- **Line items** with per-item tax rates, descriptions, and amounts
+- **Multi-currency** — INR (₹), USD ($), SGD (S$) — set per invoice
+- **Status lifecycle** — `Draft → Sent → Paid / Overdue`
+- **Draft editing** — drafts stay fully editable; finalized invoices are locked
+- **Mandatory field validation** — required fields are marked and validated before an invoice is finalized; drafts can be saved with partial data
+- **PDF export** — print-ready PDF with your brand logo, invoice number, line items, tax breakdown, bank details, and notes
 
-**Clients**
-- Save frequently billed clients to reuse across invoices
-- Stores name, company, address, email, phone, and GST number
+### Brands
 
-**Multi-currency**
-- Per-invoice currency: INR (₹), USD ($), SGD (S$)
-- Dashboard totals broken out by currency when multiple are in use
+Each brand represents a business you invoice from. You can maintain multiple brands independently.
 
-**Import & Export**
-- Export all your data (invoices, brands, clients) to a timestamped JSON file
-- Import a backup file to restore or migrate data
-- Conflict resolution when an imported invoice number already exists — choose to overwrite, rename, or discard per conflict
+- Name, address, email, and phone
+- GST and PAN numbers
+- Logo — stored locally as base64, embedded in generated PDFs
+- Bank details — account number, IFSC, branch, UPI ID — printed on every PDF
+- Invoice number prefix — e.g. prefix `SC` produces `SC2026001`, `SC2026002`, ...
+
+### Clients
+
+Save the businesses and individuals you bill regularly.
+
+- Company name, contact name, address, email, phone, and GST number
+- Auto-fill any saved client when creating a new invoice
+- Optionally save a new client directly from the invoice form
+
+### Dashboard
+
+- Overview of all invoices with status badges
+- Total amounts broken out by currency when multiple currencies are in use
+- Quick-access links to create invoices, brands, and clients
+
+### Import & Export
+
+- **Export** — downloads a timestamped JSON file containing all invoices, brands, and clients
+- **Import** — restores data from a previously exported file
+- **Conflict resolution** — if an imported invoice number already exists, you choose per-conflict: overwrite, rename (with a new number), or discard
 
 ---
 
@@ -41,7 +56,7 @@ Create professional invoices, export them as PDFs, and manage your clients and b
 - Node.js 18+
 - npm
 
-### Run Locally
+### Development
 
 ```bash
 git clone https://github.com/sivansundar/invoicer.git
@@ -61,10 +76,8 @@ npm start
 
 ### Docker
 
-Make sure [Docker Desktop](https://www.docker.com/products/docker-desktop/) is running, then:
-
 ```bash
-# Build and start
+# Build and run (foreground)
 docker compose up --build
 
 # Run in the background
@@ -76,93 +89,95 @@ docker compose down
 
 Open [http://localhost:3001](http://localhost:3001).
 
-> The image uses Next.js standalone output — small, self-contained, no environment variables or external services needed.
+> The Docker image uses Next.js standalone output — lightweight and self-contained with no external dependencies or environment variables required.
 
 ---
 
-## Usage
+## How It Works
 
-### 1. Create a Brand
+### 1 — Set up a Brand
 
-Before creating invoices, add at least one brand.
+Everything starts with a brand. Go to **Brands → New Brand** and enter your business details: name, address, contact info, GST/PAN, bank details, logo, and the invoice number prefix. You can have as many brands as you need.
 
-Go to **Brands → New Brand** and fill in your business details:
-- Name, address, email, phone
-- GST / PAN numbers *(optional)*
-- Logo — stored locally as base64
-- Bank details — shown on the PDF (account number, IFSC, UPI, etc.)
-- Invoice number prefix — e.g. `INV` → invoices will be numbered `INV-2026001`, `INV-2026002`, etc.
+### 2 — Add Clients *(optional)*
 
-### 2. Save Your Clients *(optional)*
+Go to **Clients → New Client** to save clients you invoice regularly. When creating an invoice, selecting a saved client auto-fills their details. You can also save a new client on the fly from the invoice form.
 
-Go to **Clients → New Client** to pre-save the businesses or individuals you regularly bill. When creating an invoice, select a saved client to auto-fill their details.
+### 3 — Create an Invoice
 
-### 3. Create an Invoice
+Click **New Invoice** from the dashboard. Select a brand, fill in the client details, set the currency, bill date, and due date, then add your line items with descriptions and per-item tax rates. Invoices start as **Draft**.
 
-Click **New Invoice** on the dashboard:
+- Required fields (Brand, Bill Date, Due Date, Company Name) are marked with a red `*`
+- Clicking **Create Invoice** validates required fields and scrolls to any that are missing
+- **Save as Draft** is available once you've made any change — no required fields enforced
 
-1. Select a brand and optionally a saved client
-2. Fill in the client details (if not pre-saved), bill date, due date, currency, and tax rate
-3. Add line items — description, quantity, unit rate
-4. Add any notes (e.g. payment terms)
-5. Save — invoices start in **Draft** status
+### 4 — Manage Status
 
-### 4. Manage Status
+Open an invoice to update its status:
 
-Open any invoice to update its status:
-
-| Status | Meaning |
-|--------|---------|
-| `Draft` | Created, not yet sent — can still be edited |
-| `Sent` | Sent to the client |
+| Status | Description |
+|--------|-------------|
+| `Draft` | Work in progress — fully editable |
+| `Sent` | Delivered to the client — locked from editing |
 | `Paid` | Payment received |
-| `Overdue` | Past due date, payment not received |
+| `Overdue` | Past the due date, payment outstanding |
 
-> Only **Draft** invoices can be edited after creation.
+Promoting a draft to any non-draft status requires all mandatory fields to be filled.
 
-### 5. Download as PDF
+### 5 — Download PDF
 
-On any invoice page, click **Download PDF**. The PDF includes your brand logo, invoice number, dates, line items, subtotal, tax, total, bank details, and notes.
+On any invoice page, click **Download PDF**. The generated PDF includes your brand logo, invoice number, dates, full line item table, subtotal, tax, total, bank details, and any notes.
 
-### 6. Backup & Restore
+### 6 — Back Up Your Data
 
-Your data is stored only in your browser. To back it up or move it to another device:
-
-- **Export** — click Export on the dashboard to download a JSON file with all your data
-- **Import** — click Import and select a previously exported file to restore it
-
-If any imported invoice numbers conflict with existing ones, you'll be asked — for each conflict — whether to **Overwrite**, **Rename**, or **Discard** the imported entry.
+Your data lives only in your browser's `localStorage`. To back it up or move it to another device, use the **Export** button on the dashboard to download a JSON snapshot. Use **Import** to restore from a snapshot.
 
 ---
 
 ## Data Storage
 
-All data lives in your browser's `localStorage`. Nothing is sent to a server.
+All data is stored client-side. Nothing is transmitted to any server.
 
-| Key | Contents |
-|-----|----------|
-| `invoicer_brands` | Your brands |
-| `invoicer_clients` | Your saved clients |
+| `localStorage` key | Contents |
+|--------------------|----------|
+| `invoicer_brands` | Brands |
+| `invoicer_clients` | Saved clients |
 | `invoicer_invoices` | All invoices |
 
-> Clearing browser site data will delete everything. Use **Export** regularly to keep backups.
+> Clearing your browser's site data will erase everything. Export regularly.
 
 ---
 
 ## Tech Stack
 
-| Layer | Library |
-|-------|---------|
-| Framework | [Next.js](https://nextjs.org) (App Router, TypeScript) |
-| UI | [shadcn/ui](https://ui.shadcn.com) + [Radix UI](https://www.radix-ui.com) |
+| | |
+|---|---|
+| Framework | [Next.js 16](https://nextjs.org) — App Router, TypeScript |
+| UI Components | [shadcn/ui](https://ui.shadcn.com) + [Radix UI](https://www.radix-ui.com) |
 | Styling | [Tailwind CSS v4](https://tailwindcss.com) |
-| Forms | [React Hook Form](https://react-hook-form.com) + [Zod](https://zod.dev) |
-| PDF | [@react-pdf/renderer](https://react-pdf.org) |
-| Date handling | [date-fns](https://date-fns.org) |
+| PDF Generation | [@react-pdf/renderer](https://react-pdf.org) |
+| Date Utilities | [date-fns](https://date-fns.org) |
 | Storage | Browser `localStorage` — no backend required |
+
+---
+
+## Contributing
+
+Contributions are welcome. Please open an issue before submitting a pull request for anything beyond small fixes, so we can discuss the change first.
+
+```bash
+# Run the dev server
+npm run dev
+
+# Lint
+npm run lint
+
+# Production build (run this before submitting a PR)
+npm run build
+```
 
 ---
 
 ## License
 
-MIT
+[MIT](./LICENSE)
