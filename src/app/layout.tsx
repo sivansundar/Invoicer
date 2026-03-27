@@ -9,7 +9,18 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Invoicer",
-  description: "Freelance invoice management",
+  description: "Invoice management",
+  openGraph: {
+    title: "Invoicer",
+    description: "Invoice management",
+    images: [{ url: "/logo.png" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Invoicer",
+    description: "Invoice management",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({
