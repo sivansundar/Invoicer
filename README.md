@@ -1,5 +1,9 @@
 # Invoicer
 
+<p align="center">
+  <img src="public/logo.png" alt="Invoicer" width="600" />
+</p>
+
 **A local-first invoicing tool. No accounts. No servers. No subscriptions.**
 
 Invoicer runs entirely in your browser. Create professional invoices, generate PDFs, manage clients and brands — all stored in `localStorage`. Your data never leaves your machine.
