@@ -10,6 +10,7 @@ import { useBrands } from "@/hooks/use-brands";
 import { formatCurrency } from "@/lib/utils";
 import { Currency } from "@/lib/types";
 import { ImportExport } from "@/components/invoices/import-export";
+import { SummaryReportDialog } from "@/components/reports/summary-report-dialog";
 import { FileText, Plus } from "lucide-react";
 
 export default function DashboardPage() {
@@ -47,6 +48,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <ImportExport onImportDone={refresh} />
+          <SummaryReportDialog invoices={invoices} brands={brands} />
           <Link href="/invoices/create">
             <Button size="sm" className="text-xs gap-1.5">
               <Plus className="h-3.5 w-3.5" />
