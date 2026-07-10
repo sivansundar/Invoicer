@@ -102,7 +102,10 @@ export function SummaryReportDialog({ invoices, brands }: SummaryReportDialogPro
     [invoices, startYear, fromMonth, toMonth, brandId, statuses, rangeValid, hasStatus]
   );
 
-  const brandLabel = brandId === "all" ? "All brands" : brands.find((b) => b.id === brandId)?.name ?? "Unknown brand";
+  const selectedBrand = brandId === "all" ? null : brands.find((b) => b.id === brandId) ?? null;
+  const senderName = selectedBrand?.name ?? "All Brands";
+  const senderAddress = selectedBrand?.address;
+  const brandLabel = selectedBrand?.name ?? "All brands";
   const periodLabel = `${fyLabel(startYear)} · ${monthLabel(fromMonth)} – ${monthLabel(toMonth)}`;
 
   const canGenerate = rangeValid && hasStatus && filtered.length > 0;
@@ -130,7 +133,8 @@ export function SummaryReportDialog({ invoices, brands }: SummaryReportDialogPro
           invoices={filtered}
           summary={summary}
           periodLabel={periodLabel}
-          brandLabel={brandLabel}
+          senderName={senderName}
+          senderAddress={senderAddress}
           generatedOn={format(new Date(), "dd MMM yyyy")}
         />
       );

@@ -50,6 +50,8 @@ const s = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   header: { marginBottom: 20 },
+  senderName: { fontSize: 13, fontWeight: 700 },
+  senderAddress: { fontSize: 8, color: "#666", marginTop: 2, maxWidth: "70%" },
   title: { fontSize: 16, fontWeight: 700, letterSpacing: 2 },
   subtitle: { fontSize: 9, color: "#666", marginTop: 4 },
   metaLine: { fontSize: 8, color: "#888", marginTop: 2 },
@@ -135,7 +137,8 @@ interface SummaryReportPDFProps {
   invoices: Invoice[];
   summary: ReportSummary;
   periodLabel: string; // e.g. "FY 2025-26 · April – March"
-  brandLabel: string; // e.g. "Acme Studio" or "All brands"
+  senderName: string; // brand name or "All Brands"
+  senderAddress?: string; // brand address (omitted for "All Brands")
   generatedOn: string; // formatted date string
 }
 
@@ -154,20 +157,23 @@ export function SummaryReportPDF({
   invoices,
   summary,
   periodLabel,
-  brandLabel,
+  senderName,
+  senderAddress,
   generatedOn,
 }: SummaryReportPDFProps) {
   const groups = groupByCurrency(invoices);
-  const statusEntries = Object.entries(summary.statusCounts) as [string, number][];
 
   return (
     <Document>
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.title}>FINANCIAL YEAR SUMMARY</Text>
+          <Text style={s.senderName}>{senderName}</Text>
+          {senderAddress ? (
+            <Text style={s.senderAddress}>{senderAddress}</Text>
+          ) : null}
+          <Text style={[s.title, { marginTop: 14 }]}>FINANCIAL YEAR SUMMARY</Text>
           <Text style={s.subtitle}>{periodLabel}</Text>
-          <Text style={s.metaLine}>Brand: {brandLabel}</Text>
           <Text style={s.metaLine}>Generated {generatedOn}</Text>
         </View>
 
@@ -190,18 +196,6 @@ export function SummaryReportPDF({
                   <Text style={{ fontSize: 7, color: "#888", fontWeight: 400 }}>
                     {"  "}({t.count} {t.count === 1 ? "invoice" : "invoices"})
                   </Text>
-                </Text>
-              ))
-            )}
-          </View>
-          <View style={s.summaryBox}>
-            <Text style={s.label}>By Status</Text>
-            {statusEntries.length === 0 ? (
-              <Text style={s.statusLine}>—</Text>
-            ) : (
-              statusEntries.map(([status, count]) => (
-                <Text key={status} style={s.statusLine}>
-                  <Text style={{ textTransform: "capitalize" }}>{status}</Text>: {count}
                 </Text>
               ))
             )}
@@ -253,7 +247,7 @@ export function SummaryReportPDF({
         )}
 
         <Text style={s.footer} fixed>
-          {brandLabel} · {periodLabel}
+          {senderName} · {periodLabel}
         </Text>
       </Page>
     </Document>
