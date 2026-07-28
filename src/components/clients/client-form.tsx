@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
+import { invoicesToUnlink } from "@/lib/clients";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/lib/types";
 
@@ -31,9 +32,7 @@ export function ClientForm({ client }: ClientFormProps) {
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(client?.gstNumber ?? "");
 
-  const clientInvoices = isEdit
-    ? invoices.filter((invoice) => invoice.clientId === client.id)
-    : [];
+  const clientInvoices = isEdit ? invoicesToUnlink(client.id, invoices) : [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +62,11 @@ export function ClientForm({ client }: ClientFormProps) {
     const persisted = save(record);
     if (!persisted) return;
 
-    toast(`${trimmedName} added to your client book`);
+    toast(
+      isEdit
+        ? `${trimmedName} updated — new invoices will use the latest details`
+        : `${trimmedName} added to your client book`
+    );
     router.push("/clients");
   };
 
@@ -84,11 +87,33 @@ export function ClientForm({ client }: ClientFormProps) {
     // v1→v2 migration already produces for a legacy invoice whose client
     // record no longer exists (see `invoice-form.tsx`) — an established
     // shape, not a new one, and the one that's honest about what happened.
+    //
+    // Order matters: the client record itself is removed first, and only
+    // once that write is confirmed does the cascade start — nulling
+    // references before confirming the delete actually persisted would risk
+    // unlinking invoices from a client that's still there. `remove`/`save`
+    // (like every other write in this app) return whether they actually
+    // persisted; each nulling write is checked too, not just the first one —
+    // a full quota can strike on invoice 3 of 5 as easily as on the first
+    // write, and silently telling the user "removed" while an invoice is
+    // left with a dangling `clientId` is exactly the false-success bug this
+    // pattern exists to prevent.
     if (!remove(client.id)) return;
-    for (const invoice of clientInvoices) {
-      saveInvoice({ ...invoice, clientId: null });
+
+    const results = clientInvoices.map((invoice) =>
+      saveInvoice({ ...invoice, clientId: null, updatedAt: new Date().toISOString() })
+    );
+    const failures = results.filter((persisted) => !persisted).length;
+
+    if (failures > 0) {
+      toast(
+        `${client.companyName} removed, but ${failures} of ${clientInvoices.length} ` +
+          `invoice${clientInvoices.length === 1 ? "" : "s"} couldn't be re-linked — ` +
+          `reopen ${failures === 1 ? "it" : "them"} and save again.`
+      );
+    } else {
+      toast(`${client.companyName} removed`);
     }
-    toast(`${client.companyName} removed`);
     router.push("/clients");
   };
 
