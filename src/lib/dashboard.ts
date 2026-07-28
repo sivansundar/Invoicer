@@ -26,6 +26,32 @@ export function revenueTrend(invoices: Invoice[], today: Date = new Date()): Rev
   return { pct, direction: pct >= 0 ? "up" : "down" };
 }
 
+export interface RevenueCardCopy {
+  /** False when there is no paid revenue at all — a trend pill would be a claim
+   *  about a comparison that never happened, so the card suppresses it instead. */
+  showTrend: boolean;
+  footer: string;
+}
+
+/**
+ * Decides whether the "Total revenue" card's trend badge/footer is safe to show.
+ * With zero paid invoices, `revenueTrend` still returns a well-defined `{ pct: 0,
+ * direction: "up" }` (see above) purely so it never throws or divides by zero —
+ * but "Trending up this month" next to a value of "None" would assert something
+ * that isn't true. `hasPaidRevenue` (whether the paid-invoice currency group is
+ * non-empty) is the caller's signal to distinguish "flat because nothing changed"
+ * from "flat because there was never anything to compare".
+ */
+export function revenueCardCopy(trend: RevenueTrend, hasPaidRevenue: boolean): RevenueCardCopy {
+  if (!hasPaidRevenue) {
+    return { showTrend: false, footer: "Nothing collected yet" };
+  }
+  return {
+    showTrend: true,
+    footer: trend.direction === "up" ? "Trending up this month" : "Down from last month",
+  };
+}
+
 export interface CollectionRate {
   /** Percentage of issued invoices that have been paid, rounded. Never NaN. */
   rate: number;
@@ -44,6 +70,17 @@ export function collectionRate(invoices: Invoice[]): CollectionRate {
   const paid = invoices.filter((invoice) => invoice.status === "paid").length;
   const rate = issued === 0 ? 0 : Math.round((paid / issued) * 100);
   return { rate, paid, issued };
+}
+
+/**
+ * Footer copy for the "Collection rate" card. `issued === 0` (a brand-new
+ * workspace, or a brand filtered down to only drafts) gets its own copy rather
+ * than falling through to "Chase the stragglers" — there is nothing to chase
+ * when nothing has been sent yet.
+ */
+export function collectionRateFooter({ rate, issued }: CollectionRate): string {
+  if (issued === 0) return "Nothing issued yet";
+  return rate >= 80 ? "Healthy cash flow" : "Chase the stragglers";
 }
 
 /**

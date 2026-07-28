@@ -4,7 +4,13 @@ import type { ReactNode } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { Invoice } from "@/lib/types";
 import { formatCurrencyGroups, groupTotalsByCurrency, overflowSummary } from "@/lib/money";
-import { collectionRate, oldestDaysLate, revenueTrend } from "@/lib/dashboard";
+import {
+  collectionRate,
+  collectionRateFooter,
+  oldestDaysLate,
+  revenueCardCopy,
+  revenueTrend,
+} from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
 
@@ -12,7 +18,8 @@ interface StatCardProps {
   label: string;
   value: ReactNode;
   valueClassName?: string;
-  badge: ReactNode;
+  /** Omit to suppress the badge pill entirely — e.g. no trend claim to make. */
+  badge?: ReactNode;
   footer: string;
   footerSub: string;
 }
@@ -30,9 +37,11 @@ function StatCard({ label, value, valueClassName, badge, footer, footerSub }: St
         >
           {value}
         </span>
-        <span className="col-start-2 row-start-1 row-span-2 justify-self-end inline-flex items-center gap-1 border rounded-full px-2 py-0.5 text-xs font-medium">
-          {badge}
-        </span>
+        {badge !== undefined && (
+          <span className="col-start-2 row-start-1 row-span-2 justify-self-end inline-flex items-center gap-1 border rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
+            {badge}
+          </span>
+        )}
       </div>
       <div className="flex flex-col gap-1.5 text-sm">
         <span className="font-medium">{footer}</span>
@@ -58,8 +67,10 @@ export function StatCards({ invoices: allInvoices }: StatCardsProps) {
   // Card 1: Total revenue
   const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
   const paidGroups = groupTotalsByCurrency(paidInvoices);
-  const revenueValue = paidGroups.length === 0 ? "None" : formatCurrencyGroups(paidGroups);
+  const hasPaidRevenue = paidGroups.length > 0;
+  const revenueValue = hasPaidRevenue ? formatCurrencyGroups(paidGroups) : "None";
   const trend = revenueTrend(invoices);
+  const revenueCopy = revenueCardCopy(trend, hasPaidRevenue);
   const TrendIcon = trend.direction === "up" ? TrendingUp : TrendingDown;
   const revenueOverflow = overflowSummary(paidGroups);
 
@@ -79,7 +90,8 @@ export function StatCards({ invoices: allInvoices }: StatCardsProps) {
   const overdueValue = lateCount === 0 ? "None" : formatCurrencyGroups(overdueGroups);
 
   // Card 4: Collection rate
-  const { rate, paid, issued } = collectionRate(invoices);
+  const collection = collectionRate(invoices);
+  const { rate, paid, issued } = collection;
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 px-6">
@@ -87,12 +99,14 @@ export function StatCards({ invoices: allInvoices }: StatCardsProps) {
         label="Total revenue"
         value={revenueValue}
         badge={
-          <>
-            <TrendIcon className="size-3" />
-            {trend.pct}%
-          </>
+          revenueCopy.showTrend ? (
+            <>
+              <TrendIcon className="size-3" />
+              {trend.pct}%
+            </>
+          ) : undefined
         }
-        footer={trend.direction === "up" ? "Trending up this month" : "Down from last month"}
+        footer={revenueCopy.footer}
         footerSub={revenueOverflow || "Paid invoices, all brands"}
       />
       <StatCard
@@ -120,7 +134,7 @@ export function StatCards({ invoices: allInvoices }: StatCardsProps) {
         label="Collection rate"
         value={`${rate}%`}
         badge={`${paid}/${issued}`}
-        footer={rate >= 80 ? "Healthy cash flow" : "Chase the stragglers"}
+        footer={collectionRateFooter(collection)}
         footerSub="Paid vs issued, all brands"
       />
     </div>

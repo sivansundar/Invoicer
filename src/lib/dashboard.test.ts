@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { collectionRate, daysLate, oldestDaysLate, revenueTrend } from "./dashboard";
+import {
+  collectionRate,
+  collectionRateFooter,
+  daysLate,
+  oldestDaysLate,
+  revenueCardCopy,
+  revenueTrend,
+} from "./dashboard";
 import type { Invoice } from "./types";
 
 const today = new Date(2026, 6, 28); // 28 July 2026
@@ -60,6 +67,43 @@ describe("revenueTrend", () => {
   });
 });
 
+describe("revenueCardCopy", () => {
+  it("shows the trend and 'Trending up this month' when there is paid revenue and the trend is up", () => {
+    const trend = { pct: 50, direction: "up" as const };
+    expect(revenueCardCopy(trend, true)).toEqual({
+      showTrend: true,
+      footer: "Trending up this month",
+    });
+  });
+
+  it("shows the trend and 'Down from last month' when there is paid revenue and the trend is down", () => {
+    const trend = { pct: -75, direction: "down" as const };
+    expect(revenueCardCopy(trend, true)).toEqual({
+      showTrend: true,
+      footer: "Down from last month",
+    });
+  });
+
+  it("suppresses the trend badge and does not claim 'Trending up' when there is no paid revenue", () => {
+    // This is the end-to-end regression for the false claim: revenueTrend([], today)
+    // returns { pct: 0, direction: "up" } purely to stay finite, but with zero paid
+    // invoices, showTrend must be false and the footer must not say "Trending up".
+    const trend = revenueTrend([], today);
+    const copy = revenueCardCopy(trend, false);
+    expect(copy.showTrend).toBe(false);
+    expect(copy.footer).toBe("Nothing collected yet");
+    expect(copy.footer).not.toMatch(/trending up/i);
+  });
+
+  it("suppresses the trend badge even if a stray positive pct were ever computed with no revenue", () => {
+    // Defensive: hasPaidRevenue is the sole authority on whether to show a trend,
+    // regardless of what the trend object itself says.
+    const copy = revenueCardCopy({ pct: 999, direction: "up" }, false);
+    expect(copy.showTrend).toBe(false);
+    expect(copy.footer).toBe("Nothing collected yet");
+  });
+});
+
 describe("collectionRate", () => {
   it("divides paid by issued, excluding drafts from the denominator", () => {
     const invoices = [
@@ -90,6 +134,33 @@ describe("collectionRate", () => {
       paid: 2,
       issued: 2,
     });
+  });
+});
+
+describe("collectionRateFooter", () => {
+  it("reads 'Healthy cash flow' at or above 80%", () => {
+    expect(collectionRateFooter({ rate: 80, paid: 4, issued: 5 })).toBe("Healthy cash flow");
+    expect(collectionRateFooter({ rate: 100, paid: 2, issued: 2 })).toBe("Healthy cash flow");
+  });
+
+  it("reads 'Chase the stragglers' below 80% when something has actually been issued", () => {
+    expect(collectionRateFooter({ rate: 50, paid: 1, issued: 2 })).toBe("Chase the stragglers");
+    expect(collectionRateFooter({ rate: 0, paid: 0, issued: 3 })).toBe("Chase the stragglers");
+  });
+
+  it("does not tell a brand-new user to chase anyone when nothing has been issued", () => {
+    // End-to-end regression: collectionRate([]) legitimately returns rate: 0, which
+    // would otherwise fall into the "below 80%" branch and render "Chase the
+    // stragglers" for a workspace that has never issued an invoice.
+    const collection = collectionRate([]);
+    const footer = collectionRateFooter(collection);
+    expect(footer).toBe("Nothing issued yet");
+    expect(footer).not.toMatch(/chase/i);
+  });
+
+  it("also applies when only drafts exist (issued excludes drafts, so issued is still 0)", () => {
+    const collection = collectionRate([inv({ status: "draft" }), inv({ status: "draft" })]);
+    expect(collectionRateFooter(collection)).toBe("Nothing issued yet");
   });
 });
 
