@@ -20,6 +20,8 @@ export interface Brand {
   invoicePrefix: string;
   nextInvoiceNumber: number;
   createdAt: string;
+  accentColor: string;
+  followup: FollowupConfig;
 }
 
 export interface Client {
@@ -68,4 +70,57 @@ export interface Invoice {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  brandSnapshot: BrandSnapshot;
+  /** Back-reference to a saved client. Null when no client record matches. */
+  clientId: string | null;
+  /** ISO "yyyy-MM-dd" dates on which a reminder was recorded. MOCK: nothing is sent. */
+  reminders: string[];
+  followupsPaused: boolean;
+}
+
+export type EmailTone = "Friendly" | "Direct" | "Firm";
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  tone: EmailTone;
+  body: string;
+  createdAt: string;
+}
+
+export interface FollowupConfig {
+  enabled: boolean;
+  mode: "weekly" | "custom";
+  /** 0 = Sunday … 6 = Saturday. Only meaningful when mode is "custom". */
+  weekday: number;
+  /** "HH:mm", 24-hour. */
+  time: string;
+  repeat: "week" | "month";
+  templateId: string;
+  /** 0 means "never stop". */
+  stopAfter: number;
+}
+
+/**
+ * Brand details frozen at invoice-creation time. Editing a brand must never
+ * change an invoice that was already issued.
+ */
+export interface BrandSnapshot {
+  name: string;
+  address: string;
+  email?: string;
+  phone?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  logo?: string;
+  invoicePrefix: string;
+  accentColor: string;
+  bankDetails: BankDetails;
+}
+
+/** MOCK: no payment integration exists. Persisted locally only. */
+export interface PlanState {
+  tier: "free" | "pro";
+  renewsOn: string | null;
 }
