@@ -16,6 +16,23 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
+ * Whether a parsed JSON value is a line item shape that every rendering
+ * path (`invoice-preview.ts`'s `computeTotals`/`taxLabel`, the invoice
+ * detail page's `key={item.id}`/`item.description`, `invoice-pdf.tsx`'s
+ * `item.amount * item.tax`) dereferences without a guard. `description`,
+ * `amount`, and `tax` are exactly the fields those call sites read; `id` is
+ * used only as a React key, where a missing value degrades rendering rather
+ * than throwing, so it is intentionally not required here.
+ */
+function isValidLineItem(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (typeof value.description !== "string") return false;
+  if (typeof value.amount !== "number") return false;
+  if (typeof value.tax !== "number") return false;
+  return true;
+}
+
+/**
  * Whether a parsed JSON value has every field a screen that renders an
  * invoice actually reads. This is deliberately not a full schema validator
  * — extra/unknown fields pass through untouched, and fields the app already
@@ -35,7 +52,7 @@ function isValidInvoiceRecord(value: unknown): value is Invoice {
   if (typeof value.billDate !== "string") return false;
   if (typeof value.dueDate !== "string") return false;
   if (!isRecord(value.client) || typeof value.client.companyName !== "string") return false;
-  if (!Array.isArray(value.items)) return false;
+  if (!Array.isArray(value.items) || !value.items.every(isValidLineItem)) return false;
   if (typeof value.subtotal !== "number") return false;
   if (typeof value.totalTax !== "number") return false;
   if (typeof value.total !== "number") return false;

@@ -212,7 +212,14 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
             failed++;
             continue;
           }
-          if (existing.id !== incoming.id) deleteInvoice(existing.id);
+          // If the old record under a different id can't be deleted (e.g. a
+          // full quota mid-import), both records now sit in storage under
+          // the same invoiceNumber — that's a failed overwrite, not a clean
+          // one, even though the new invoice did persist.
+          if (existing.id !== incoming.id && !deleteInvoice(existing.id)) {
+            failed++;
+            continue;
+          }
           overwritten++;
         } else if (res.action === "rename") {
           if (saveInvoice({ ...incoming, invoiceNumber: res.newNumber })) {

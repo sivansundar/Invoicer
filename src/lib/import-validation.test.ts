@@ -70,6 +70,33 @@ describe("validateImportedInvoices", () => {
     expect(result.skipped).toBe(0);
   });
 
+  it("skips a record whose items array contains a non-record element", () => {
+    const nullItem = wellFormedInvoice({ id: "i1", items: [null] });
+    const stringItem = wellFormedInvoice({ id: "i2", items: ["a string"] });
+
+    const result = validateImportedInvoices([nullItem, stringItem]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.valid).toHaveLength(0);
+    expect(result.skipped).toBe(2);
+  });
+
+  it("skips a record whose item is an object missing a field a rendering screen depends on", () => {
+    const emptyItem = wellFormedInvoice({ id: "i1", items: [{}] });
+    const missingAmount = wellFormedInvoice({
+      id: "i2",
+      items: [{ id: "li1", description: "Website redesign", tax: 18 }],
+    });
+
+    const result = validateImportedInvoices([emptyItem, missingAmount]);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.valid).toHaveLength(0);
+    expect(result.skipped).toBe(2);
+  });
+
   it("keeps well-formed records and skips malformed ones in a mixed payload", () => {
     const good1 = wellFormedInvoice({ id: "i1" });
     const good2 = wellFormedInvoice({ id: "i2", invoiceNumber: "SC2026002" });
