@@ -37,13 +37,11 @@ describe("formatCurrencyGroups", () => {
       { currency: "INR", total: 49560 },
       { currency: "USD", total: 1200 },
     ]);
-    expect(out).toContain("49,560");
-    expect(out).toContain("1,200");
-    expect(out).toContain(" + ");
+    expect(out).toBe("₹49,560 + $1,200.00");
   });
 
   it("renders a zero-rupee string when there is nothing", () => {
-    expect(formatCurrencyGroups([])).toContain("0");
+    expect(formatCurrencyGroups([])).toBe("₹0");
   });
 });
 
@@ -57,7 +55,7 @@ describe("overflowSummary", () => {
       { currency: "INR", total: 10 },
       { currency: "USD", total: 20 },
     ]);
-    expect(out.startsWith("Includes ")).toBe(true);
-    expect(out).toContain("20");
+    expect(out).toBe("Includes $20.00");
+    expect(out).not.toContain("₹10");
   });
 });

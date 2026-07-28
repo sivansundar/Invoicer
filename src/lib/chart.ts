@@ -16,6 +16,11 @@ export interface MonthPoint {
   total: number;
 }
 
+/**
+ * Sums invoices with status "paid" by their bill month. Note: the series reflects
+ * when work was *billed* (billDate), not when payment was *received*, because the
+ * Invoice model does not record a payment date.
+ */
 export function monthlyPaidSeries(
   invoices: Invoice[],
   monthCount: number,
