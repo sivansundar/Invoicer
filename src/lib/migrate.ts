@@ -53,6 +53,36 @@ function partitionRecords(values: unknown[]): {
   return { kept, dropped };
 }
 
+interface QuarantineBatch {
+  migratedAt: string;
+  dropped: { brands: unknown[]; clients: unknown[]; invoices: unknown[] };
+}
+
+interface QuarantineStore {
+  version: 1;
+  batches: QuarantineBatch[];
+}
+
+function isQuarantineStore(value: unknown): value is QuarantineStore {
+  return isRecord(value) && value.version === 1 && Array.isArray(value.batches);
+}
+
+/**
+ * Reads the existing quarantine store, tolerating a missing, unparseable, or
+ * unexpectedly-shaped value by starting fresh — a corrupt quarantine key
+ * must never prevent this run's corruption from being recorded.
+ */
+function readQuarantineStore(): QuarantineStore {
+  const raw = localStorage.getItem(QUARANTINE_KEY);
+  if (!raw) return { version: 1, batches: [] };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isQuarantineStore(parsed) ? parsed : { version: 1, batches: [] };
+  } catch {
+    return { version: 1, batches: [] };
+  }
+}
+
 /** Best-effort prefix recovery from a legacy invoice number ("SC2026001" -> "SC"). */
 function prefixFromInvoiceNumber(invoiceNumber: string): string {
   const match = /^([^\d-]+)/.exec(invoiceNumber);
@@ -181,17 +211,24 @@ export function runMigration(): void {
   const totalDropped = droppedCounts.brands + droppedCounts.clients + droppedCounts.invoices;
 
   if (totalDropped > 0) {
-    // Never clobber an earlier rescue — the quarantine key is the only copy
-    // of whatever was dropped, so a second bad run must not overwrite it.
-    if (localStorage.getItem(QUARANTINE_KEY) === null) {
-      localStorage.setItem(
-        QUARANTINE_KEY,
-        JSON.stringify({ migratedAt: new Date().toISOString(), dropped: result.dropped }),
+    const summary =
+      `dropped ${droppedCounts.brands} brand(s), ${droppedCounts.clients} client(s), ` +
+      `${droppedCounts.invoices} invoice(s) that could not be migrated this run`;
+
+    // Quarantine is best-effort and strictly additive to the migration that
+    // has already committed above (primary keys + version first, quarantine
+    // last — that ordering must not change). A failure here — a corrupt
+    // existing value, a full quota — must never break the boot path this
+    // mechanism exists to protect.
+    try {
+      const store = readQuarantineStore();
+      store.batches.push({ migratedAt: new Date().toISOString(), dropped: result.dropped });
+      localStorage.setItem(QUARANTINE_KEY, JSON.stringify(store));
+      console.warn(
+        `[migrate] ${summary}; preserved under "${QUARANTINE_KEY}" (${store.batches.length} batch(es) recorded)`,
       );
+    } catch {
+      console.warn(`[migrate] ${summary}; failed to preserve them under "${QUARANTINE_KEY}"`);
     }
-    console.warn(
-      `[migrate] dropped ${droppedCounts.brands} brand(s), ${droppedCounts.clients} client(s), ` +
-        `${droppedCounts.invoices} invoice(s) that could not be migrated; raw data preserved under "${QUARANTINE_KEY}"`,
-    );
   }
 }

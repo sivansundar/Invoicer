@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEMA_VERSION, migrateToV2, runMigration } from "./migrate";
 import { DEFAULT_TEMPLATE_ID, SEED_TEMPLATES } from "./seed";
 import { BRAND_PALETTE } from "./palette";
@@ -241,8 +241,17 @@ describe("migrateToV2 — idempotence", () => {
 });
 
 describe("runMigration", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     localStorage.clear();
+    // The quarantine path calls console.warn by design — stub it so the test
+    // run stays pristine while still letting tests assert on it if needed.
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
   });
 
   it("writes the schema version and upgraded records", () => {
@@ -282,8 +291,10 @@ describe("runMigration", () => {
     const quarantine = JSON.parse(
       localStorage.getItem("invoicer_migration_quarantine_v2")!,
     );
-    expect(quarantine.dropped.invoices).toEqual(["garbage"]);
-    expect(typeof quarantine.migratedAt).toBe("string");
+    expect(quarantine.version).toBe(1);
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage"]);
+    expect(typeof quarantine.batches[0].migratedAt).toBe("string");
   });
 
   it("does not write a quarantine key when nothing was dropped", () => {
@@ -295,9 +306,17 @@ describe("runMigration", () => {
     expect(localStorage.getItem("invoicer_migration_quarantine_v2")).toBeNull();
   });
 
-  it("does not overwrite a pre-existing quarantine key on a later run", () => {
-    const earlierRescue = { migratedAt: "2026-01-01T00:00:00.000Z", dropped: { brands: ["earlier"], clients: [], invoices: [] } };
-    localStorage.setItem("invoicer_migration_quarantine_v2", JSON.stringify(earlierRescue));
+  it("appends a new batch onto a pre-existing quarantine key rather than overwriting it", () => {
+    const earlierStore = {
+      version: 1,
+      batches: [
+        {
+          migratedAt: "2026-01-01T00:00:00.000Z",
+          dropped: { brands: ["earlier"], clients: [], invoices: [] },
+        },
+      ],
+    };
+    localStorage.setItem("invoicer_migration_quarantine_v2", JSON.stringify(earlierStore));
     localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
     localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
 
@@ -306,6 +325,67 @@ describe("runMigration", () => {
     const quarantine = JSON.parse(
       localStorage.getItem("invoicer_migration_quarantine_v2")!,
     );
-    expect(quarantine).toEqual(earlierRescue);
+    expect(quarantine.batches).toHaveLength(2);
+    expect(quarantine.batches[0]).toEqual(earlierStore.batches[0]);
+    expect(quarantine.batches[1].dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("records two successive drop-producing runs as two separate batches", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage-1"]));
+    runMigration();
+
+    // Simulate a second, later boot with its own fresh corruption to migrate.
+    localStorage.removeItem("invoicer_schema_version");
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage-2"]));
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(2);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage-1"]);
+    expect(quarantine.batches[1].dropped.invoices).toEqual(["garbage-2"]);
+  });
+
+  it("starts a fresh quarantine structure when the existing value is corrupt, without throwing", () => {
+    localStorage.setItem("invoicer_migration_quarantine_v2", "{not valid json");
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    expect(() => runMigration()).not.toThrow();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("does not throw out of runMigration when writing the quarantine key fails", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    const originalSetItem = localStorage.setItem.bind(localStorage);
+    const setItemSpy = vi
+      .spyOn(localStorage, "setItem")
+      .mockImplementation((key: string, value: string) => {
+        if (key === "invoicer_migration_quarantine_v2") {
+          throw new Error("QuotaExceededError");
+        }
+        originalSetItem(key, value);
+      });
+
+    expect(() => runMigration()).not.toThrow();
+
+    // The primary migration must still have gone through even though the
+    // quarantine write failed.
+    expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
+    const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+    expect(invoices).toHaveLength(1);
+    expect(invoices[0].invoiceNumber).toBe("SC2026001");
+
+    setItemSpy.mockRestore();
   });
 });
