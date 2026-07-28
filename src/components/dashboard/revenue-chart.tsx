@@ -45,7 +45,7 @@ export function RevenueChart({ invoices: allInvoices }: RevenueChartProps) {
 
   return (
     <div className="border rounded-[14px] bg-card shadow-xs p-6 flex flex-col gap-6">
-      <div className="px-6 flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold">Revenue collected</h3>
           <p className="text-sm text-muted-foreground mt-1">
@@ -72,28 +72,26 @@ export function RevenueChart({ invoices: allInvoices }: RevenueChartProps) {
         </ToggleGroup>
       </div>
 
-      <div className="px-6">
-        <ChartContainer config={chartConfig} className="h-[250px] w-full">
-          <AreaChart data={series} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
-            <defs>
-              <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--color-total)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--color-total)" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} strokeDasharray="4 4" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-            <Area
-              dataKey="total"
-              type="linear"
-              fill="url(#fillTotal)"
-              stroke="var(--color-total)"
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ChartContainer>
-      </div>
+      <ChartContainer config={chartConfig} className="h-[250px] w-full">
+        <AreaChart data={series} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
+          <defs>
+            <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="var(--color-total)" stopOpacity={0.8} />
+              <stop offset="95%" stopColor="var(--color-total)" stopOpacity={0.05} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} strokeDasharray="4 4" />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+          <Area
+            dataKey="total"
+            type="linear"
+            fill="url(#fillTotal)"
+            stroke="var(--color-total)"
+            strokeWidth={2}
+          />
+        </AreaChart>
+      </ChartContainer>
     </div>
   );
 }
