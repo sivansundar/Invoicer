@@ -90,6 +90,18 @@ describe("migrateToV2 — brands", () => {
     });
     expect(result.brands[0].accentColor).toBe("#059669");
   });
+
+  it("does not overwrite an accent colour that is an empty string", () => {
+    // "" is falsy but not nullish — this is the one field where ?? and ||
+    // genuinely diverge. || would incorrectly replace it with a palette colour.
+    const result = migrateToV2({
+      brands: [{ ...v1Brand, accentColor: "" }],
+      clients: [],
+      invoices: [],
+      templates: [],
+    });
+    expect(result.brands[0].accentColor).toBe("");
+  });
 });
 
 describe("migrateToV2 — invoices", () => {
@@ -142,6 +154,13 @@ describe("migrateToV2 — invoices", () => {
     const snapshot = result.invoices[0].brandSnapshot;
     expect(snapshot.name).toBe("Unknown brand");
     expect(snapshot.invoicePrefix).toBe("SC");
+    expect(snapshot.accentColor).toBe(BRAND_PALETTE[0]);
+    expect(snapshot.bankDetails).toEqual({
+      accountName: "",
+      accountNumber: "",
+      bankName: "",
+      ifscCode: "",
+    });
   });
 
   it("initialises the follow-up fields", () => {
@@ -173,6 +192,24 @@ describe("migrateToV2 — templates", () => {
     });
     expect(result.templates).toHaveLength(1);
     expect(result.templates[0].name).toBe("My nudge");
+  });
+});
+
+describe("migrateToV2 — malformed elements", () => {
+  it("drops unsalvageable elements without aborting the migration", () => {
+    const result = migrateToV2({
+      brands: [null],
+      clients: [v1Client, null],
+      invoices: [v1Invoice, "garbage"],
+      templates: [],
+    });
+
+    expect(result.brands).toHaveLength(0);
+    expect(result.clients).toHaveLength(1);
+    expect(result.clients[0].id).toBe("c1");
+    expect(result.invoices).toHaveLength(1);
+    expect(result.invoices[0].invoiceNumber).toBe("SC2026001");
+    expect(result.invoices[0].brandSnapshot).toBeDefined();
   });
 });
 

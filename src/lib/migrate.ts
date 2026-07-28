@@ -28,6 +28,11 @@ function normaliseCompanyName(value: string | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
+/** A stored record we can actually migrate. Anything else is unsalvageable. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /** Best-effort prefix recovery from a legacy invoice number ("SC2026001" -> "SC"). */
 function prefixFromInvoiceNumber(invoiceNumber: string): string {
   const match = /^([^\d-]+)/.exec(invoiceNumber);
@@ -60,13 +65,17 @@ function fallbackSnapshot(invoiceNumber: string): BrandSnapshot {
 }
 
 export function migrateToV2(input: RawPayload): V2Payload {
-  const brands = (input.brands as Brand[]).map((brand, index) => ({
-    ...brand,
-    accentColor: brand.accentColor ?? paletteColorForIndex(index),
-    followup: brand.followup ?? defaultFollowupConfig(),
-  }));
+  // A null, primitive, or array element carries no recoverable data — drop
+  // it rather than let it throw and abort migration for every other record.
+  const brands = (input.brands.filter(isRecord) as unknown as Brand[]).map(
+    (brand, index) => ({
+      ...brand,
+      accentColor: brand.accentColor ?? paletteColorForIndex(index),
+      followup: brand.followup ?? defaultFollowupConfig(),
+    }),
+  );
 
-  const clients = input.clients as Client[];
+  const clients = input.clients.filter(isRecord) as unknown as Client[];
 
   const clientsByCompany = new Map<string, string>();
   for (const client of clients) {
@@ -75,7 +84,7 @@ export function migrateToV2(input: RawPayload): V2Payload {
 
   const brandsById = new Map(brands.map((b) => [b.id, b]));
 
-  const invoices = (input.invoices as Invoice[]).map((invoice) => {
+  const invoices = (input.invoices.filter(isRecord) as unknown as Invoice[]).map((invoice) => {
     const brand = brandsById.get(invoice.brandId);
     return {
       ...invoice,
