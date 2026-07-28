@@ -5,6 +5,7 @@ import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
 import { InvoiceTable } from "@/components/invoices/invoice-table";
 import { StatCards } from "@/components/dashboard/stat-cards";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrands } from "@/hooks/use-brands";
 import { ImportExport } from "@/components/invoices/import-export";
@@ -44,6 +45,10 @@ export default function DashboardPage() {
         <>
           <div className="mb-8">
             <StatCards invoices={invoices} />
+          </div>
+
+          <div className="mb-8 px-6">
+            <RevenueChart invoices={invoices} />
           </div>
 
           {/* Invoice History */}
