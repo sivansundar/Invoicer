@@ -18,6 +18,7 @@ import { BRAND_PALETTE } from "@/lib/palette";
 import {
   brandDeleteGuard,
   derivePrefix,
+  downsampleImage,
   invoiceUsageLabel,
   nextUnusedAccentColor,
   validateLogoFile,
@@ -40,6 +41,7 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [name, setName] = useState(brand?.name ?? "");
   const [prefix, setPrefix] = useState(brand?.invoicePrefix ?? "");
   const [logo, setLogo] = useState(brand?.logo ?? "");
+  const [logoProcessing, setLogoProcessing] = useState(false);
   const [accentColor, setAccentColor] = useState(
     brand?.accentColor ?? nextUnusedAccentColor(brands)
   );
@@ -64,7 +66,7 @@ export function BrandForm({ brand }: BrandFormProps) {
 
   const brandInvoices = isEdit ? invoices.filter((invoice) => invoice.brandId === brand.id) : [];
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Always clear the input's value, success or failure — otherwise picking
     // the same (rejected, or already-set) file twice in a row never fires
@@ -78,9 +80,21 @@ export function BrandForm({ brand }: BrandFormProps) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (ev) => setLogo((ev.target?.result as string) ?? "");
-    reader.readAsDataURL(file);
+    setLogoProcessing(true);
+    try {
+      // Downsamples to a small, bounded PNG rather than storing the upload
+      // verbatim — `snapshotFromBrand` copies this value into every future
+      // invoice's frozen snapshot, so its stored size scales with invoice
+      // count, not brand count (see `MAX_LOGO_STORED_BYTES` in `@/lib/brands`).
+      const dataUrl = await downsampleImage(file);
+      setLogo(dataUrl);
+    } catch (err) {
+      // Covers both a corrupt/unreadable file and the post-downsample size
+      // backstop — either way the failure is loud, not a silently-unset logo.
+      toast(err instanceof Error ? err.message : "Logo could not be processed");
+    } finally {
+      setLogoProcessing(false);
+    }
   };
 
   const handleRemoveLogo = () => setLogo("");
@@ -123,7 +137,15 @@ export function BrandForm({ brand }: BrandFormProps) {
       createdAt: brand?.createdAt ?? new Date().toISOString(),
     };
 
-    save(record);
+    // `save` (from `useBrands`) passes through `storage.saveBrand`'s own
+    // return value — `false` means the write didn't actually persist (e.g.
+    // a full `localStorage` quota, which `storage.ts` has already toasted
+    // its own clear failure message for). Toasting success and navigating
+    // away regardless would tell the user this worked when it didn't, and
+    // take them off the one screen still holding what they typed.
+    const persisted = save(record);
+    if (!persisted) return;
+
     toast(
       isEdit
         ? `${trimmedName} updated — future invoices use the new details`
@@ -139,7 +161,7 @@ export function BrandForm({ brand }: BrandFormProps) {
       toast(`Move or delete its ${guard.count} invoices first`);
       return;
     }
-    remove(brand.id);
+    if (!remove(brand.id)) return;
     if (activeBrandId === brand.id) {
       setBrandId(null);
     }
@@ -192,8 +214,9 @@ export function BrandForm({ brand }: BrandFormProps) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={logoProcessing}
                 aria-label="Upload logo"
-                className="size-9 rounded-lg border border-dashed flex items-center justify-center text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors"
+                className="size-9 rounded-lg border border-dashed flex items-center justify-center text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors disabled:opacity-50"
               >
                 <Upload className="size-3.5" />
               </button>

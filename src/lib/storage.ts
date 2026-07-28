@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
 import { runMigration as runMigrationInternal } from "./migrate";
 
@@ -15,9 +16,61 @@ function getItem<T>(key: string): T[] {
   return data ? JSON.parse(data) : [];
 }
 
-function setItem<T>(key: string, data: T[]): void {
-  localStorage.setItem(key, JSON.stringify(data));
+/**
+ * A full `localStorage` is a `QuotaExceededError` `DOMException` in every
+ * browser this app targets (Chromium/WebKit use that name directly; older
+ * Firefox uses `NS_ERROR_DOM_QUOTA_REACHED`). Narrowly matched — an
+ * unrelated exception (a bug, not a full quota) is deliberately left to
+ * propagate rather than folded into the same "storage is full" message.
+ */
+function isQuotaExceededError(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED")
+  );
+}
+
+/**
+ * Every write in this module — the four collection keys via `setItem` below,
+ * and the plan key — funnels through here. Without this, a full quota threw
+ * `localStorage.setItem` uncaught: every subsequent save (brands, clients,
+ * invoices, templates, the plan flag) would fail the same way, with nothing
+ * ever telling the user their change wasn't actually persisted — they would
+ * keep working and keep losing data. `toast` (this app's one user-facing
+ * failure affordance, already used throughout the component layer) is the
+ * only way a `lib` module like this one can surface that.
+ */
+function writeLocalStorage(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    if (isQuotaExceededError(err)) {
+      toast("Storage is full — this change wasn't saved. Free up space (delete unused invoices, or remove a brand logo) and try again.");
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Returns whether the write actually persisted. Every `save*`/`delete*`
+ * below returns this straight through (and every hook in `src/hooks`
+ * already passes it through too, since each just wraps the matching storage
+ * call as a single-expression arrow function) — a caller that never checks
+ * it loses nothing (this used to be `void`), but one that does, like
+ * `BrandForm.handleSubmit`, can avoid telling the user their save succeeded
+ * and navigating away from data that was never actually written.
+ */
+function setItem<T>(key: string, data: T[]): boolean {
+  // A failed write must not invalidate the cache — the last snapshot is
+  // still what's actually persisted, and re-notifying subscribers with it
+  // unchanged is harmless, but dropping the cache (forcing every reader
+  // back to `localStorage.getItem`, which still holds the old value anyway)
+  // buys nothing and only risks a subscriber re-rendering mid-failure.
+  if (!writeLocalStorage(key, JSON.stringify(data))) return false;
   invalidate(key);
+  return true;
 }
 
 type Listener = () => void;
@@ -148,7 +201,7 @@ export function getBrand(id: string): Brand | null {
   return getBrands().find((b) => b.id === id) ?? null;
 }
 
-export function saveBrand(brand: Brand): void {
+export function saveBrand(brand: Brand): boolean {
   const brands = getBrands();
   const index = brands.findIndex((b) => b.id === brand.id);
   if (index >= 0) {
@@ -156,11 +209,11 @@ export function saveBrand(brand: Brand): void {
   } else {
     brands.push(brand);
   }
-  setItem(BRANDS_KEY, brands);
+  return setItem(BRANDS_KEY, brands);
 }
 
-export function deleteBrand(id: string): void {
-  setItem(
+export function deleteBrand(id: string): boolean {
+  return setItem(
     BRANDS_KEY,
     getBrands().filter((b) => b.id !== id)
   );
@@ -175,7 +228,7 @@ export function getClient(id: string): Client | null {
   return getClients().find((c) => c.id === id) ?? null;
 }
 
-export function saveClient(client: Client): void {
+export function saveClient(client: Client): boolean {
   const clients = getClients();
   const index = clients.findIndex((c) => c.id === client.id);
   if (index >= 0) {
@@ -183,11 +236,11 @@ export function saveClient(client: Client): void {
   } else {
     clients.push(client);
   }
-  setItem(CLIENTS_KEY, clients);
+  return setItem(CLIENTS_KEY, clients);
 }
 
-export function deleteClient(id: string): void {
-  setItem(
+export function deleteClient(id: string): boolean {
+  return setItem(
     CLIENTS_KEY,
     getClients().filter((c) => c.id !== id)
   );
@@ -202,7 +255,7 @@ export function getInvoice(id: string): Invoice | null {
   return getInvoices().find((i) => i.id === id) ?? null;
 }
 
-export function saveInvoice(invoice: Invoice): void {
+export function saveInvoice(invoice: Invoice): boolean {
   const invoices = getInvoices();
   const index = invoices.findIndex((i) => i.id === invoice.id);
   if (index >= 0) {
@@ -210,11 +263,11 @@ export function saveInvoice(invoice: Invoice): void {
   } else {
     invoices.push(invoice);
   }
-  setItem(INVOICES_KEY, invoices);
+  return setItem(INVOICES_KEY, invoices);
 }
 
-export function deleteInvoice(id: string): void {
-  setItem(
+export function deleteInvoice(id: string): boolean {
+  return setItem(
     INVOICES_KEY,
     getInvoices().filter((i) => i.id !== id)
   );
@@ -229,7 +282,7 @@ export function getTemplate(id: string): EmailTemplate | null {
   return getTemplates().find((t) => t.id === id) ?? null;
 }
 
-export function saveTemplate(template: EmailTemplate): void {
+export function saveTemplate(template: EmailTemplate): boolean {
   const templates = getTemplates();
   const index = templates.findIndex((t) => t.id === template.id);
   if (index >= 0) {
@@ -237,11 +290,11 @@ export function saveTemplate(template: EmailTemplate): void {
   } else {
     templates.push(template);
   }
-  setItem(TEMPLATES_KEY, templates);
+  return setItem(TEMPLATES_KEY, templates);
 }
 
-export function deleteTemplate(id: string): void {
-  setItem(
+export function deleteTemplate(id: string): boolean {
+  return setItem(
     TEMPLATES_KEY,
     getTemplates().filter((t) => t.id !== id)
   );
@@ -252,8 +305,9 @@ export function getPlan(): PlanState {
   return readPlan();
 }
 
-export function savePlan(plan: PlanState): void {
-  localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+export function savePlan(plan: PlanState): boolean {
+  if (!writeLocalStorage(PLAN_KEY, JSON.stringify(plan))) return false;
   invalidatePlan();
+  return true;
 }
 
