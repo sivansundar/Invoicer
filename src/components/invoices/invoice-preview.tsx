@@ -1,4 +1,4 @@
-import { paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
+import { computeTotals, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
 import type { BrandSnapshot, Currency, InvoiceClient, LineItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
@@ -30,9 +30,7 @@ export function InvoicePreview({
   notes,
   isPaid,
 }: InvoicePreviewProps) {
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const totalTax = items.reduce((sum, item) => sum + (item.amount * item.tax) / 100, 0);
-  const total = subtotal + totalTax;
+  const { subtotal, totalTax, total } = computeTotals(items);
   const fields = paymentDetailFields(snapshot.bankDetails);
 
   return (

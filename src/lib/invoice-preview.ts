@@ -1,5 +1,26 @@
 import type { BankDetails, LineItem } from "./types";
 
+export interface InvoiceTotals {
+  subtotal: number;
+  totalTax: number;
+  total: number;
+}
+
+/**
+ * Single source of truth for subtotal/tax/total, shared by the invoice form
+ * (which persists these figures on the saved `Invoice`) and the live preview
+ * (which re-derives them from unsaved form state). `totalTax` is rounded to
+ * 2dp — floating point line-item math (e.g. 33.33 * 18 / 100) can otherwise
+ * produce a total that silently disagrees between the two call sites by a
+ * fraction of a cent.
+ */
+export function computeTotals(items: LineItem[]): InvoiceTotals {
+  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalTax =
+    Math.round(items.reduce((sum, item) => sum + (item.amount * item.tax) / 100, 0) * 100) / 100;
+  return { subtotal, totalTax, total: subtotal + totalTax };
+}
+
 /**
  * The tax line on the client-facing preview reads "GST {n}%" only when every
  * taxed line item shares the exact same non-zero rate — otherwise the mix of

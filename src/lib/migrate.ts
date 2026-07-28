@@ -89,7 +89,14 @@ function prefixFromInvoiceNumber(invoiceNumber: string): string {
   return match ? match[1] : "INV";
 }
 
-function snapshotFromBrand(brand: Brand): BrandSnapshot {
+/**
+ * Freezes a `Brand` into the `BrandSnapshot` embedded on an invoice at
+ * creation time. Shared by the v1→v2 migration and the invoice form —
+ * duplicating this mapping is exactly how a brand field ends up on one but
+ * not the other, and the invoice form is the one place a client's PDF
+ * actually depends on it being complete.
+ */
+export function snapshotFromBrand(brand: Brand): BrandSnapshot {
   return {
     name: brand.name,
     address: brand.address,
