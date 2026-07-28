@@ -1,17 +1,17 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { Bell, Check, ChevronLeft } from "lucide-react";
 import { Shell } from "@/components/layout/shell";
-import { InvoiceView } from "@/components/invoices/invoice-view";
+import { InvoicePreview } from "@/components/invoices/invoice-preview";
+import { StatusBadge } from "@/components/invoices/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -20,170 +20,328 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Invoice, Brand, InvoiceStatus } from "@/lib/types";
-import { getInvoice, saveInvoice, deleteInvoice, getBrand } from "@/lib/storage";
-import {
-  ArrowLeft,
-  ChevronDown,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { useInvoices } from "@/hooks/use-invoices";
+import { useBrands } from "@/hooks/use-brands";
+import { useTemplates } from "@/hooks/use-templates";
+import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
+import { taxLabel } from "@/lib/invoice-preview";
+import { daysLate } from "@/lib/dashboard";
+import { dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
+import { cn, formatCurrency } from "@/lib/utils";
+import type { FollowupConfig, Invoice } from "@/lib/types";
 
 const PDFDownloadButton = dynamic(
   () => import("./pdf-download-button").then((m) => ({ default: m.PDFDownloadButton })),
-  { ssr: false, loading: () => <Button size="sm" className="text-xs" disabled>Loading PDF...</Button> }
+  { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
 );
+
+// A brand-less follow-up config (only reachable if the brand backing this
+// invoice was deleted after the invoice was issued — deleteBrand doesn't
+// cascade). Disabled so resolveFollowupState falls through to "off" rather
+// than throwing on a missing brand.followup.
+const NO_BRAND_CONFIG: FollowupConfig = {
+  enabled: false,
+  mode: "weekly",
+  weekday: 1,
+  time: "09:00",
+  repeat: "week",
+  templateId: "",
+  stopAfter: 0,
+};
+
+function formatDate(value: string): string {
+  if (!value) return "—";
+  return format(new Date(`${value}T00:00`), "dd MMM yyyy");
+}
 
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { invoices, save, remove } = useInvoices();
+  const { brands } = useBrands();
+  const { templates } = useTemplates();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const loadData = useCallback(() => {
-    const inv = getInvoice(params.id as string);
-    setInvoice(inv);
-    if (inv) {
-      setBrand(getBrand(inv.brandId));
-    }
-    setLoading(false);
-  }, [params.id]);
+  const id = params.id as string;
+  const invoice = useMemo(() => invoices.find((i) => i.id === id) ?? null, [invoices, id]);
+  const brand = useMemo(() => brands.find((b) => b.id === invoice?.brandId), [brands, invoice]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  if (!invoice) {
+    return (
+      <Shell>
+        <p className="text-sm text-muted-foreground p-6">Invoice not found.</p>
+      </Shell>
+    );
+  }
 
-  const updateStatus = (status: InvoiceStatus) => {
-    if (!invoice) return;
-    if (status !== "draft") {
-      const missing: string[] = [];
-      if (!invoice.dueDate) missing.push("Due Date");
-      if (!invoice.client.companyName) missing.push("Company Name");
-      if (!invoice.billDate) missing.push("Bill Date");
-      if (missing.length > 0) {
-        alert(`Cannot change status: the following required fields are missing:\n• ${missing.join("\n• ")}`);
-        return;
-      }
-    }
-    const updated = { ...invoice, status, updatedAt: new Date().toISOString() };
-    saveInvoice(updated);
-    setInvoice(updated);
+  const currency = invoice.currency ?? "INR";
+  const brandName = brand?.name ?? invoice.brandSnapshot.name;
+  const config = brand?.followup ?? NO_BRAND_CONFIG;
+  const template = templates.find((t) => t.id === config.templateId);
+
+  const line = dueLine(invoice, daysLate(invoice));
+  const followupState = resolveFollowupState(invoice, config);
+  const showFollowups = invoice.status !== "draft" || invoice.reminders.length > 0;
+
+  const handleMarkSent = () => {
+    const updated: Invoice = { ...invoice, status: "sent", updatedAt: new Date().toISOString() };
+    save(updated);
+    toast(`${invoice.invoiceNumber} marked as sent`);
+  };
+
+  const handleMarkPaid = () => {
+    const updated: Invoice = { ...invoice, status: "paid", updatedAt: new Date().toISOString() };
+    save(updated);
+    const amount = formatCurrency(invoice.total, currency);
+    toast(
+      invoice.reminders.length > 0
+        ? `${amount} in the bank — follow-ups stopped`
+        : `${amount} in the bank — nice work`
+    );
+  };
+
+  const handleTogglePause = () => {
+    const updated: Invoice = {
+      ...invoice,
+      followupsPaused: !invoice.followupsPaused,
+      updatedAt: new Date().toISOString(),
+    };
+    save(updated);
+    toast(
+      updated.followupsPaused
+        ? `Follow-ups paused for ${invoice.invoiceNumber}`
+        : `Follow-ups resumed for ${invoice.invoiceNumber}`
+    );
+  };
+
+  // MOCK: no email is ever sent. This only records today's date on the
+  // invoice's reminder history and toasts as if it had gone out.
+  const handleSendNow = () => {
+    const updated: Invoice = {
+      ...invoice,
+      reminders: [...invoice.reminders, format(new Date(), "yyyy-MM-dd")],
+      updatedAt: new Date().toISOString(),
+    };
+    save(updated);
+    toast(`"${template?.name ?? "Reminder"}" sent to ${invoice.client.companyName}`);
   };
 
   const handleDelete = () => {
-    if (!invoice) return;
-    deleteInvoice(invoice.id);
+    remove(invoice.id);
+    setDeleteOpen(false);
+    toast(`${invoice.invoiceNumber} deleted`);
     router.push("/");
   };
 
-  if (loading) {
-    return (
-      <Shell>
-        <p className="text-xs text-muted-foreground">Loading...</p>
-      </Shell>
-    );
-  }
-
-  if (!invoice || !brand) {
-    return (
-      <Shell>
-        <p className="text-xs text-muted-foreground">Invoice not found</p>
-      </Shell>
-    );
-  }
-
   return (
     <Shell>
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => router.push("/")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+      <div className="flex flex-wrap items-stretch flex-1 min-h-0">
+        {/* Left pane */}
+        <div className="flex-[1_1_460px] min-w-0 p-6 flex flex-col gap-4">
           <div>
-            <h1 className="text-lg font-bold">{invoice.invoiceNumber}</h1>
-            <p className="text-xs text-muted-foreground">
-              {brand.name} &rarr; {invoice.client.companyName}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
+            >
+              <ChevronLeft className="size-3.5" />
+              All invoices
+            </Link>
+            <div className="flex items-center gap-2 mt-3">
+              <h1 className="text-2xl font-semibold tracking-[-0.02em] font-mono">
+                {invoice.invoiceNumber}
+              </h1>
+              <StatusBadge status={invoice.status} />
+            </div>
+            <p className={cn("text-sm mt-1.5", line.destructive ? "text-destructive" : "text-muted-foreground")}>
+              {line.text}
             </p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs gap-1.5"
-            onClick={() => router.push(`/invoices/${invoice.id}/edit`)}
-          >
-            <Pencil className="h-3 w-3" />
-            Edit
-          </Button>
-          <PDFDownloadButton invoice={invoice} brand={brand} />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs gap-1">
-                Status
-                <ChevronDown className="h-3 w-3" />
+          <div className="flex gap-2 flex-wrap items-center">
+            {invoice.status === "draft" && (
+              <Button size="sm" onClick={handleMarkSent}>
+                Mark as sent
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {(["draft", "sent", "paid", "overdue"] as InvoiceStatus[]).map(
-                (status) => (
-                  <DropdownMenuItem
-                    key={status}
-                    onClick={() => updateStatus(status)}
-                    className="text-xs capitalize"
-                  >
-                    Mark as {status}
-                  </DropdownMenuItem>
-                )
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+            {(invoice.status === "sent" || invoice.status === "overdue") && (
+              <Button size="sm" onClick={handleMarkPaid}>
+                Mark as paid
+              </Button>
+            )}
+            <PDFDownloadButton invoice={invoice} snapshot={invoice.brandSnapshot} />
+            {invoice.status === "draft" && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/invoices/${invoice.id}/edit`}>Edit draft</Link>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+          </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {showFollowups && (
+            <div className="border rounded-[14px] bg-card p-5 flex flex-col gap-3.5">
+              <div className="flex items-center gap-2">
+                <Bell className="size-[15px] text-muted-foreground" />
+                <span className="text-sm font-semibold flex-1">Follow-ups</span>
+                {followupState.kind === "active" ? (
+                  <Badge className="bg-accent text-foreground border-transparent">Active</Badge>
+                ) : (
+                  <Badge variant="outline">{followupPillLabel(followupState)}</Badge>
+                )}
+              </div>
+
+              <div className="grid grid-cols-[88px_1fr] gap-y-2 gap-x-4 text-[13px] items-baseline">
+                <span className="text-muted-foreground">Next send</span>
+                <span>{nextSendLine(followupState, config, brandName)}</span>
+                <span className="text-muted-foreground">Template</span>
+                <span>{template ? `${template.name} · ${cadenceLabel(config)}` : cadenceLabel(config)}</span>
+                <span className="text-muted-foreground">Subject</span>
+                <span className="text-muted-foreground">
+                  {template ? fillTemplate(template.subject, templateContext(invoice, brandName)) : "—"}
+                </span>
+              </div>
+
+              {invoice.reminders.length > 0 && (
+                <div className="border-t pt-3 flex flex-col gap-2">
+                  {invoice.reminders.map((sentDate, index) => (
+                    <div key={`${sentDate}-${index}`} className="flex items-center gap-2 text-[13px]">
+                      <Check className="size-[13px] text-muted-foreground" />
+                      <span className="text-muted-foreground flex-1">Reminder {index + 1} sent</span>
+                      <span className="tabular-nums">{formatDate(sentDate)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(invoice.status === "sent" || invoice.status === "overdue") && (
+                <div className="border-t pt-3.5 flex gap-2 items-center flex-wrap">
+                  <Button variant="outline" size="sm" onClick={handleTogglePause}>
+                    {invoice.followupsPaused ? "Resume follow-ups" : "Pause follow-ups"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleSendNow}>
+                    Send one now
+                  </Button>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    Stops the moment it&apos;s marked paid
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-4 flex-wrap">
+            <div className="flex-[1.2_1_220px] border rounded-[14px] bg-card p-5">
+              <p className="text-xs text-muted-foreground mb-2">Billed to</p>
+              <p className="text-sm font-medium">{invoice.client.companyName}</p>
+              {invoice.client.name && (
+                <p className="text-[13px] text-muted-foreground mt-0.5">{invoice.client.name}</p>
+              )}
+              {invoice.client.address && (
+                <p className="text-[13px] text-muted-foreground whitespace-pre-line mt-0.5">
+                  {invoice.client.address}
+                </p>
+              )}
+            </div>
+
+            <div className="flex-[1_1_200px] border rounded-[14px] bg-card p-5">
+              <p className="text-xs text-muted-foreground mb-2">From</p>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="size-[7px] rounded-full shrink-0"
+                  style={{ backgroundColor: invoice.brandSnapshot.accentColor }}
+                />
+                <span className="text-sm font-medium">{invoice.brandSnapshot.name}</span>
+              </div>
+              <p className="text-[13px] text-muted-foreground whitespace-pre-line mt-1">
+                {invoice.brandSnapshot.address}
+              </p>
+            </div>
+
+            <div className="flex-[0_1_160px] border rounded-[14px] bg-card p-5">
+              <p className="text-xs text-muted-foreground mb-2">Dates</p>
+              <p className="text-[13px]">Billed {formatDate(invoice.billDate)}</p>
+              <p className="text-[13px] mt-1">Due {formatDate(invoice.dueDate)}</p>
+            </div>
+          </div>
+
+          <div className="border rounded-[14px] bg-card overflow-hidden">
+            <div className="flex items-center h-10 px-4 border-b text-sm font-medium">
+              <span className="flex-1">Item</span>
+              <span className="w-20 text-right">Tax</span>
+              <span className="w-28 text-right">Amount</span>
+            </div>
+            {invoice.items.map((item) => (
+              <div key={item.id} className="flex items-center px-4 py-3 border-b last:border-b-0 text-sm">
+                <span className="flex-1">{item.description}</span>
+                <span className="w-20 text-right text-muted-foreground tabular-nums">{item.tax}%</span>
+                <span className="w-28 text-right tabular-nums">
+                  {formatCurrency(item.amount, currency)}
+                </span>
+              </div>
+            ))}
+            <div className="p-4 bg-muted flex flex-col gap-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="tabular-nums">{formatCurrency(invoice.subtotal, currency)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{taxLabel(invoice.items)}</span>
+                <span className="tabular-nums">{formatCurrency(invoice.totalTax, currency)}</span>
+              </div>
+              <div className="flex justify-between text-base font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums">{formatCurrency(invoice.total, currency)}</span>
+              </div>
+            </div>
+          </div>
+
+          {invoice.notes && (
+            <div className="border rounded-[14px] bg-card p-5">
+              <p className="text-xs text-muted-foreground mb-2">Notes</p>
+              <p className="text-[13px] text-muted-foreground whitespace-pre-line">{invoice.notes}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right pane: client-facing preview */}
+        <div className="flex-[1_1_508px] min-w-[508px] bg-muted border-l p-6">
+          <div className="mb-4">
+            <p className="text-sm font-medium">Preview</p>
+            <p className="text-[13px] text-muted-foreground">What your client sees</p>
+          </div>
+          <InvoicePreview
+            snapshot={invoice.brandSnapshot}
+            client={invoice.client}
+            invoiceNumber={invoice.invoiceNumber}
+            billDate={invoice.billDate}
+            dueDate={invoice.dueDate}
+            items={invoice.items}
+            currency={invoice.currency}
+            notes={invoice.notes}
+            isPaid={invoice.status === "paid"}
+          />
         </div>
       </div>
-
-      <InvoiceView invoice={invoice} brand={brand} />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-sm">Delete Invoice</DialogTitle>
-            <DialogDescription className="text-xs">
-              Are you sure you want to delete {invoice.invoiceNumber}? This
-              cannot be undone.
+            <DialogTitle>Delete invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {invoice.invoiceNumber}? This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => setDeleteOpen(false)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="text-xs"
-              onClick={handleDelete}
-            >
+            <Button variant="destructive" size="sm" onClick={handleDelete}>
               Delete
             </Button>
           </DialogFooter>

@@ -9,7 +9,7 @@ import {
   Image,
   Font,
 } from "@react-pdf/renderer";
-import { Invoice, Brand } from "@/lib/types";
+import { Invoice, BrandSnapshot } from "@/lib/types";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -94,10 +94,15 @@ const s = StyleSheet.create({
 
 interface InvoicePDFProps {
   invoice: Invoice;
-  brand: Brand;
+  /**
+   * Brand details frozen at invoice-creation time — never the live `Brand`.
+   * Editing a brand's address, bank details or logo after an invoice was
+   * issued must not rewrite the document a client already received.
+   */
+  snapshot: BrandSnapshot;
 }
 
-export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
+export function InvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
   const cur = invoice.currency ?? "INR";
   const symbol = getCurrencySymbol(cur);
   const fmtAmount = (n: number) => formatCurrencyAmount(n, cur);
@@ -107,24 +112,24 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.brandSection}>
-            {brand.logo && <Image src={brand.logo} style={s.logo} />}
+            {snapshot.logo && <Image src={snapshot.logo} style={s.logo} />}
             <View>
-              <Text style={s.brandName}>{brand.name}</Text>
-              <Text style={s.brandDetail}>{brand.address}</Text>
-              {brand.phone && (
-                <Text style={s.brandDetail}>{brand.phone}</Text>
+              <Text style={s.brandName}>{snapshot.name}</Text>
+              <Text style={s.brandDetail}>{snapshot.address}</Text>
+              {snapshot.phone && (
+                <Text style={s.brandDetail}>{snapshot.phone}</Text>
               )}
-              {brand.gstNumber && (
-                <Text style={s.brandDetail}>GST: {brand.gstNumber}</Text>
+              {snapshot.gstNumber && (
+                <Text style={s.brandDetail}>GST: {snapshot.gstNumber}</Text>
               )}
               <Text style={[s.brandDetail, { marginTop: 4 }]}>
                 <Text style={{ fontWeight: 700 }}>Email: </Text>
-                {brand.email}
+                {snapshot.email}
               </Text>
-              {brand.panNumber && (
+              {snapshot.panNumber && (
                 <Text style={[s.brandDetail, { marginTop: 4 }]}>
                   <Text style={{ fontWeight: 700 }}>PAN: </Text>
-                  {brand.panNumber}
+                  {snapshot.panNumber}
                 </Text>
               )}
             </View>
@@ -233,17 +238,17 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
               <View style={s.bankRow}>
                 <Text style={s.bankLabel}>Account Name</Text>
                 <Text style={s.bankValue}>
-                  {brand.bankDetails.accountName}
+                  {snapshot.bankDetails.accountName}
                 </Text>
               </View>
               <View style={s.bankRow}>
                 <Text style={s.bankLabel}>Bank</Text>
-                <Text style={s.bankValue}>{brand.bankDetails.bankName}</Text>
+                <Text style={s.bankValue}>{snapshot.bankDetails.bankName}</Text>
               </View>
-              {brand.bankDetails.branch && (
+              {snapshot.bankDetails.branch && (
                 <View style={s.bankRow}>
                   <Text style={s.bankLabel}>Branch</Text>
-                  <Text style={s.bankValue}>{brand.bankDetails.branch}</Text>
+                  <Text style={s.bankValue}>{snapshot.bankDetails.branch}</Text>
                 </View>
               )}
             </View>
@@ -252,17 +257,17 @@ export function InvoicePDF({ invoice, brand }: InvoicePDFProps) {
               <View style={s.bankRow}>
                 <Text style={s.bankLabel}>Account No.</Text>
                 <Text style={s.bankValue}>
-                  {brand.bankDetails.accountNumber}
+                  {snapshot.bankDetails.accountNumber}
                 </Text>
               </View>
               <View style={s.bankRow}>
                 <Text style={s.bankLabel}>IFSC</Text>
-                <Text style={s.bankValue}>{brand.bankDetails.ifscCode}</Text>
+                <Text style={s.bankValue}>{snapshot.bankDetails.ifscCode}</Text>
               </View>
-              {brand.bankDetails.upiId && (
+              {snapshot.bankDetails.upiId && (
                 <View style={s.bankRow}>
                   <Text style={s.bankLabel}>UPI</Text>
-                  <Text style={s.bankValue}>{brand.bankDetails.upiId}</Text>
+                  <Text style={s.bankValue}>{snapshot.bankDetails.upiId}</Text>
                 </View>
               )}
             </View>
