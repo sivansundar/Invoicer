@@ -1,6 +1,6 @@
-import { toast } from "sonner";
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
 import { runMigration as runMigrationInternal } from "./migrate";
+import { writeLocalStorage } from "./local-storage";
 
 export { nextInvoiceNumber } from "./numbering";
 
@@ -14,43 +14,6 @@ function getItem<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
   const data = localStorage.getItem(key);
   return data ? JSON.parse(data) : [];
-}
-
-/**
- * A full `localStorage` is a `QuotaExceededError` `DOMException` in every
- * browser this app targets (Chromium/WebKit use that name directly; older
- * Firefox uses `NS_ERROR_DOM_QUOTA_REACHED`). Narrowly matched — an
- * unrelated exception (a bug, not a full quota) is deliberately left to
- * propagate rather than folded into the same "storage is full" message.
- */
-function isQuotaExceededError(err: unknown): boolean {
-  return (
-    err instanceof DOMException &&
-    (err.name === "QuotaExceededError" || err.name === "NS_ERROR_DOM_QUOTA_REACHED")
-  );
-}
-
-/**
- * Every write in this module — the four collection keys via `setItem` below,
- * and the plan key — funnels through here. Without this, a full quota threw
- * `localStorage.setItem` uncaught: every subsequent save (brands, clients,
- * invoices, templates, the plan flag) would fail the same way, with nothing
- * ever telling the user their change wasn't actually persisted — they would
- * keep working and keep losing data. `toast` (this app's one user-facing
- * failure affordance, already used throughout the component layer) is the
- * only way a `lib` module like this one can surface that.
- */
-function writeLocalStorage(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    return true;
-  } catch (err) {
-    if (isQuotaExceededError(err)) {
-      toast("Storage is full — this change wasn't saved. Free up space (delete unused invoices, or remove a brand logo) and try again.");
-      return false;
-    }
-    throw err;
-  }
 }
 
 /**

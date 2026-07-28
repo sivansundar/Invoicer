@@ -3,6 +3,11 @@ import { SCHEMA_VERSION, migrateToV2, runMigration } from "./migrate";
 import { DEFAULT_TEMPLATE_ID, SEED_TEMPLATES } from "./seed";
 import { BRAND_PALETTE } from "./palette";
 
+const toast = vi.fn();
+vi.mock("sonner", () => ({
+  toast: (...args: unknown[]) => toast(...args),
+}));
+
 const v1Brand = {
   id: "b1",
   name: "Sivan Studio",
@@ -245,6 +250,7 @@ describe("runMigration", () => {
 
   beforeEach(() => {
     localStorage.clear();
+    toast.mockClear();
     // The quarantine path calls console.warn by design — stub it so the test
     // run stays pristine while still letting tests assert on it if needed.
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -387,5 +393,75 @@ describe("runMigration", () => {
     expect(invoices[0].invoiceNumber).toBe("SC2026001");
 
     setItemSpy.mockRestore();
+  });
+
+  describe("quota guard on the primary migration write", () => {
+    // Simulates a full quota being hit partway through the collection
+    // writes — e.g. a legacy user whose pre-downsampling brand logo is
+    // duplicated onto every invoice's brandSnapshot by snapshotFromBrand.
+    // Only the targeted key fails; every other localStorage.setItem call
+    // (including ones migrate.ts itself doesn't own, like this test's own
+    // seeding) passes through untouched.
+    function throwQuotaFor(key: string) {
+      const originalSetItem = localStorage.setItem.bind(localStorage);
+      return vi.spyOn(localStorage, "setItem").mockImplementation((k: string, v: string) => {
+        if (k === key) {
+          throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+        }
+        originalSetItem(k, v);
+      });
+    }
+
+    it("leaves VERSION_KEY unset when a collection write fails, so migration retries on the next boot", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      const setItemSpy = throwQuotaFor("invoicer_invoices");
+      runMigration();
+      setItemSpy.mockRestore();
+
+      expect(localStorage.getItem("invoicer_schema_version")).toBeNull();
+
+      // Retrying on a later boot (schema version still unset) completes
+      // normally once the quota pressure is gone.
+      runMigration();
+      expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
+      const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+      expect(invoices[0].invoiceNumber).toBe("SC2026001");
+    });
+
+    it("does not throw out of runMigration when a collection write fails", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      const setItemSpy = throwQuotaFor("invoicer_invoices");
+      expect(() => runMigration()).not.toThrow();
+      setItemSpy.mockRestore();
+    });
+
+    it("surfaces the failure to the user instead of failing silently", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      const setItemSpy = throwQuotaFor("invoicer_invoices");
+      runMigration();
+      setItemSpy.mockRestore();
+
+      expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
+    });
+
+    it("stops writing further collections once one has failed", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      // Brands is written before clients/invoices/templates in runMigration's
+      // own ordering, so failing it should pre-empt every write after it too.
+      const setItemSpy = throwQuotaFor("invoicer_brands");
+      runMigration();
+      setItemSpy.mockRestore();
+
+      expect(localStorage.getItem("invoicer_templates")).toBeNull();
+      expect(localStorage.getItem("invoicer_schema_version")).toBeNull();
+    });
   });
 });

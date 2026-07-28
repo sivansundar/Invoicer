@@ -1,5 +1,6 @@
 import { paletteColorForIndex } from "./palette";
 import { SEED_TEMPLATES, defaultFollowupConfig } from "./seed";
+import { writeLocalStorage } from "./local-storage";
 import type { Brand, BrandSnapshot, Client, EmailTemplate, Invoice } from "./types";
 
 export const SCHEMA_VERSION = 2;
@@ -204,11 +205,29 @@ export function runMigration(): void {
     templates: read(TEMPLATES_KEY),
   });
 
-  localStorage.setItem(BRANDS_KEY, JSON.stringify(result.brands));
-  localStorage.setItem(CLIENTS_KEY, JSON.stringify(result.clients));
-  localStorage.setItem(INVOICES_KEY, JSON.stringify(result.invoices));
-  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(result.templates));
-  localStorage.setItem(VERSION_KEY, String(SCHEMA_VERSION));
+  // Collections first, `VERSION_KEY` last, and stop at the first failure —
+  // that ordering makes an interrupted migration self-healing on retry.
+  // `migrateToV2` is idempotent (proven by the idempotence test in
+  // migrate.test.ts), so a boot that only got partway through before hitting
+  // a full quota can safely re-run this whole function from scratch next
+  // time: whatever already got written stays as-is (its fields are already
+  // populated, so the `??` fallbacks throughout `migrateToV2` leave it
+  // alone), and whatever didn't gets attempted again. `writeLocalStorage`
+  // has already toasted the quota failure by the time any of these return
+  // `false` — nothing more to surface here. `VERSION_KEY` is deliberately
+  // never written when this happens: a migration marked complete over a
+  // partial write would never be retried, silently leaving some records
+  // stuck pre-migration forever.
+  const collectionWrites: Array<[string, unknown]> = [
+    [BRANDS_KEY, result.brands],
+    [CLIENTS_KEY, result.clients],
+    [INVOICES_KEY, result.invoices],
+    [TEMPLATES_KEY, result.templates],
+  ];
+  for (const [key, value] of collectionWrites) {
+    if (!writeLocalStorage(key, JSON.stringify(value))) return;
+  }
+  if (!writeLocalStorage(VERSION_KEY, String(SCHEMA_VERSION))) return;
 
   const droppedCounts = {
     brands: result.dropped.brands.length,
