@@ -303,6 +303,19 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   />
                 </div>
               </div>
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">GST Number</Label>
+                  <Input
+                    value={manualClient.gstNumber ?? ""}
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, gstNumber: e.target.value }))
+                    }
+                    placeholder="Optional"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
             </div>
           )}
 

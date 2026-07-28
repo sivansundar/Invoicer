@@ -216,6 +216,8 @@ describe("InvoiceForm", () => {
     await user.click(await screen.findByRole("option", { name: "Enter manually…" }));
 
     await user.type(screen.getByPlaceholderText("Acme Corp"), "One-off Client Ltd");
+    const gstField = screen.getByText("GST Number").parentElement!.querySelector("input")!;
+    await user.type(gstField, "29ABCDE1234F1Z5");
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
@@ -226,6 +228,10 @@ describe("InvoiceForm", () => {
     const saved = storage.getInvoices()[0];
     expect(saved.clientId).toBeNull();
     expect(saved.client.companyName).toBe("One-off Client Ltd");
+    // The GSTIN is what lets a registered client claim input tax credit on an
+    // Indian B2B invoice — it must round-trip through manual entry exactly
+    // like it does through the saved-client path.
+    expect(saved.client.gstNumber).toBe("29ABCDE1234F1Z5");
   });
 
   it('toasts and does not save when "Save as draft" is clicked with no brand selected', async () => {
