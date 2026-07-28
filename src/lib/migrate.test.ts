@@ -211,6 +211,25 @@ describe("migrateToV2 — malformed elements", () => {
     expect(result.invoices[0].invoiceNumber).toBe("SC2026001");
     expect(result.invoices[0].brandSnapshot).toBeDefined();
   });
+
+  it("returns the dropped elements verbatim, keyed by collection", () => {
+    const result = migrateToV2({
+      brands: [null],
+      clients: [v1Client, null],
+      invoices: [v1Invoice, "garbage"],
+      templates: [],
+    });
+
+    expect(result.dropped.brands).toEqual([null]);
+    expect(result.dropped.clients).toEqual([null]);
+    expect(result.dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("reports empty dropped arrays when everything is well-formed", () => {
+    const result = migrate();
+
+    expect(result.dropped).toEqual({ brands: [], clients: [], invoices: [] });
+  });
 });
 
 describe("migrateToV2 — idempotence", () => {
@@ -252,5 +271,41 @@ describe("runMigration", () => {
     runMigration();
     const templates = JSON.parse(localStorage.getItem("invoicer_templates")!);
     expect(templates).toHaveLength(SEED_TEMPLATES.length);
+  });
+
+  it("quarantines raw dropped values when something could not be migrated", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.dropped.invoices).toEqual(["garbage"]);
+    expect(typeof quarantine.migratedAt).toBe("string");
+  });
+
+  it("does not write a quarantine key when nothing was dropped", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+    runMigration();
+
+    expect(localStorage.getItem("invoicer_migration_quarantine_v2")).toBeNull();
+  });
+
+  it("does not overwrite a pre-existing quarantine key on a later run", () => {
+    const earlierRescue = { migratedAt: "2026-01-01T00:00:00.000Z", dropped: { brands: ["earlier"], clients: [], invoices: [] } };
+    localStorage.setItem("invoicer_migration_quarantine_v2", JSON.stringify(earlierRescue));
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine).toEqual(earlierRescue);
   });
 });

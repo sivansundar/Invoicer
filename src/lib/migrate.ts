@@ -9,12 +9,19 @@ const CLIENTS_KEY = "invoicer_clients";
 const INVOICES_KEY = "invoicer_invoices";
 const TEMPLATES_KEY = "invoicer_templates";
 const VERSION_KEY = "invoicer_schema_version";
+const QUARANTINE_KEY = "invoicer_migration_quarantine_v2";
 
 export interface V2Payload {
   brands: Brand[];
   clients: Client[];
   invoices: Invoice[];
   templates: EmailTemplate[];
+  /** Raw elements that could not be migrated, kept verbatim for manual recovery. */
+  dropped: {
+    brands: unknown[];
+    clients: unknown[];
+    invoices: unknown[];
+  };
 }
 
 interface RawPayload {
@@ -31,6 +38,19 @@ function normaliseCompanyName(value: string | undefined): string {
 /** A stored record we can actually migrate. Anything else is unsalvageable. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Splits a raw stored array into migratable records and unsalvageable rejects. */
+function partitionRecords(values: unknown[]): {
+  kept: Record<string, unknown>[];
+  dropped: unknown[];
+} {
+  const kept: Record<string, unknown>[] = [];
+  const dropped: unknown[] = [];
+  for (const value of values) {
+    (isRecord(value) ? kept : dropped).push(value);
+  }
+  return { kept, dropped };
 }
 
 /** Best-effort prefix recovery from a legacy invoice number ("SC2026001" -> "SC"). */
@@ -67,15 +87,17 @@ function fallbackSnapshot(invoiceNumber: string): BrandSnapshot {
 export function migrateToV2(input: RawPayload): V2Payload {
   // A null, primitive, or array element carries no recoverable data — drop
   // it rather than let it throw and abort migration for every other record.
-  const brands = (input.brands.filter(isRecord) as unknown as Brand[]).map(
-    (brand, index) => ({
-      ...brand,
-      accentColor: brand.accentColor ?? paletteColorForIndex(index),
-      followup: brand.followup ?? defaultFollowupConfig(),
-    }),
-  );
+  // The reject is kept verbatim in `dropped` rather than discarded, so
+  // runMigration can quarantine it for manual recovery.
+  const brandsPartition = partitionRecords(input.brands);
+  const brands = (brandsPartition.kept as unknown as Brand[]).map((brand, index) => ({
+    ...brand,
+    accentColor: brand.accentColor ?? paletteColorForIndex(index),
+    followup: brand.followup ?? defaultFollowupConfig(),
+  }));
 
-  const clients = input.clients.filter(isRecord) as unknown as Client[];
+  const clientsPartition = partitionRecords(input.clients);
+  const clients = clientsPartition.kept as unknown as Client[];
 
   const clientsByCompany = new Map<string, string>();
   for (const client of clients) {
@@ -84,7 +106,8 @@ export function migrateToV2(input: RawPayload): V2Payload {
 
   const brandsById = new Map(brands.map((b) => [b.id, b]));
 
-  const invoices = (input.invoices.filter(isRecord) as unknown as Invoice[]).map((invoice) => {
+  const invoicesPartition = partitionRecords(input.invoices);
+  const invoices = (invoicesPartition.kept as unknown as Invoice[]).map((invoice) => {
     const brand = brandsById.get(invoice.brandId);
     return {
       ...invoice,
@@ -105,7 +128,17 @@ export function migrateToV2(input: RawPayload): V2Payload {
   const existingTemplates = input.templates as EmailTemplate[];
   const templates = existingTemplates.length > 0 ? existingTemplates : [...SEED_TEMPLATES];
 
-  return { brands, clients, invoices, templates };
+  return {
+    brands,
+    clients,
+    invoices,
+    templates,
+    dropped: {
+      brands: brandsPartition.dropped,
+      clients: clientsPartition.dropped,
+      invoices: invoicesPartition.dropped,
+    },
+  };
 }
 
 function read(key: string): unknown[] {
@@ -139,4 +172,26 @@ export function runMigration(): void {
   localStorage.setItem(INVOICES_KEY, JSON.stringify(result.invoices));
   localStorage.setItem(TEMPLATES_KEY, JSON.stringify(result.templates));
   localStorage.setItem(VERSION_KEY, String(SCHEMA_VERSION));
+
+  const droppedCounts = {
+    brands: result.dropped.brands.length,
+    clients: result.dropped.clients.length,
+    invoices: result.dropped.invoices.length,
+  };
+  const totalDropped = droppedCounts.brands + droppedCounts.clients + droppedCounts.invoices;
+
+  if (totalDropped > 0) {
+    // Never clobber an earlier rescue — the quarantine key is the only copy
+    // of whatever was dropped, so a second bad run must not overwrite it.
+    if (localStorage.getItem(QUARANTINE_KEY) === null) {
+      localStorage.setItem(
+        QUARANTINE_KEY,
+        JSON.stringify({ migratedAt: new Date().toISOString(), dropped: result.dropped }),
+      );
+    }
+    console.warn(
+      `[migrate] dropped ${droppedCounts.brands} brand(s), ${droppedCounts.clients} client(s), ` +
+        `${droppedCounts.invoices} invoice(s) that could not be migrated; raw data preserved under "${QUARANTINE_KEY}"`,
+    );
+  }
 }
