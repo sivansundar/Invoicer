@@ -43,40 +43,46 @@ function localDate(date: Date | null): string | null {
   ].join("-");
 }
 
+// Pinned close to `invoice()`'s default dueDate ("2026-07-10") so the naive
+// "one step off the anchor" slot every test below expects is never itself in
+// the past relative to `today` — these tests are about the base scheduling
+// maths, not the roll-forward behaviour (covered in its own describe block).
+const today = new Date(2026, 6, 10);
+
 describe("nextSendDate", () => {
   it("schedules a week after the due date when nothing has been sent", () => {
-    expect(localDate(nextSendDate(invoice(), weekly))).toBe("2026-07-17");
+    expect(localDate(nextSendDate(invoice(), weekly, today))).toBe("2026-07-17");
   });
 
   it("schedules a week after the last reminder", () => {
-    const next = nextSendDate(invoice({ reminders: ["2026-07-17"] }), weekly);
+    const next = nextSendDate(invoice({ reminders: ["2026-07-17"] }), weekly, today);
     expect(localDate(next)).toBe("2026-07-24");
   });
 
   it("returns null when follow-ups are disabled for the brand", () => {
-    expect(nextSendDate(invoice(), { ...weekly, enabled: false })).toBeNull();
+    expect(nextSendDate(invoice(), { ...weekly, enabled: false }, today)).toBeNull();
   });
 
   it("returns null for a paid invoice", () => {
-    expect(nextSendDate(invoice({ status: "paid" }), weekly)).toBeNull();
+    expect(nextSendDate(invoice({ status: "paid" }), weekly, today)).toBeNull();
   });
 
   it("returns null for a draft invoice", () => {
-    expect(nextSendDate(invoice({ status: "draft" }), weekly)).toBeNull();
+    expect(nextSendDate(invoice({ status: "draft" }), weekly, today)).toBeNull();
   });
 
   it("returns null when the invoice is individually paused", () => {
-    expect(nextSendDate(invoice({ followupsPaused: true }), weekly)).toBeNull();
+    expect(nextSendDate(invoice({ followupsPaused: true }), weekly, today)).toBeNull();
   });
 
   it("returns null once the reminder cap is reached", () => {
     const inv = invoice({ reminders: ["a", "b", "c", "d"] });
-    expect(nextSendDate(inv, { ...weekly, stopAfter: 4 })).toBeNull();
+    expect(nextSendDate(inv, { ...weekly, stopAfter: 4 }, today)).toBeNull();
   });
 
   it("keeps scheduling when stopAfter is zero", () => {
     const inv = invoice({ reminders: ["2026-07-17", "2026-07-24"] });
-    expect(nextSendDate(inv, { ...weekly, stopAfter: 0 })).not.toBeNull();
+    expect(nextSendDate(inv, { ...weekly, stopAfter: 0 }, today)).not.toBeNull();
   });
 
   it("returns null rather than an Invalid Date for a sent invoice with no due date", () => {
@@ -85,17 +91,17 @@ describe("nextSendDate", () => {
     // — a truthy object — so this guards against it being returned as if a
     // real send were scheduled.
     const inv = invoice({ dueDate: "", reminders: [] });
-    expect(nextSendDate(inv, weekly)).toBeNull();
+    expect(nextSendDate(inv, weekly, today)).toBeNull();
   });
 
   it("returns null rather than an Invalid Date when the last reminder itself is unparseable", () => {
     const inv = invoice({ dueDate: "2026-07-10", reminders: [""] });
-    expect(nextSendDate(inv, weekly)).toBeNull();
+    expect(nextSendDate(inv, weekly, today)).toBeNull();
   });
 
   it("advances by a month when custom mode repeats monthly", () => {
     const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 1 };
-    const next = nextSendDate(invoice(), config);
+    const next = nextSendDate(invoice(), config, today);
     expect(next!.getMonth()).toBe(7); // August
   });
 
@@ -105,7 +111,7 @@ describe("nextSendDate", () => {
     // pass even with the snap logic deleted. weekday: 3 (Wednesday) forces
     // a genuine 5-day forward snap, from Fri 17 Jul to Wed 22 Jul.
     const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "week", weekday: 3 };
-    const next = nextSendDate(invoice(), config);
+    const next = nextSendDate(invoice(), config, today);
     expect(next!.getDay()).toBe(3);
     expect(localDate(next)).toBe("2026-07-22");
   });
@@ -115,7 +121,7 @@ describe("nextSendDate", () => {
     // weekday snap is a no-op here — this test isolates the month-clamp
     // arithmetic from the weekday-snap arithmetic.
     const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 6 };
-    const next = nextSendDate(invoice({ dueDate: "2026-01-31" }), config);
+    const next = nextSendDate(invoice({ dueDate: "2026-01-31" }), config, new Date(2026, 0, 31));
     expect(localDate(next)).toBe("2026-02-28");
   });
 
@@ -123,8 +129,54 @@ describe("nextSendDate", () => {
     // Apr 30 2026 is itself a Thursday (weekday: 4), so the subsequent
     // weekday snap is a no-op here too.
     const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 4 };
-    const next = nextSendDate(invoice({ dueDate: "2026-03-31" }), config);
+    const next = nextSendDate(invoice({ dueDate: "2026-03-31" }), config, new Date(2026, 2, 31));
     expect(localDate(next)).toBe("2026-04-30");
+  });
+});
+
+describe("nextSendDate rolling forward a past-due slot", () => {
+  it("leaves a slot alone when it's still in the future", () => {
+    const next = nextSendDate(invoice(), weekly, new Date(2026, 6, 10));
+    expect(localDate(next)).toBe("2026-07-17");
+  });
+
+  it("leaves a slot alone when it lands exactly on today", () => {
+    const next = nextSendDate(invoice(), weekly, new Date(2026, 6, 17));
+    expect(localDate(next)).toBe("2026-07-17");
+  });
+
+  it("rolls a weekly slot forward past a today several cadences later", () => {
+    // Naive next-off-due-date is Fri 17 Jul; "today" is three weeks past
+    // that. Every hop is +7 days, so the rolled-forward slot lands on the
+    // same weekday (Friday) as the naive one — here, exactly on "today".
+    const next = nextSendDate(invoice(), weekly, new Date(2026, 7, 7));
+    expect(localDate(next)).toBe("2026-08-07");
+  });
+
+  it("keeps landing on the configured weekday while rolling forward in custom mode", () => {
+    const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "week", weekday: 3 };
+    // Naive slot is Wed 22 Jul; roll forward to on/after 10 Aug.
+    const next = nextSendDate(invoice(), config, new Date(2026, 7, 10));
+    expect(next!.getDay()).toBe(3);
+    expect(localDate(next)).toBe("2026-08-12");
+  });
+
+  it("keeps landing on the configured weekday while rolling forward monthly", () => {
+    const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 1 };
+    // Naive slot is Mon 10 Aug; rolling forward one month at a time to
+    // on/after 1 Oct still has to land on a Monday each hop.
+    const next = nextSendDate(invoice(), config, new Date(2026, 9, 1));
+    expect(next!.getDay()).toBe(1);
+    expect(next!.getMonth()).toBe(9); // October
+  });
+
+  it("still returns null once rolling forward would exceed the reminder cap", () => {
+    // stopAfter only ever looks at reminders already sent, not at how far
+    // `today` has drifted — a capped invoice stays capped no matter how
+    // stale its last reminder is.
+    const inv = invoice({ reminders: ["a", "b", "c", "d"] });
+    const next = nextSendDate(inv, { ...weekly, stopAfter: 4 }, new Date(2026, 9, 1));
+    expect(next).toBeNull();
   });
 });
 

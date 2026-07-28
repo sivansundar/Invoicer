@@ -3,7 +3,10 @@ import { formatCurrency } from "./utils";
 import { formatStoredDate } from "./dates";
 import { daysLate } from "./dashboard";
 
-const DAYS = [
+// Exported for the follow-ups screen's custom-cadence "Day" picker — sharing
+// this table (rather than a second copy in the component) keeps the label
+// used there identical to the one `cadenceLabel` renders for the same index.
+export const DAYS = [
   "Sunday",
   "Monday",
   "Tuesday",
@@ -53,15 +56,48 @@ function addMonthsClamped(date: Date, months: number): Date {
 }
 
 /**
- * The first scheduled slot after the last reminder (or the due date).
- * Null means nothing more will be sent for this invoice.
+ * Advances `date` by exactly one cadence step (one week, or one month in
+ * custom-monthly), re-landing on the configured weekday for custom mode
+ * afterwards. Split out of `nextSendDate` so the same single step can be
+ * both the first hop off the anchor and, when that lands in the past, every
+ * subsequent hop while catching up to `today` (see `nextSendDate`).
+ */
+function advanceOneStep(date: Date, config: FollowupConfig): Date {
+  const stepped =
+    config.mode === "custom" && config.repeat === "month"
+      ? addMonthsClamped(date, 1)
+      : (() => {
+          const d = new Date(date);
+          d.setDate(d.getDate() + 7);
+          return d;
+        })();
+
+  if (config.mode === "custom") {
+    stepped.setDate(stepped.getDate() + ((config.weekday - stepped.getDay() + 7) % 7));
+  }
+
+  return stepped;
+}
+
+/**
+ * The next scheduled slot on or after `today`. Null means nothing more will
+ * be sent for this invoice.
+ *
+ * The naive "one step off the last event" slot can land in the past — an
+ * invoice that's sat sent-but-unpaid for a month on a weekly cadence, or one
+ * imported with old reminder history, both compute a first hop that already
+ * happened. Rather than report that stale date as what's "going out next"
+ * (the follow-ups queue's own heading), this keeps stepping forward by the
+ * same cadence until it reaches a slot that hasn't passed — the same thing a
+ * real cron-style scheduler does when it wakes up late. A slot that lands
+ * exactly on `today` is left alone (not rolled to next week) — the day
+ * hasn't happened yet.
  */
 export function nextSendDate(
   invoice: Invoice,
   config: FollowupConfig,
   today: Date = new Date()
 ): Date | null {
-  void today;
   if (!config.enabled) return null;
   if (invoice.status === "paid" || invoice.status === "draft") return null;
   if (invoice.followupsPaused) return null;
@@ -77,16 +113,11 @@ export function nextSendDate(
   // real send were scheduled. Treat it as "nothing to schedule" instead.
   if (Number.isNaN(start.getTime())) return null;
 
-  let date: Date;
-  if (config.mode === "custom" && config.repeat === "month") {
-    date = addMonthsClamped(start, 1);
-  } else {
-    date = new Date(start);
-    date.setDate(date.getDate() + 7);
-  }
+  let date = advanceOneStep(start, config);
 
-  if (config.mode === "custom") {
-    date.setDate(date.getDate() + ((config.weekday - date.getDay() + 7) % 7));
+  const todayMidnight = new Date(today.toDateString());
+  while (date.getTime() < todayMidnight.getTime()) {
+    date = advanceOneStep(date, config);
   }
 
   return date;
