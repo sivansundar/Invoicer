@@ -1,15 +1,23 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Brand } from "@/lib/types";
 import { useBrands } from "@/hooks/use-brands";
-import { Upload, X } from "lucide-react";
+import { useInvoices } from "@/hooks/use-invoices";
+import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
+import { nextInvoiceNumber } from "@/lib/storage";
+import { defaultFollowupConfig } from "@/lib/seed";
+import { BRAND_PALETTE } from "@/lib/palette";
+import { brandDeleteGuard, derivePrefix, invoiceUsageLabel, nextUnusedAccentColor } from "@/lib/brands";
+import { cn } from "@/lib/utils";
+import type { Brand } from "@/lib/types";
 
 interface BrandFormProps {
   brand?: Brand;
@@ -17,331 +25,295 @@ interface BrandFormProps {
 
 export function BrandForm({ brand }: BrandFormProps) {
   const router = useRouter();
-  const { save } = useBrands();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { brands, save, remove } = useBrands();
+  const { invoices } = useInvoices();
+  const { brandId: activeBrandId, setBrandId } = useBrandFilter();
+  const isEdit = !!brand;
 
-  const [form, setForm] = useState({
-    name: brand?.name ?? "",
-    address: brand?.address ?? "",
-    email: brand?.email ?? "",
-    phone: brand?.phone ?? "",
-    gstNumber: brand?.gstNumber ?? "",
-    panNumber: brand?.panNumber ?? "",
-    logo: brand?.logo ?? "",
-    invoicePrefix: brand?.invoicePrefix ?? "",
-    accountName: brand?.bankDetails.accountName ?? "",
-    accountNumber: brand?.bankDetails.accountNumber ?? "",
-    bankName: brand?.bankDetails.bankName ?? "",
-    ifscCode: brand?.bankDetails.ifscCode ?? "",
-    branch: brand?.bankDetails.branch ?? "",
-    upiId: brand?.bankDetails.upiId ?? "",
-  });
+  const [name, setName] = useState(brand?.name ?? "");
+  const [prefix, setPrefix] = useState(brand?.invoicePrefix ?? "");
+  const [accentColor, setAccentColor] = useState(
+    brand?.accentColor ?? nextUnusedAccentColor(brands)
+  );
+  const [address, setAddress] = useState(brand?.address ?? "");
+  const [email, setEmail] = useState(brand?.email ?? "");
+  const [gstNumber, setGstNumber] = useState(brand?.gstNumber ?? "");
+  const [accountName, setAccountName] = useState(brand?.bankDetails.accountName ?? "");
+  const [bankName, setBankName] = useState(brand?.bankDetails.bankName ?? "");
+  const [branch, setBranch] = useState(brand?.bankDetails.branch ?? "");
+  const [accountNumber, setAccountNumber] = useState(brand?.bankDetails.accountNumber ?? "");
+  const [ifscCode, setIfscCode] = useState(brand?.bankDetails.ifscCode ?? "");
+  const [upiId, setUpiId] = useState(brand?.bankDetails.upiId ?? "");
 
-  const update = (field: string, value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const effectivePrefix = (prefix.trim() || derivePrefix(name)).toUpperCase();
+  const year = new Date().getFullYear();
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      update("logo", ev.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
+  const hint = isEdit
+    ? `Next invoice will be ${nextInvoiceNumber(brand, invoices)}`
+    : `Invoices will look like ${effectivePrefix}-${year}-001`;
+
+  const brandInvoices = isEdit ? invoices.filter((invoice) => invoice.brandId === brand.id) : [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const brandData: Brand = {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      toast("Give your brand a name first");
+      return;
+    }
+
+    const savedPrefix = effectivePrefix;
+
+    const record: Brand = {
+      // Spreads forward fields the v2 form has no UI for (`phone`,
+      // `panNumber`, `logo`) so editing a brand never silently wipes data
+      // the redesigned form simply doesn't surface. A no-op on create,
+      // since there's nothing yet to preserve.
+      ...(brand ?? {}),
       id: brand?.id ?? crypto.randomUUID(),
-      name: form.name,
-      address: form.address,
-      email: form.email,
-      phone: form.phone || undefined,
-      gstNumber: form.gstNumber || undefined,
-      panNumber: form.panNumber || undefined,
-      logo: form.logo || undefined,
-      invoicePrefix: form.invoicePrefix.toUpperCase(),
+      name: trimmedName,
+      address,
+      email,
+      gstNumber: gstNumber || undefined,
+      invoicePrefix: savedPrefix,
+      // Dead state (see `nextInvoiceNumber` — the live calculation from
+      // `@/lib/storage` is the only source of truth ever read). Carried
+      // forward on edit purely to satisfy the `Brand` shape until Task 22
+      // removes the field.
       nextInvoiceNumber: brand?.nextInvoiceNumber ?? 1,
+      accentColor,
+      followup: brand?.followup ?? defaultFollowupConfig(),
       bankDetails: {
-        accountName: form.accountName,
-        accountNumber: form.accountNumber,
-        bankName: form.bankName,
-        ifscCode: form.ifscCode,
-        branch: form.branch || undefined,
-        upiId: form.upiId || undefined,
+        accountName,
+        accountNumber,
+        bankName,
+        ifscCode,
+        branch: branch || undefined,
+        upiId: upiId || undefined,
       },
       createdAt: brand?.createdAt ?? new Date().toISOString(),
     };
-    save(brandData);
+
+    save(record);
+    toast(
+      isEdit
+        ? `${trimmedName} updated — future invoices use the new details`
+        : `${trimmedName} is ready — first invoice will be ${savedPrefix}-${year}-001`
+    );
+    router.push("/brands");
+  };
+
+  const handleDelete = () => {
+    if (!brand) return;
+    const guard = brandDeleteGuard(brand, invoices);
+    if (!guard.allowed) {
+      toast(`Move or delete its ${guard.count} invoices first`);
+      return;
+    }
+    remove(brand.id);
+    if (activeBrandId === brand.id) {
+      setBrandId(null);
+    }
+    toast(`${brand.name} removed`);
     router.push("/brands");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl">
-      {/* Basic Info */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Brand Details
-        </h3>
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-xs">
-              Brand Name *
-            </Label>
+    <div className="p-6 max-w-[660px]">
+      <Link
+        href="/brands"
+        className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
+      >
+        <ChevronLeft className="size-3.5" />
+        Brands
+      </Link>
+      <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+        {isEdit ? `Edit ${brand.name}` : "New brand"}
+      </h1>
+      <p className="text-sm text-muted-foreground mt-1">
+        {isEdit
+          ? "Changes apply to invoices you create from here on — past invoices keep their original details."
+          : "Set it up once — every invoice from this brand fills itself in."}
+      </p>
+
+      <form
+        onSubmit={handleSubmit}
+        className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-5 mt-6"
+      >
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-[2_1_220px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Brand name</Label>
             <Input
-              id="name"
-              value={form.name}
-              onChange={(e) => update("name", e.target.value)}
-              placeholder="Sivan Studio"
-              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Sundar Design Co"
               className="text-sm"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="address" className="text-xs">
-              Address *
-            </Label>
-            <Textarea
-              id="address"
-              value={form.address}
-              onChange={(e) => update("address", e.target.value)}
-              placeholder="123 Main St, City, State, PIN"
-              required
-              rows={3}
-              className="text-sm"
+          <div className="flex-[1_1_110px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Prefix</Label>
+            <Input
+              value={prefix}
+              onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+              placeholder="auto"
+              className="text-sm uppercase"
             />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs">
-                Email *
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => update("email", e.target.value)}
-                placeholder="hello@studio.com"
-                required
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-xs">
-                Phone
-              </Label>
-              <Input
-                id="phone"
-                value={form.phone}
-                onChange={(e) => update("phone", e.target.value)}
-                placeholder="+91 9876543210"
-                className="text-sm"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="gstNumber" className="text-xs">
-                GST Number
-              </Label>
-              <Input
-                id="gstNumber"
-                value={form.gstNumber}
-                onChange={(e) => update("gstNumber", e.target.value)}
-                placeholder="Optional"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="panNumber" className="text-xs">
-                PAN Number
-              </Label>
-              <Input
-                id="panNumber"
-                value={form.panNumber}
-                onChange={(e) =>
-                  update("panNumber", e.target.value.toUpperCase())
-                }
-                placeholder="Optional"
-                className="text-sm uppercase"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="invoicePrefix" className="text-xs">
-                Invoice Prefix *
-              </Label>
-              <Input
-                id="invoicePrefix"
-                value={form.invoicePrefix}
-                onChange={(e) =>
-                  update("invoicePrefix", e.target.value.toUpperCase())
-                }
-                placeholder="SS"
-                required
-                className="text-sm uppercase"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Invoices will be numbered {form.invoicePrefix || "XX"}{new Date().getFullYear()}001,{" "}
-                {form.invoicePrefix || "XX"}{new Date().getFullYear()}002, etc.
-              </p>
-            </div>
           </div>
         </div>
-      </div>
 
-      <Separator />
+        <div className="bg-muted border rounded-lg px-3 py-2.5 text-[13px] text-muted-foreground">
+          {hint}
+        </div>
 
-      {/* Logo */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Logo
-        </h3>
-        <div className="flex items-center gap-4">
-          {form.logo ? (
-            <div className="relative">
-              <img
-                src={form.logo}
-                alt="Logo"
-                className="h-16 w-16 object-contain rounded border border-border"
-              />
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Accent colour</Label>
+          <div className="flex gap-2">
+            {BRAND_PALETTE.map((color) => (
               <button
+                key={color}
                 type="button"
-                onClick={() => update("logo", "")}
-                className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="h-16 w-16 border border-dashed border-border rounded flex items-center justify-center hover:border-foreground/50 transition-colors"
-            >
-              <Upload className="h-4 w-4 text-muted-foreground" />
-            </button>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleLogoUpload}
-            className="hidden"
+                aria-label={`Accent colour ${color}`}
+                aria-pressed={accentColor === color}
+                onClick={() => setAccentColor(color)}
+                className="size-6 rounded-full"
+                style={{
+                  backgroundColor: color,
+                  boxShadow: accentColor === color ? "0 0 0 2px var(--foreground)" : undefined,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Address</Label>
+          <Textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Street, city, PIN"
+            rows={3}
+            className="text-sm"
           />
-          <p className="text-[10px] text-muted-foreground">
-            Upload a logo for your invoices. PNG or SVG recommended.
-          </p>
         </div>
-      </div>
 
-      <Separator />
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Email</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="billing@yourbrand.in"
+              className="text-sm"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">GST number</Label>
+            <Input
+              value={gstNumber}
+              onChange={(e) => setGstNumber(e.target.value)}
+              placeholder="Optional"
+              className="text-sm"
+            />
+          </div>
+        </div>
 
-      {/* Bank Details */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Bank Details
-        </h3>
-        <div className="grid gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="accountName" className="text-xs">
-                Account Holder Name *
-              </Label>
+        <div className="border-t pt-5 flex flex-col gap-4">
+          <div>
+            <h2 className="text-sm font-semibold">Getting paid</h2>
+            <p className="text-[13px] text-muted-foreground mt-0.5">
+              Printed at the bottom of every invoice.
+            </p>
+          </div>
+
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Account name</Label>
               <Input
-                id="accountName"
-                value={form.accountName}
-                onChange={(e) => update("accountName", e.target.value)}
-                required
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                placeholder="As on the account"
                 className="text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="accountNumber" className="text-xs">
-                Account Number *
-              </Label>
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Bank</Label>
               <Input
-                id="accountNumber"
-                value={form.accountNumber}
-                onChange={(e) => update("accountNumber", e.target.value)}
-                required
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                placeholder="e.g. HDFC Bank"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Branch</Label>
+              <Input
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                placeholder="e.g. Indiranagar"
                 className="text-sm"
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="bankName" className="text-xs">
-                Bank Name *
-              </Label>
+
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Account number</Label>
               <Input
-                id="bankName"
-                value={form.bankName}
-                onChange={(e) => update("bankName", e.target.value)}
-                required
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
                 className="text-sm"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="ifscCode" className="text-xs">
-                IFSC Code *
-              </Label>
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">IFSC</Label>
               <Input
-                id="ifscCode"
-                value={form.ifscCode}
-                onChange={(e) => update("ifscCode", e.target.value)}
-                required
+                value={ifscCode}
+                onChange={(e) => setIfscCode(e.target.value)}
                 className="text-sm"
               />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="branch" className="text-xs">
-                Branch
-              </Label>
+            <div className="flex-1 min-w-[160px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">UPI ID</Label>
               <Input
-                id="branch"
-                value={form.branch}
-                onChange={(e) => update("branch", e.target.value)}
-                placeholder="Optional"
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="upiId" className="text-xs">
-                UPI ID
-              </Label>
-              <Input
-                id="upiId"
-                value={form.upiId}
-                onChange={(e) => update("upiId", e.target.value)}
-                placeholder="Optional"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                placeholder="you@okbank"
                 className="text-sm"
               />
             </div>
           </div>
         </div>
-      </div>
 
-      <Separator />
+        <div className="flex gap-2 justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={() => router.push("/brands")}>
+            Cancel
+          </Button>
+          <Button type="submit" size="sm">
+            {isEdit ? "Save changes" : "Create brand"}
+          </Button>
+        </div>
+      </form>
 
-      <div className="flex gap-3">
-        <Button type="submit" size="sm" className="text-xs">
-          {brand ? "Update Brand" : "Create Brand"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="text-xs"
-          onClick={() => router.push("/brands")}
-        >
-          Cancel
-        </Button>
-      </div>
-    </form>
+      {isEdit && (
+        <div className="flex items-center gap-3 mt-4">
+          <span className="text-[13px] text-muted-foreground">
+            {invoiceUsageLabel(brandInvoices.length)}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={cn(
+              "ml-auto",
+              "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
+            )}
+            onClick={handleDelete}
+          >
+            Delete brand
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
