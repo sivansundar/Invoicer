@@ -12,7 +12,7 @@ const INVOICE_EDIT_RE = /^\/invoices\/[^/]+\/edit$/;
 const BRAND_DETAILS_RE = /^\/brands\/(create|[^/]+\/edit)$/;
 const CLIENT_DETAILS_RE = /^\/clients\/(create|[^/]+\/edit)$/;
 
-function getCrumb(pathname: string): string {
+export function getCrumb(pathname: string): string {
   if (pathname === "/") return "Dashboard";
   if (pathname === "/invoices/create") return "New invoice";
   if (INVOICE_EDIT_RE.test(pathname)) return "Edit invoice";
@@ -24,10 +24,12 @@ function getCrumb(pathname: string): string {
   if (pathname === "/followups") return "Follow-ups";
   if (pathname.startsWith("/followups/templates/")) return "Email template";
   if (pathname === "/reports") return "Reports";
-  return "";
+  // Unmapped route (e.g. hit directly, or a route this map hasn't caught up
+  // with yet) — fall back to the app name rather than an empty heading.
+  return "Invoicer";
 }
 
-function showNewInvoiceAction(pathname: string): boolean {
+export function showNewInvoiceAction(pathname: string): boolean {
   return (
     pathname === "/" ||
     (INVOICE_DETAIL_RE.test(pathname) && pathname !== "/invoices/create")
