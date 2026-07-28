@@ -258,3 +258,23 @@ export function runMigration(): void {
     }
   }
 }
+
+/**
+ * Forces the v1→v2 migration to run even when the stored schema version
+ * already matches. `runMigration` exits early in that case by design — but
+ * an imported file (`import-export.tsx`) can reintroduce v1-shaped invoices
+ * (missing `brandSnapshot`/`clientId`/`reminders`/`followupsPaused`) into an
+ * install that finished migrating long ago, and nothing else re-checks that
+ * once `VERSION_KEY` is set. Clearing it first makes `runMigration`'s own
+ * idempotent pass over *all* currently-stored records pick the newly
+ * imported ones up; already-migrated records pass through unchanged (every
+ * field `migrateToV2` fills in uses `??`, never overwriting a value that's
+ * already there). If this fails to fully persist, `VERSION_KEY` is left
+ * unset by `runMigration` itself, so a later boot retries it exactly like
+ * any other partial migration.
+ */
+export function forceMigration(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(VERSION_KEY);
+  runMigration();
+}

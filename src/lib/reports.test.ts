@@ -29,6 +29,10 @@ function makeInvoice(
     total: overrides.total ?? 100,
     createdAt: "",
     updatedAt: "",
+    brandSnapshot: {} as Invoice["brandSnapshot"],
+    clientId: null,
+    reminders: [],
+    followupsPaused: false,
     ...overrides,
   };
 }

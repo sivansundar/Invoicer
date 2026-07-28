@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SCHEMA_VERSION, migrateToV2, runMigration } from "./migrate";
+import { SCHEMA_VERSION, forceMigration, migrateToV2, runMigration } from "./migrate";
 import { DEFAULT_TEMPLATE_ID, SEED_TEMPLATES } from "./seed";
 import { BRAND_PALETTE } from "./palette";
 
@@ -271,6 +271,15 @@ describe("runMigration", () => {
     const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
     expect(invoices[0].clientId).toBe("c1");
     expect(invoices[0].invoiceNumber).toBe("SC2026001");
+  });
+
+  it("forceMigration re-runs even when the version key is current", () => {
+    localStorage.setItem("invoicer_schema_version", String(SCHEMA_VERSION));
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+    forceMigration();
+    const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+    expect(invoices[0].brandSnapshot).toBeDefined();
   });
 
   it("does nothing on a second run", () => {

@@ -1,5 +1,8 @@
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
-import { runMigration as runMigrationInternal } from "./migrate";
+import {
+  forceMigration as forceMigrationInternal,
+  runMigration as runMigrationInternal,
+} from "./migrate";
 import { writeLocalStorage } from "./local-storage";
 
 export { nextInvoiceNumber } from "./numbering";
