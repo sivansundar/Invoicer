@@ -26,6 +26,7 @@ const listeners = new Set<Listener>();
 
 function handleStorageEvent(): void {
   snapshots.clear();
+  planSnapshot = null;
   notify();
 }
 
@@ -84,6 +85,37 @@ export function getInvoicesSnapshot(): Invoice[] {
 
 export function getTemplatesSnapshot(): EmailTemplate[] {
   return getSnapshot<EmailTemplate>(TEMPLATES_KEY);
+}
+
+// Plan state is a single object, not a collection, so it gets its own
+// one-slot cache rather than sharing `snapshots` — same requirement though:
+// `JSON.parse` (inside `readPlan`) returns a fresh object every call, and
+// wiring that directly into `useSyncExternalStore` would infinite-loop
+// exactly like an uncached array would.
+const EMPTY_PLAN: PlanState = { tier: "free", renewsOn: null };
+let planSnapshot: PlanState | null = null;
+
+function readPlan(): PlanState {
+  if (typeof window === "undefined") return EMPTY_PLAN;
+  const raw = localStorage.getItem(PLAN_KEY);
+  if (!raw) return EMPTY_PLAN;
+  try {
+    return JSON.parse(raw) as PlanState;
+  } catch {
+    return EMPTY_PLAN;
+  }
+}
+
+export function getPlanSnapshot(): PlanState {
+  if (planSnapshot === null) {
+    planSnapshot = readPlan();
+  }
+  return planSnapshot;
+}
+
+function invalidatePlan(): void {
+  planSnapshot = null;
+  notify();
 }
 
 // Brands
@@ -196,17 +228,11 @@ export function deleteTemplate(id: string): void {
 
 // MOCK: plan state is local-only. There is no billing integration.
 export function getPlan(): PlanState {
-  if (typeof window === "undefined") return { tier: "free", renewsOn: null };
-  const raw = localStorage.getItem(PLAN_KEY);
-  if (!raw) return { tier: "free", renewsOn: null };
-  try {
-    return JSON.parse(raw) as PlanState;
-  } catch {
-    return { tier: "free", renewsOn: null };
-  }
+  return readPlan();
 }
 
 export function savePlan(plan: PlanState): void {
   localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+  invalidatePlan();
 }
 
