@@ -144,11 +144,24 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       }
     }
 
+    // An invoice cannot be numbered without a brand — even a draft needs its prefix.
+    let resolvedInvoiceNumber: string;
+    if (isEdit) {
+      resolvedInvoiceNumber = existingInvoice.invoiceNumber;
+    } else {
+      if (!brand) {
+        setErrors((prev) => ({ ...prev, brandId: true }));
+        document
+          .getElementById("field-brand")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      resolvedInvoiceNumber = nextInvoiceNumber(brand, getInvoices());
+    }
+
     const invoice: Invoice = {
       id: isEdit ? existingInvoice.id : crypto.randomUUID(),
-      invoiceNumber: isEdit
-        ? existingInvoice.invoiceNumber
-        : nextInvoiceNumber(brand!, getInvoices()),
+      invoiceNumber: resolvedInvoiceNumber,
       brandId,
       currency,
       status,
