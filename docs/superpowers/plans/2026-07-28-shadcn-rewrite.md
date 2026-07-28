@@ -1753,7 +1753,19 @@ Keep `loading` and `refresh` in the returned shape so existing call sites keep c
 
 Create `src/hooks/use-templates.ts` in exactly this shape, substituting `EmailTemplate` and `storage.getTemplatesSnapshot` / `saveTemplate` / `deleteTemplate`.
 
-**Verify the lint count drops:** `npm run lint 2>&1 | grep -E "problems|✖" | tail -1` must report **at most 6 problems (2 errors, 4 warnings)** — down from 12/8. It must not report a higher count than the 12/8 baseline under any circumstances.
+**Verify the lint count drops:** `npm run lint 2>&1 | grep -E "problems|✖" | tail -1` must report **at most 9 problems (5 errors, 4 warnings)** — down from 12/8. It must not go up under any circumstances.
+
+**Corrected during execution.** An earlier draft of this plan claimed 6 of the 8 baseline errors came from these three hooks. Measured, it was 3. `use-plan.ts` must ALSO use `useSyncExternalStore` — this plan's first draft gave it a `useState` + `useEffect` body, reintroducing the exact anti-pattern this step removes. The five errors that remain after this task belong to files owned by later tasks and must be left alone here:
+
+| File | Cleared by |
+|---|---|
+| `src/app/invoices/[id]/page.tsx` | Task 15 |
+| `src/app/invoices/[id]/edit/page.tsx` | Task 16 |
+| `src/app/brands/[id]/edit/page.tsx` | Task 17 |
+| `src/app/clients/[id]/edit/page.tsx` | Task 18 |
+| `src/components/theme/theme-toggle.tsx` | Task 10 |
+
+Task 22 verifies the count reaches zero.
 
 Create `src/hooks/use-plan.ts`:
 
@@ -1871,7 +1883,7 @@ Menu contents:
 `src/components/layout/app-sidebar.tsx` — `<Sidebar collapsible="icon" variant="inset">` with:
 
 - `SidebarHeader`: `<BrandSwitcher />`, then a row with a flex-1 `Quick create` button (`h-8`, solid primary, `CirclePlus` 16px icon, links to `/invoices/create`) and a 32px square outline icon-button (`Mail` icon, `title="Inbox"`) that toasts `Inbox lives just outside this build`
-- `SidebarContent`: one `SidebarMenu` with five items, each `SidebarMenuButton` with `isActive` derived from `usePathname()`:
+- `SidebarContent`: one `SidebarMenu` with six items, each `SidebarMenuButton` with `isActive` derived from `usePathname()`:
 
 | Label | Icon (lucide) | Href | Active when path |
 |---|---|---|---|
