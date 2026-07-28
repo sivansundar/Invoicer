@@ -40,7 +40,17 @@ Every task's requirements implicitly include this section.
 
 **Copy:** All user-facing strings in this plan are **verbatim from the handoff** and must be reproduced exactly, including the em dashes and the lowercase after them. Do not "improve" the copy. The voice is calm, second-person, dry-warm, never exclamatory.
 
-**Verification for every task:** `npm run lint` and `npx tsc --noEmit` must pass. Tasks touching `src/lib/` must also pass `npm test`.
+**Verification for every task:** `npx tsc --noEmit` must pass (subject to the ordering constraint below), and `npm run lint` must introduce **no new problems**. Tasks touching `src/lib/` must also pass `npm test`.
+
+**Lint baseline.** `main` already fails lint with **12 problems (8 errors, 4 warnings)** — mostly `react-hooks/set-state-in-effect` in `src/hooks/use-{brands,clients,invoices}.ts`, plus issues in files this rewrite deletes anyway (`brand-card.tsx`, `invoice-view.tsx`). "Lint passes" therefore means *the count does not go up*. Compare against the branch base with:
+
+```bash
+npm run lint 2>&1 | grep -E "problems|✖" | tail -1
+```
+
+Two consequences:
+- **Task 8 must not propagate the flagged pattern into `use-templates.ts`.** See that task for the corrected hook shape.
+- **Task 22 drives the count to zero.** By then most of the offending files are deleted or rewritten.
 
 **Commits:** One commit per task, conventional-commit prefix, ending with the repo's trailer:
 ```
@@ -1662,9 +1672,88 @@ export function savePlan(plan: PlanState): void {
 }
 ```
 
-- [ ] **Step 6: Add the hooks**
+- [ ] **Step 6: Convert the storage hooks to `useSyncExternalStore`**
 
-Create `src/hooks/use-templates.ts` — mirror the shape of the existing `src/hooks/use-invoices.ts` exactly (same `useCallback`/`useEffect` structure), substituting `EmailTemplate` and `storage.getTemplates` / `saveTemplate` / `deleteTemplate`.
+The three existing hooks (`use-brands.ts`, `use-clients.ts`, `use-invoices.ts`) each call a `setState` synchronously inside a `useEffect`, which `react-hooks/set-state-in-effect` flags as an error — 6 of the repo's 8 baseline lint errors. Copying that pattern into a fourth hook would add a 9th. Convert all four to `useSyncExternalStore`, which is the API this rule points you toward for reading an external store.
+
+Add a tiny subscription layer to `src/lib/storage.ts` so the hooks share one notification path:
+
+```ts
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+/** Subscribe to local mutations and to writes from other tabs. */
+export function subscribe(listener: Listener): () => void {
+  listeners.add(listener);
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", listener);
+  }
+  return () => {
+    listeners.delete(listener);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", listener);
+    }
+  };
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+```
+
+Call `notify()` at the end of every existing `setItem` write path (`saveBrand`, `deleteBrand`, `saveClient`, `deleteClient`, `saveInvoice`, `deleteInvoice`, `saveTemplate`, `deleteTemplate`).
+
+`useSyncExternalStore` requires a **referentially stable** snapshot — returning a fresh array every call causes an infinite render loop. Cache each collection and invalidate on write:
+
+```ts
+const EMPTY: never[] = [];
+const snapshots = new Map<string, unknown[]>();
+
+function getSnapshot<T>(key: string): T[] {
+  if (!snapshots.has(key)) {
+    snapshots.set(key, typeof window === "undefined" ? EMPTY : getItem<T>(key));
+  }
+  return snapshots.get(key) as T[];
+}
+
+function invalidate(key: string): void {
+  snapshots.delete(key);
+  notify();
+}
+```
+
+Have `setItem` call `invalidate(key)` instead of `notify()`, and export `getBrandsSnapshot()`, `getClientsSnapshot()`, `getInvoicesSnapshot()`, `getTemplatesSnapshot()` wrapping `getSnapshot`. The `storage` event listener must also clear the cache, so route it through a handler that calls `snapshots.clear()` before notifying.
+
+Each hook then becomes:
+
+```ts
+"use client";
+
+import { useCallback, useSyncExternalStore } from "react";
+import { Invoice } from "@/lib/types";
+import * as storage from "@/lib/storage";
+
+const EMPTY: Invoice[] = [];
+
+export function useInvoices() {
+  const invoices = useSyncExternalStore(
+    storage.subscribe,
+    storage.getInvoicesSnapshot,
+    () => EMPTY
+  );
+
+  const save = useCallback((invoice: Invoice) => storage.saveInvoice(invoice), []);
+  const remove = useCallback((id: string) => storage.deleteInvoice(id), []);
+
+  return { invoices, loading: false, save, remove, refresh: () => {} };
+}
+```
+
+Keep `loading` and `refresh` in the returned shape so existing call sites keep compiling — `loading` is now always `false` (the snapshot is synchronous) and `refresh` is a no-op, since writes notify automatically. Task 22 removes the now-dead `loading` branches from the UI.
+
+Create `src/hooks/use-templates.ts` in exactly this shape, substituting `EmailTemplate` and `storage.getTemplatesSnapshot` / `saveTemplate` / `deleteTemplate`.
+
+**Verify the lint count drops:** `npm run lint 2>&1 | grep -E "problems|✖" | tail -1` must report **at most 6 problems (2 errors, 4 warnings)** — down from 12/8. It must not report a higher count than the 12/8 baseline under any circumstances.
 
 Create `src/hooks/use-plan.ts`:
 
