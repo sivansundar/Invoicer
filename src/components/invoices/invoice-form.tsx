@@ -21,7 +21,8 @@ import { useClients } from "@/hooks/use-clients";
 import { Invoice, LineItem, Currency } from "@/lib/types";
 import { formatCurrency, cn } from "@/lib/utils";
 import {
-  getNextInvoiceNumber,
+  nextInvoiceNumber,
+  getInvoices,
   saveInvoice,
   saveClient,
   getClients,
@@ -79,10 +80,12 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
 
   const markDirty = () => setIsDirty(true);
 
+  const brand = brands.find((b) => b.id === brandId);
+
   const invoiceNumber = isEdit
     ? existingInvoice.invoiceNumber
-    : brandId
-    ? getNextInvoiceNumber(brandId)
+    : brand
+    ? nextInvoiceNumber(brand, getInvoices())
     : "—";
 
   const handleClientSelect = (clientId: string) => {
@@ -145,7 +148,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       id: isEdit ? existingInvoice.id : crypto.randomUUID(),
       invoiceNumber: isEdit
         ? existingInvoice.invoiceNumber
-        : getNextInvoiceNumber(brandId),
+        : nextInvoiceNumber(brand!, getInvoices()),
       brandId,
       currency,
       status,

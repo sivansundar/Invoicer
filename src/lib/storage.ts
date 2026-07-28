@@ -1,5 +1,7 @@
 import { Brand, Client, Invoice } from "./types";
 
+export { nextInvoiceNumber } from "./numbering";
+
 const BRANDS_KEY = "invoicer_brands";
 const CLIENTS_KEY = "invoicer_clients";
 const INVOICES_KEY = "invoicer_invoices";
@@ -93,19 +95,5 @@ export function deleteInvoice(id: string): void {
     INVOICES_KEY,
     getInvoices().filter((i) => i.id !== id)
   );
-}
-
-export function getNextInvoiceNumber(brandId: string): string {
-  const brand = getBrand(brandId);
-  if (!brand) return "INV001";
-  const prefix = brand.invoicePrefix;
-  const year = new Date().getFullYear().toString();
-  const yearPrefix = `${prefix}${year}`;
-  const existing = getInvoices()
-    .filter((i) => i.brandId === brandId && i.invoiceNumber.startsWith(yearPrefix))
-    .map((i) => parseInt(i.invoiceNumber.slice(yearPrefix.length), 10))
-    .filter((n) => !isNaN(n));
-  const next = existing.length > 0 ? Math.max(...existing) + 1 : 1;
-  return `${yearPrefix}${next.toString().padStart(3, "0")}`;
 }
 
