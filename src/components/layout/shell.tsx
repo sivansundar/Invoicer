@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "./app-sidebar";
+import { SiteHeader } from "./site-header";
+import { BrandFilterProvider } from "@/components/brand-filter/brand-filter-provider";
 import { runMigration } from "@/lib/storage";
-import { Header } from "./header";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -10,9 +13,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
-    </div>
+    <BrandFilterProvider>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </BrandFilterProvider>
   );
 }
