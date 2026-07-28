@@ -14,7 +14,7 @@ import {
   ReportSummary,
   groupByCurrency,
 } from "@/lib/reports";
-import { format } from "date-fns";
+import { formatStoredDate } from "@/lib/dates";
 
 // Reuse the same fonts registered by the invoice PDF. Registering again with the
 // same family name is idempotent in react-pdf.
@@ -226,7 +226,7 @@ export function SummaryReportPDF({
                   <View key={inv.id} style={s.tableRow}>
                     <Text style={s.colNumber}>{inv.invoiceNumber}</Text>
                     <Text style={s.colDate}>
-                      {format(new Date(inv.billDate), "dd MMM yy")}
+                      {formatStoredDate(inv.billDate, "dd MMM yy")}
                     </Text>
                     <Text style={s.colClient}>{inv.client.companyName}</Text>
                     <Text style={[s.colStatus, { color: "#666" }]}>{inv.status}</Text>

@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { format } from "date-fns";
 import { AlignLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { formatStoredDate } from "@/lib/dates";
 import {
   INVOICE_TABS,
   invoiceTabCounts,
@@ -230,14 +230,8 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
                 )}
                 {columns.due && (
                   <div className="flex-1 text-muted-foreground pr-2">
-                    {invoice.dueDate ? (
-                      <>
-                        {invoice.status === "paid" ? "Paid " : ""}
-                        {format(new Date(`${invoice.dueDate}T00:00`), "MMM d")}
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                    {invoice.status === "paid" ? "Paid " : ""}
+                    {formatStoredDate(invoice.dueDate, "MMM d")}
                   </div>
                 )}
                 {columns.amount && (

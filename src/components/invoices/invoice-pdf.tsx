@@ -11,7 +11,7 @@ import {
 } from "@react-pdf/renderer";
 import { Invoice, BrandSnapshot } from "@/lib/types";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
-import { format } from "date-fns";
+import { formatStoredDate } from "@/lib/dates";
 
 Font.register({
   family: "JetBrains Mono",
@@ -148,13 +148,13 @@ export function InvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             <View style={{ marginBottom: 8 }}>
               <Text style={s.label}>Bill Date</Text>
               <Text style={s.value}>
-                {format(new Date(invoice.billDate), "dd MMM yyyy")}
+                {formatStoredDate(invoice.billDate, "dd MMM yyyy")}
               </Text>
             </View>
             <View>
               <Text style={s.label}>Due Date</Text>
               <Text style={s.value}>
-                {invoice.dueDate ? format(new Date(invoice.dueDate), "dd MMM yyyy") : "—"}
+                {formatStoredDate(invoice.dueDate, "dd MMM yyyy")}
               </Text>
             </View>
           </View>

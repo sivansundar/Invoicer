@@ -87,13 +87,18 @@ export function collectionRateFooter({ rate, issued }: CollectionRate): string {
  * Days between an overdue invoice's due date and `today`, floored at 0.
  * Mirrors the `days_late` calculation in `followups.ts` (`templateContext`) so
  * the two surfaces never disagree about how "late" is counted.
+ *
+ * An empty or unparseable `dueDate` (unvalidated stored/imported data) builds
+ * an Invalid Date, whose `getTime()` is `NaN` — that would otherwise
+ * propagate into `Math.round(NaN)` === `NaN` and render as e.g. "NaN days
+ * overdue" wherever this feeds display copy. Treated as "not late" (0) rather
+ * than a number, since there's no valid due date to be late against.
  */
 export function daysLate(invoice: Invoice, today: Date = new Date()): number {
   const midnight = new Date(today.toDateString());
-  return Math.max(
-    Math.round((midnight.getTime() - new Date(`${invoice.dueDate}T00:00`).getTime()) / 864e5),
-    0
-  );
+  const due = new Date(`${invoice.dueDate}T00:00`);
+  if (Number.isNaN(due.getTime())) return 0;
+  return Math.max(Math.round((midnight.getTime() - due.getTime()) / 864e5), 0);
 }
 
 /** The largest `daysLate` among a set of (presumably overdue) invoices, or 0 for none. */

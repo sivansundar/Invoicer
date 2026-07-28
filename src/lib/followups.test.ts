@@ -210,4 +210,14 @@ describe("templateContext", () => {
     expect(ctx.brand).toBe("Sivan Studio");
     expect(ctx.amount).toContain("34,000");
   });
+
+  it("degrades to safe placeholders rather than 'NaN'/'Invalid Date' for an unparseable due date", () => {
+    // Reachable via imported/hand-edited data — import-export.tsx casts parsed
+    // JSON straight to Invoice[] with no validation. A reminder subject built
+    // from this must never render the literal strings "NaN" or "Invalid Date".
+    const bad = invoice({ dueDate: "2026-13-45" } as Partial<Invoice>);
+    const ctx = templateContext(bad, "Sivan Studio", new Date(2026, 6, 28));
+    expect(ctx.days_late).toBe("0");
+    expect(ctx.due_date).toBe("an unspecified date");
+  });
 });

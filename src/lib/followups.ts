@@ -1,5 +1,7 @@
 import type { FollowupConfig, Invoice } from "./types";
 import { formatCurrency } from "./utils";
+import { formatStoredDate } from "./dates";
+import { daysLate } from "./dashboard";
 
 const DAYS = [
   "Sunday",
@@ -96,12 +98,13 @@ export function fillTemplate(text: string, context: Record<string, string>): str
   );
 }
 
+// Embedded into a full sentence in a reminder email body/subject (see
+// seed.ts's templates: "...was due on {{due_date}}."), not a table cell, so
+// the fallback is a short phrase that keeps the sentence readable rather than
+// a bare "—" or the literal string "Invalid Date" that `toLocaleDateString`
+// would otherwise silently produce for an empty/malformed stored due date.
 function formatLongDate(value: string): string {
-  return new Date(`${value}T00:00`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatStoredDate(value, "d MMM yyyy", "an unspecified date");
 }
 
 export function templateContext(
@@ -109,19 +112,20 @@ export function templateContext(
   brandName: string,
   today: Date = new Date()
 ): Record<string, string> {
-  const midnight = new Date(today.toDateString());
-  const daysLate = Math.max(
-    Math.round((midnight.getTime() - new Date(`${invoice.dueDate}T00:00`).getTime()) / 864e5),
-    0
-  );
-
+  // Delegates to `daysLate` (`@/lib/dashboard`) rather than duplicating the
+  // calculation inline, as the old comment here only aspired to ("mirrors the
+  // days_late calculation") — a duplicated formula is exactly how this file's
+  // copy went unguarded against an empty/malformed `dueDate` producing
+  // `Math.round(NaN)` === `NaN`, which `String()` would render as the literal
+  // "NaN" into a reminder email subject (e.g. seed.ts's
+  // "{{days_late}} days past due").
   return {
     invoice: invoice.invoiceNumber,
     client: invoice.client?.name || invoice.client?.companyName || "there",
     company: invoice.client?.companyName ?? "—",
     amount: formatCurrency(invoice.total, invoice.currency ?? "INR"),
     due_date: formatLongDate(invoice.dueDate),
-    days_late: String(daysLate),
+    days_late: String(daysLate(invoice, today)),
     brand: brandName,
   };
 }

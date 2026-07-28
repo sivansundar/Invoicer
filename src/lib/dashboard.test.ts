@@ -176,6 +176,14 @@ describe("daysLate", () => {
   it("floors at 0 for a due date in the future", () => {
     expect(daysLate(inv({ dueDate: "2026-08-10" }), today)).toBe(0);
   });
+
+  it("returns 0 rather than NaN for an empty due date", () => {
+    expect(daysLate(inv({ dueDate: "" }), today)).toBe(0);
+  });
+
+  it("returns 0 rather than NaN for a malformed, non-empty due date", () => {
+    expect(daysLate(inv({ dueDate: "2026-13-45" }), today)).toBe(0);
+  });
 });
 
 describe("oldestDaysLate", () => {

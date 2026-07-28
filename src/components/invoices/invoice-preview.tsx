@@ -1,7 +1,7 @@
-import { format } from "date-fns";
 import { paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
 import type { BrandSnapshot, Currency, InvoiceClient, LineItem } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { formatStoredDate } from "@/lib/dates";
 
 interface InvoicePreviewProps {
   snapshot: BrandSnapshot;
@@ -16,8 +16,7 @@ interface InvoicePreviewProps {
 }
 
 function formatDate(value: string): string {
-  if (!value) return "—";
-  return format(new Date(`${value}T00:00`), "dd MMM yyyy");
+  return formatStoredDate(value, "dd MMM yyyy");
 }
 
 export function InvoicePreview({

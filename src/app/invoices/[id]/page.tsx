@@ -28,6 +28,7 @@ import { taxLabel } from "@/lib/invoice-preview";
 import { daysLate } from "@/lib/dashboard";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
 import { cn, formatCurrency } from "@/lib/utils";
+import { formatStoredDate } from "@/lib/dates";
 import type { FollowupConfig, Invoice } from "@/lib/types";
 
 const PDFDownloadButton = dynamic(
@@ -50,8 +51,7 @@ const NO_BRAND_CONFIG: FollowupConfig = {
 };
 
 function formatDate(value: string): string {
-  if (!value) return "—";
-  return format(new Date(`${value}T00:00`), "dd MMM yyyy");
+  return formatStoredDate(value, "dd MMM yyyy");
 }
 
 export default function InvoiceDetailPage() {
