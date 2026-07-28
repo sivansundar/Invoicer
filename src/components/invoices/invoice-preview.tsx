@@ -41,9 +41,17 @@ export function InvoicePreview({
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-start gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0">
-            {snapshot.name.trim().charAt(0).toUpperCase() || "?"}
-          </div>
+          {snapshot.logo ? (
+            <img
+              src={snapshot.logo}
+              alt={snapshot.name}
+              className="w-8 h-8 rounded-lg object-contain shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0">
+              {snapshot.name.trim().charAt(0).toUpperCase() || "?"}
+            </div>
+          )}
           <div className="min-w-0">
             <p className="text-sm font-semibold">{snapshot.name}</p>
             <p className="text-xs text-muted-foreground leading-[1.5] max-w-[190px] whitespace-pre-line break-words">
