@@ -60,6 +60,26 @@ describe("storage — runMigration cache invalidation", () => {
     expect(after[0].followup).toBeDefined();
     expect(after[0].followup.mode).toBe("weekly");
   });
+
+  it("forceMigration drops a cached snapshot even when the version key is already current", async () => {
+    const storage = await import("./storage");
+
+    localStorage.setItem("invoicer_schema_version", "2");
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+
+    // Same scenario as an import: the version key already matches, so a
+    // plain `runMigration()` would no-op and this stale, pre-migration
+    // snapshot would never get dropped.
+    const before = storage.getBrandsSnapshot();
+    expect(before[0].accentColor).toBeUndefined();
+
+    storage.forceMigration();
+
+    const after = storage.getBrandsSnapshot();
+    expect(after).not.toBe(before);
+    expect(after[0].accentColor).toBeDefined();
+    expect(after[0].followup).toBeDefined();
+  });
 });
 
 function fullBrand(overrides: Partial<Brand> = {}): Brand {

@@ -111,6 +111,24 @@ export function runMigration(): void {
   notify();
 }
 
+/**
+ * Same cache-invalidation wrapper as `runMigration` above, but around
+ * `forceMigration` — used by `import-export.tsx` after writing an imported
+ * file straight to the four data keys (bypassing `setItem`/`invalidate`,
+ * same as every other direct `localStorage` write `migrate.ts` makes). An
+ * import can reintroduce v1-shaped invoices into an install whose schema
+ * version is already current, which is exactly the case `runMigration`
+ * itself deliberately no-ops on — without this wrapper, both the forced
+ * migration *and* the stale-cache problem `runMigration`'s own wrapper
+ * exists to prevent would go unhandled for imported data.
+ */
+export function forceMigration(): void {
+  forceMigrationInternal();
+  snapshots.clear();
+  planSnapshot = null;
+  notify();
+}
+
 export function getBrandsSnapshot(): Brand[] {
   return getSnapshot<Brand>(BRANDS_KEY);
 }

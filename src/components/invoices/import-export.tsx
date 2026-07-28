@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Invoice } from "@/lib/types";
-import { getInvoices, saveInvoice, deleteInvoice } from "@/lib/storage";
+import { getInvoices, saveInvoice, deleteInvoice, forceMigration } from "@/lib/storage";
+import { validateImportedInvoices } from "@/lib/import-validation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,10 +30,16 @@ type ConflictResolution =
   | { action: "discard" };
 
 interface ImportSummary {
+  /** Invoices actually persisted this run — new writes, overwrites, and renames combined. */
   imported: number;
   overwritten: number;
   renamed: number;
-  skipped: number;
+  /** User chose "Discard" on a conflicting invoice number. */
+  discarded: number;
+  /** Records in the file that were not objects, or lacked a field a rendering screen depends on. */
+  invalidSkipped: number;
+  /** A write that was attempted but did not persist (e.g. a full localStorage quota). */
+  failed: number;
 }
 
 export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
@@ -44,6 +52,10 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   const [renameMode, setRenameMode] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [showConflictDialog, setShowConflictDialog] = useState(false);
+  // Set while a file is being parsed, read again once conflict resolution
+  // (which can take several dialog round-trips) finishes and the final
+  // summary is built — the validation pass happens once, up front.
+  const [pendingInvalidSkipped, setPendingInvalidSkipped] = useState(0);
 
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -69,58 +81,100 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      let parsed: unknown;
       try {
-        const parsed = JSON.parse(event.target?.result as string);
-        if (!Array.isArray(parsed)) throw new Error("Expected an array");
-
-        const incoming = parsed as Invoice[];
-        const existing = getInvoices();
-        const existingByNumber = new Map(
-          existing.map((inv) => [inv.invoiceNumber, inv])
-        );
-
-        const newConflicts: PendingConflict[] = [];
-        const newNonConflicting: Invoice[] = [];
-
-        for (const inv of incoming) {
-          const match = existingByNumber.get(inv.invoiceNumber);
-          if (match) {
-            newConflicts.push({ incoming: inv, existing: match });
-          } else {
-            newNonConflicting.push(inv);
-          }
-        }
-
-        setNonConflicting(newNonConflicting);
-        setConflicts(newConflicts);
-        setResolutions([]);
-        setConflictIndex(0);
-        setRenameMode(false);
-        setRenameValue("");
-
-        if (newConflicts.length > 0) {
-          setShowConflictDialog(true);
-        } else {
-          for (const inv of newNonConflicting) {
-            saveInvoice(inv);
-          }
-          setSummary({
-            imported: newNonConflicting.length,
-            overwritten: 0,
-            renamed: 0,
-            skipped: 0,
-          });
-          setShowSummary(true);
-          onImportDone();
-        }
+        parsed = JSON.parse(event.target?.result as string);
       } catch {
-        alert(
-          "Failed to parse file. Please make sure it is a valid invoices JSON export."
+        toast("Failed to import — the file is not valid JSON. Nothing was imported.");
+        return;
+      }
+
+      // A payload that isn't even an array (a hand-edited file, or one from
+      // an unrelated export) is rejected outright — nothing is written.
+      // Anything that *is* an array but has individual malformed records is
+      // handled record-by-record below (`validateImportedInvoices` never
+      // throws on either shape).
+      const result = validateImportedInvoices(parsed);
+      if (!result.ok) {
+        toast(
+          "Failed to import — expected a JSON array of invoices. Nothing was imported."
         );
+        return;
+      }
+
+      const { valid: incoming, skipped: invalidSkipped } = result;
+      if (incoming.length === 0) {
+        toast(
+          invalidSkipped > 0
+            ? `Nothing to import — all ${invalidSkipped} record${invalidSkipped === 1 ? "" : "s"} in the file were invalid or missing required fields.`
+            : "Nothing to import — the file was empty."
+        );
+        return;
+      }
+
+      setPendingInvalidSkipped(invalidSkipped);
+
+      const existing = getInvoices();
+      const existingByNumber = new Map(
+        existing.map((inv) => [inv.invoiceNumber, inv])
+      );
+
+      const newConflicts: PendingConflict[] = [];
+      const newNonConflicting: Invoice[] = [];
+
+      for (const inv of incoming) {
+        const match = existingByNumber.get(inv.invoiceNumber);
+        if (match) {
+          newConflicts.push({ incoming: inv, existing: match });
+        } else {
+          newNonConflicting.push(inv);
+        }
+      }
+
+      setNonConflicting(newNonConflicting);
+      setConflicts(newConflicts);
+      setResolutions([]);
+      setConflictIndex(0);
+      setRenameMode(false);
+      setRenameValue("");
+
+      if (newConflicts.length > 0) {
+        setShowConflictDialog(true);
+      } else {
+        let saved = 0;
+        let failed = 0;
+        for (const inv of newNonConflicting) {
+          if (saveInvoice(inv)) saved++;
+          else failed++;
+        }
+        if (saved > 0) forceMigration();
+
+        finishImport({
+          imported: saved,
+          overwritten: 0,
+          renamed: 0,
+          discarded: 0,
+          invalidSkipped,
+          failed,
+        });
       }
     };
     reader.readAsText(file);
     e.target.value = "";
+  };
+
+  /** Shared by both the no-conflict and post-conflict-resolution paths — surfaces a write failure honestly rather than letting the summary dialog quietly claim success. */
+  const finishImport = (result: ImportSummary) => {
+    setSummary(result);
+    setShowSummary(true);
+    if (result.failed > 0) {
+      const attempted = result.imported + result.failed;
+      toast(
+        `Import finished, but ${result.failed} of ${attempted} invoice${attempted === 1 ? "" : "s"} ` +
+          `couldn't be saved — storage may be full. Free up space and try again.`
+      );
+    }
+    onImportDone();
   };
 
   const applyResolution = (resolution: ConflictResolution) => {
@@ -134,38 +188,53 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     } else {
       setShowConflictDialog(false);
 
+      let saved = 0;
+      let failed = 0;
       for (const inv of nonConflicting) {
-        saveInvoice(inv);
+        if (saveInvoice(inv)) saved++;
+        else failed++;
       }
 
       let overwritten = 0;
       let renamed = 0;
-      let skipped = 0;
+      let discarded = 0;
 
       for (let i = 0; i < conflicts.length; i++) {
         const { incoming, existing } = conflicts[i];
         const res = newResolutions[i];
 
         if (res.action === "overwrite") {
-          deleteInvoice(existing.id);
-          saveInvoice(incoming);
+          // Save the incoming record before touching the existing one — if
+          // the write fails (e.g. a full quota), the existing invoice is
+          // still there rather than being deleted out from under a save
+          // that never landed.
+          if (!saveInvoice(incoming)) {
+            failed++;
+            continue;
+          }
+          if (existing.id !== incoming.id) deleteInvoice(existing.id);
           overwritten++;
         } else if (res.action === "rename") {
-          saveInvoice({ ...incoming, invoiceNumber: res.newNumber });
-          renamed++;
+          if (saveInvoice({ ...incoming, invoiceNumber: res.newNumber })) {
+            renamed++;
+          } else {
+            failed++;
+          }
         } else {
-          skipped++;
+          discarded++;
         }
       }
 
-      setSummary({
-        imported: nonConflicting.length + overwritten + renamed,
+      if (saved + overwritten + renamed > 0) forceMigration();
+
+      finishImport({
+        imported: saved + overwritten + renamed,
         overwritten,
         renamed,
-        skipped,
+        discarded,
+        invalidSkipped: pendingInvalidSkipped,
+        failed,
       });
-      setShowSummary(true);
-      onImportDone();
     }
   };
 
@@ -396,10 +465,22 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
                   <span className="tabular-nums">{summary.renamed}</span>
                 </div>
               )}
-              {summary.skipped > 0 && (
+              {summary.discarded > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Skipped</span>
-                  <span className="tabular-nums">{summary.skipped}</span>
+                  <span className="text-muted-foreground">Discarded (duplicate)</span>
+                  <span className="tabular-nums">{summary.discarded}</span>
+                </div>
+              )}
+              {summary.invalidSkipped > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Skipped (invalid)</span>
+                  <span className="tabular-nums">{summary.invalidSkipped}</span>
+                </div>
+              )}
+              {summary.failed > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-destructive">Failed to save</span>
+                  <span className="tabular-nums text-destructive">{summary.failed}</span>
                 </div>
               )}
             </div>
