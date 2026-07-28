@@ -14,6 +14,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -42,6 +43,10 @@ const EMPTY_SNAPSHOT: BrandSnapshot = {
   bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
 };
 
+// Sentinel "Billed to" select value for the manual-entry option. Never a
+// real client id (those are `crypto.randomUUID()`), so it can't collide.
+const MANUAL_CLIENT_VALUE = "manual";
+
 export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const router = useRouter();
   const { brands } = useBrands();
@@ -50,7 +55,19 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const isEdit = !!existingInvoice;
 
   const [brandId, setBrandId] = useState(existingInvoice?.brandId ?? "");
-  const [clientId, setClientId] = useState<string | null>(existingInvoice?.clientId ?? null);
+  // Drives the "Billed to" select. Holds a saved client's id, the manual-entry
+  // sentinel, or "" when nothing has been chosen yet. A `clientId: null` +
+  // populated `client` snapshot is a combination the model already supports —
+  // it's exactly what the v1→v2 migration produces for a legacy invoice whose
+  // client record no longer exists — so manual entry needs no new shape here.
+  const [selectValue, setSelectValue] = useState<string>(
+    existingInvoice ? existingInvoice.clientId ?? MANUAL_CLIENT_VALUE : ""
+  );
+  const [manualClient, setManualClient] = useState<InvoiceClient>(
+    existingInvoice && existingInvoice.clientId === null
+      ? existingInvoice.client
+      : { companyName: "", address: "" }
+  );
   const [currency, setCurrency] = useState<Currency>(existingInvoice?.currency ?? "INR");
   const [billDate, setBillDate] = useState(
     existingInvoice?.billDate ?? format(new Date(), "yyyy-MM-dd")
@@ -62,13 +79,18 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   );
 
   const brand = brands.find((b) => b.id === brandId);
-  const selectedClient = clients.find((c) => c.id === clientId);
+  const isManualClient = selectValue === MANUAL_CLIENT_VALUE;
+  const selectedClient = isManualClient ? undefined : clients.find((c) => c.id === selectValue);
 
   // Copies the whole saved client record into the embedded snapshot — the
   // two fields (`clientId` and `client`) coexist by design: `clientId` is
   // the live back-reference, `client` is what actually renders on the
-  // invoice even if the client record changes or is deleted later.
-  const previewClient: InvoiceClient = selectedClient
+  // invoice even if the client record changes or is deleted later. Manual
+  // entry is the same idea with no back-reference at all: `clientId` stays
+  // `null` and `client` carries whatever was typed.
+  const previewClient: InvoiceClient = isManualClient
+    ? manualClient
+    : selectedClient
     ? {
         name: selectedClient.name,
         companyName: selectedClient.companyName,
@@ -104,14 +126,35 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       }
     }
 
-    if (!isEdit && !brand) return;
-
     // Editing an invoice must never silently change its status — only an
     // explicit "Save as draft" click may revert it. The primary button
     // preserves whatever status the invoice already has.
     const status: InvoiceStatus = asDraft ? "draft" : isEdit ? existingInvoice.status : "sent";
-    const invoiceNumber = isEdit ? existingInvoice.invoiceNumber : nextInvoiceNumber(brand!, invoices);
-    const brandSnapshot = isEdit ? existingInvoice.brandSnapshot : snapshotFromBrand(brand!);
+
+    // An invoice cannot be numbered or snapshotted without a brand — even a
+    // draft needs its prefix. Branching on `isEdit` here (rather than a
+    // `brand!` assertion after a compound early-return guard) lets
+    // TypeScript actually narrow `brand` to `Brand` in the `else`, so a
+    // future edit to the surrounding conditions can't silently invalidate an
+    // assertion the compiler was never checking. This also fixes a dead
+    // click: "Save as draft" with no brand chosen used to hit that early
+    // return with no feedback at all — now both buttons toast the same way
+    // the line-item check above does.
+    let invoiceNumber: string;
+    let brandSnapshot: BrandSnapshot;
+    if (isEdit) {
+      invoiceNumber = existingInvoice.invoiceNumber;
+      brandSnapshot = existingInvoice.brandSnapshot;
+    } else {
+      if (!brand) {
+        toast("Select a brand first");
+        return;
+      }
+      invoiceNumber = nextInvoiceNumber(brand, invoices);
+      brandSnapshot = snapshotFromBrand(brand);
+    }
+
+    const clientId = isManualClient ? null : selectValue || null;
     const { subtotal, totalTax, total } = computeTotals(items);
 
     const invoice: Invoice = {
@@ -192,7 +235,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             </div>
             <div className="flex-[1_1_200px] space-y-1.5">
               <Label className="text-xs text-muted-foreground">Billed to</Label>
-              <Select value={clientId ?? ""} onValueChange={setClientId}>
+              <Select value={selectValue} onValueChange={setSelectValue}>
                 <SelectTrigger className="w-full text-sm">
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
@@ -202,18 +245,66 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                       {c.companyName}
                     </SelectItem>
                   ))}
+                  {clients.length > 0 && <SelectSeparator />}
+                  <SelectItem value={MANUAL_CLIENT_VALUE}>Enter manually…</SelectItem>
                 </SelectContent>
               </Select>
-              {clients.length === 0 && (
-                <p className="text-xs text-destructive">
-                  No clients yet.{" "}
-                  <Link href="/clients/create" className="underline">
-                    Add one first
-                  </Link>
-                </p>
-              )}
             </div>
           </div>
+
+          {isManualClient && (
+            <div className="border rounded-xl bg-card p-3 flex flex-col gap-3">
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Company name</Label>
+                  <Input
+                    value={manualClient.companyName}
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, companyName: e.target.value }))
+                    }
+                    placeholder="Acme Corp"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Contact name</Label>
+                  <Input
+                    value={manualClient.name ?? ""}
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Optional"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Address</Label>
+                  <Textarea
+                    value={manualClient.address}
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, address: e.target.value }))
+                    }
+                    rows={2}
+                    className="text-sm"
+                  />
+                </div>
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <Input
+                    type="email"
+                    value={manualClient.email ?? ""}
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, email: e.target.value }))
+                    }
+                    placeholder="Optional"
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3 flex-wrap">
             <div className="flex-[1_1_150px] space-y-1.5">
