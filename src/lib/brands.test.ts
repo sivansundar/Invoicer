@@ -3,7 +3,9 @@ import {
   brandDeleteGuard,
   derivePrefix,
   invoiceUsageLabel,
+  MAX_LOGO_BYTES,
   nextUnusedAccentColor,
+  validateLogoFile,
 } from "./brands";
 import { BRAND_PALETTE } from "./palette";
 import type { Brand, Invoice } from "./types";
@@ -103,5 +105,29 @@ describe("nextUnusedAccentColor", () => {
   it("cycles deterministically once every colour is taken", () => {
     const brands = BRAND_PALETTE.map((color) => ({ accentColor: color }) as Brand);
     expect(nextUnusedAccentColor(brands)).toBe(BRAND_PALETTE[brands.length % BRAND_PALETTE.length]);
+  });
+});
+
+describe("validateLogoFile", () => {
+  function file(bytes: number, type = "image/png"): File {
+    return new File([new Uint8Array(bytes)], "logo.png", { type });
+  }
+
+  it("accepts a small image file", () => {
+    expect(validateLogoFile(file(1024))).toBeNull();
+  });
+
+  it("accepts a file right at the size limit", () => {
+    expect(validateLogoFile(file(MAX_LOGO_BYTES))).toBeNull();
+  });
+
+  it("rejects a non-image file", () => {
+    expect(validateLogoFile(file(1024, "application/pdf"))).toBe("Logo must be an image file");
+  });
+
+  it("rejects a file over the size limit", () => {
+    expect(validateLogoFile(file(MAX_LOGO_BYTES + 1))).toBe(
+      `Logo must be under ${Math.round(MAX_LOGO_BYTES / 1024)}KB`
+    );
   });
 });

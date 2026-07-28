@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,13 @@ import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider"
 import { nextInvoiceNumber } from "@/lib/storage";
 import { defaultFollowupConfig } from "@/lib/seed";
 import { BRAND_PALETTE } from "@/lib/palette";
-import { brandDeleteGuard, derivePrefix, invoiceUsageLabel, nextUnusedAccentColor } from "@/lib/brands";
+import {
+  brandDeleteGuard,
+  derivePrefix,
+  invoiceUsageLabel,
+  nextUnusedAccentColor,
+  validateLogoFile,
+} from "@/lib/brands";
 import { cn } from "@/lib/utils";
 import type { Brand } from "@/lib/types";
 
@@ -29,15 +35,19 @@ export function BrandForm({ brand }: BrandFormProps) {
   const { invoices } = useInvoices();
   const { brandId: activeBrandId, setBrandId } = useBrandFilter();
   const isEdit = !!brand;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(brand?.name ?? "");
   const [prefix, setPrefix] = useState(brand?.invoicePrefix ?? "");
+  const [logo, setLogo] = useState(brand?.logo ?? "");
   const [accentColor, setAccentColor] = useState(
     brand?.accentColor ?? nextUnusedAccentColor(brands)
   );
   const [address, setAddress] = useState(brand?.address ?? "");
   const [email, setEmail] = useState(brand?.email ?? "");
+  const [phone, setPhone] = useState(brand?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(brand?.gstNumber ?? "");
+  const [panNumber, setPanNumber] = useState(brand?.panNumber ?? "");
   const [accountName, setAccountName] = useState(brand?.bankDetails.accountName ?? "");
   const [bankName, setBankName] = useState(brand?.bankDetails.bankName ?? "");
   const [branch, setBranch] = useState(brand?.bankDetails.branch ?? "");
@@ -54,6 +64,27 @@ export function BrandForm({ brand }: BrandFormProps) {
 
   const brandInvoices = isEdit ? invoices.filter((invoice) => invoice.brandId === brand.id) : [];
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Always clear the input's value, success or failure — otherwise picking
+    // the same (rejected, or already-set) file twice in a row never fires
+    // another change event.
+    e.target.value = "";
+    if (!file) return;
+
+    const error = validateLogoFile(file);
+    if (error) {
+      toast(error);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => setLogo((ev.target?.result as string) ?? "");
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveLogo = () => setLogo("");
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
@@ -65,16 +96,14 @@ export function BrandForm({ brand }: BrandFormProps) {
     const savedPrefix = effectivePrefix;
 
     const record: Brand = {
-      // Spreads forward fields the v2 form has no UI for (`phone`,
-      // `panNumber`, `logo`) so editing a brand never silently wipes data
-      // the redesigned form simply doesn't surface. A no-op on create,
-      // since there's nothing yet to preserve.
-      ...(brand ?? {}),
       id: brand?.id ?? crypto.randomUUID(),
       name: trimmedName,
       address,
       email,
+      phone: phone || undefined,
       gstNumber: gstNumber || undefined,
+      panNumber: panNumber || undefined,
+      logo: logo || undefined,
       invoicePrefix: savedPrefix,
       // Dead state (see `nextInvoiceNumber` — the live calculation from
       // `@/lib/storage` is the only source of truth ever read). Carried
@@ -140,7 +169,43 @@ export function BrandForm({ brand }: BrandFormProps) {
         onSubmit={handleSubmit}
         className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-5 mt-6"
       >
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-3 flex-wrap items-start">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Logo</Label>
+            {logo ? (
+              <div className="relative w-fit">
+                <img
+                  src={logo}
+                  alt={`${name || "Brand"} logo`}
+                  className="size-9 rounded-lg object-contain border"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  aria-label="Remove logo"
+                  className="absolute -top-1.5 -right-1.5 size-4 rounded-full border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                >
+                  <X className="size-2.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Upload logo"
+                className="size-9 rounded-lg border border-dashed flex items-center justify-center text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors"
+              >
+                <Upload className="size-3.5" />
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleLogoChange}
+              className="hidden"
+            />
+          </div>
           <div className="flex-[2_1_220px] space-y-1.5">
             <Label className="text-xs text-muted-foreground">Brand name</Label>
             <Input
@@ -208,12 +273,33 @@ export function BrandForm({ brand }: BrandFormProps) {
             />
           </div>
           <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Phone</Label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Optional"
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px] space-y-1.5">
             <Label className="text-xs text-muted-foreground">GST number</Label>
             <Input
               value={gstNumber}
               onChange={(e) => setGstNumber(e.target.value)}
               placeholder="Optional"
               className="text-sm"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">PAN number</Label>
+            <Input
+              value={panNumber}
+              onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+              placeholder="Optional"
+              className="text-sm uppercase"
             />
           </div>
         </div>

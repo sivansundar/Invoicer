@@ -57,3 +57,31 @@ export function nextUnusedAccentColor(brands: Brand[]): string {
   const unused = BRAND_PALETTE.find((color) => !used.has(color));
   return unused ?? paletteColorForIndex(brands.length);
 }
+
+/**
+ * A logo is stored as a base64 data URL directly inside the brand record —
+ * there is no server to upload it to. Base64 inflates a file's raw byte size
+ * by roughly a third, and every brand/client/invoice this app has ever
+ * created shares one ~5MB `localStorage` quota, so an uncapped upload could
+ * quietly brick the whole workspace. 300KB raw (~400KB once encoded) is
+ * generous for a logo mark while leaving that quota mostly for actual
+ * invoice data.
+ */
+export const MAX_LOGO_BYTES = 300 * 1024;
+
+/**
+ * Rejects a logo upload before it ever reaches `FileReader`, returning a
+ * user-facing reason or `null` when the file is acceptable. The `accept`
+ * attribute on the file input only filters the OS picker's UI — it does not
+ * stop a drag-and-drop or a non-conforming file chosen anyway, so this is
+ * the actual gate.
+ */
+export function validateLogoFile(file: File): string | null {
+  if (!file.type.startsWith("image/")) {
+    return "Logo must be an image file";
+  }
+  if (file.size > MAX_LOGO_BYTES) {
+    return `Logo must be under ${Math.round(MAX_LOGO_BYTES / 1024)}KB`;
+  }
+  return null;
+}
