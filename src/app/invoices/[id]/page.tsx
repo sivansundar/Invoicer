@@ -26,7 +26,7 @@ import { useTemplates } from "@/hooks/use-templates";
 import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
 import { taxLabel } from "@/lib/invoice-preview";
 import { daysLate } from "@/lib/dashboard";
-import { dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
+import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { FollowupConfig, Invoice } from "@/lib/types";
 
@@ -84,6 +84,10 @@ export default function InvoiceDetailPage() {
   const showFollowups = invoice.status !== "draft" || invoice.reminders.length > 0;
 
   const handleMarkSent = () => {
+    if (!canMarkSent(invoice)) {
+      toast("Add a due date before marking this sent");
+      return;
+    }
     const updated: Invoice = { ...invoice, status: "sent", updatedAt: new Date().toISOString() };
     save(updated);
     toast(`${invoice.invoiceNumber} marked as sent`);

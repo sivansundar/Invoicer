@@ -69,6 +69,11 @@ export function nextSendDate(
 
   const anchor = sent.length > 0 ? sent[sent.length - 1] : invoice.dueDate;
   const start = new Date(`${anchor}T00:00`);
+  // An unparseable anchor (e.g. an empty due date, reachable if a draft with
+  // no due date is marked sent, or via imported/hand-edited data) produces an
+  // Invalid Date — a truthy object that would otherwise be returned as if a
+  // real send were scheduled. Treat it as "nothing to schedule" instead.
+  if (Number.isNaN(start.getTime())) return null;
 
   let date: Date;
   if (config.mode === "custom" && config.repeat === "month") {

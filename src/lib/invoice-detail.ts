@@ -55,6 +55,18 @@ export function dueLine(
   return { text: "Past due", destructive: false };
 }
 
+/**
+ * Whether an invoice's due date is set well enough to transition to "sent".
+ * A draft is allowed to have no due date (the create/edit form only requires
+ * one for a non-draft), but nothing downstream computed from a due date is —
+ * `dueLine`'s "sent" branch and the whole follow-ups schedule both anchor on
+ * it. `handleMarkSent` on the detail page consults this before writing the
+ * transition, rather than writing a "sent" invoice that can't compute either.
+ */
+export function canMarkSent(invoice: Invoice): boolean {
+  return Boolean(invoice.dueDate);
+}
+
 export type FollowupStateKind = "active" | "paid" | "draft" | "paused" | "limit" | "off";
 
 export interface FollowupState {
@@ -111,6 +123,10 @@ export function nextSendLine(state: FollowupState, config: FollowupConfig, brand
 
 const PILL_LABEL: Record<Exclude<FollowupStateKind, "active">, string> = {
   paid: "Stopped · paid",
+  // Unreachable today — the card only renders for a draft that already has
+  // reminders, and reminders can only be recorded while sent/overdue. Not
+  // brief text (the brief's four-pill list doesn't cover this kind); revisit
+  // if a future task allows reverting a sent invoice back to draft.
   draft: "Not started",
   paused: "Paused",
   limit: "Limit reached",

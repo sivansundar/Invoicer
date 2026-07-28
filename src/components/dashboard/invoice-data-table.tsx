@@ -230,8 +230,14 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
                 )}
                 {columns.due && (
                   <div className="flex-1 text-muted-foreground pr-2">
-                    {invoice.status === "paid" ? "Paid " : ""}
-                    {format(new Date(`${invoice.dueDate}T00:00`), "MMM d")}
+                    {invoice.dueDate ? (
+                      <>
+                        {invoice.status === "paid" ? "Paid " : ""}
+                        {format(new Date(`${invoice.dueDate}T00:00`), "MMM d")}
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </div>
                 )}
                 {columns.amount && (

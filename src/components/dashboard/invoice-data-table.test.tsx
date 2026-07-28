@@ -157,6 +157,17 @@ describe("InvoiceDataTable", () => {
     expect(link).toHaveAttribute("href", "/invoices/id-2");
   });
 
+  it("renders a dash in the Due column rather than throwing for a draft with no due date", () => {
+    // Drafts are allowed to have an empty dueDate (the create/edit form only
+    // requires one for a non-draft). Discovered via a fix-round browser check
+    // for Task 15: an unguarded `format(new Date(""), "MMM d"))` here crashed
+    // the whole dashboard — not the invoice detail page — the moment such a
+    // draft existed, before the detail page was ever reached.
+    renderTable([inv(0, { status: "draft", dueDate: "" })]);
+    const row = screen.getByRole("link", { name: /Client 0/ });
+    expect(within(row).getByText("—")).toBeInTheDocument();
+  });
+
   it("hides and restores the Amount column via the Columns menu", async () => {
     const user = userEvent.setup();
     renderTable(FIFTEEN_INVOICES.slice(0, 2));

@@ -79,6 +79,20 @@ describe("nextSendDate", () => {
     expect(nextSendDate(inv, { ...weekly, stopAfter: 0 })).not.toBeNull();
   });
 
+  it("returns null rather than an Invalid Date for a sent invoice with no due date", () => {
+    // Reachable via a draft (no due date required) marked sent directly, or
+    // via imported/hand-edited data. `new Date("T00:00")` is an Invalid Date
+    // — a truthy object — so this guards against it being returned as if a
+    // real send were scheduled.
+    const inv = invoice({ dueDate: "", reminders: [] });
+    expect(nextSendDate(inv, weekly)).toBeNull();
+  });
+
+  it("returns null rather than an Invalid Date when the last reminder itself is unparseable", () => {
+    const inv = invoice({ dueDate: "2026-07-10", reminders: [""] });
+    expect(nextSendDate(inv, weekly)).toBeNull();
+  });
+
   it("advances by a month when custom mode repeats monthly", () => {
     const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 1 };
     const next = nextSendDate(invoice(), config);

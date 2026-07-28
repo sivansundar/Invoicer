@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "./invoice-detail";
+import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "./invoice-detail";
 import type { FollowupConfig, Invoice } from "./types";
 
 const weekly: FollowupConfig = {
@@ -126,6 +126,17 @@ describe("resolveFollowupState", () => {
     const state = resolveFollowupState(makeInvoice(), { ...weekly, enabled: false }, today);
     expect(state.kind).toBe("off");
   });
+
+  it("degrades to a sane, non-throwing state for a sent invoice with no due date", () => {
+    // The exact crashing combination from the fix-round report: status
+    // "sent", empty dueDate, no reminders yet to anchor on instead. Before
+    // nextSendDate's Invalid Date guard, this produced { kind: "active",
+    // date: Invalid Date }, which nextSendLine's format() call then threw on.
+    const inv = makeInvoice({ dueDate: "", reminders: [] });
+    const state = resolveFollowupState(inv, weekly, today);
+    expect(state.kind).not.toBe("active");
+    expect(() => nextSendLine(state, weekly, "Sivan Studio")).not.toThrow();
+  });
 });
 
 describe("nextSendLine", () => {
@@ -178,5 +189,15 @@ describe("followupPillLabel", () => {
     expect(followupPillLabel({ kind: "paused", date: null })).toBe("Paused");
     expect(followupPillLabel({ kind: "limit", date: null })).toBe("Limit reached");
     expect(followupPillLabel({ kind: "off", date: null })).toBe("Off for this brand");
+  });
+});
+
+describe("canMarkSent", () => {
+  it("refuses a draft with no due date", () => {
+    expect(canMarkSent(makeInvoice({ status: "draft", dueDate: "" }))).toBe(false);
+  });
+
+  it("allows the transition once a due date is set", () => {
+    expect(canMarkSent(makeInvoice({ status: "draft", dueDate: "2026-08-05" }))).toBe(true);
   });
 });
