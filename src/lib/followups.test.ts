@@ -86,9 +86,31 @@ describe("nextSendDate", () => {
   });
 
   it("lands on the configured weekday in custom mode", () => {
-    const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "week", weekday: 5 };
+    // dueDate 2026-07-10 is a Friday (day 5); a naive +7 day advance also
+    // lands on Friday, so weekday: 5 here would make the snap a no-op and
+    // pass even with the snap logic deleted. weekday: 3 (Wednesday) forces
+    // a genuine 5-day forward snap, from Fri 17 Jul to Wed 22 Jul.
+    const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "week", weekday: 3 };
     const next = nextSendDate(invoice(), config);
-    expect(next!.getDay()).toBe(5);
+    expect(next!.getDay()).toBe(3);
+    expect(localDate(next)).toBe("2026-07-22");
+  });
+
+  it("clamps a 31 Jan anchor to 28 Feb rather than overflowing to 3 Mar", () => {
+    // Feb 28 2026 is itself a Saturday (weekday: 6), so the subsequent
+    // weekday snap is a no-op here — this test isolates the month-clamp
+    // arithmetic from the weekday-snap arithmetic.
+    const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 6 };
+    const next = nextSendDate(invoice({ dueDate: "2026-01-31" }), config);
+    expect(localDate(next)).toBe("2026-02-28");
+  });
+
+  it("clamps a 31 Mar anchor to 30 Apr rather than overflowing to 1 May", () => {
+    // Apr 30 2026 is itself a Thursday (weekday: 4), so the subsequent
+    // weekday snap is a no-op here too.
+    const config: FollowupConfig = { ...weekly, mode: "custom", repeat: "month", weekday: 4 };
+    const next = nextSendDate(invoice({ dueDate: "2026-03-31" }), config);
+    expect(localDate(next)).toBe("2026-04-30");
   });
 });
 
@@ -162,8 +184,9 @@ describe("templateContext", () => {
   });
 
   it("counts days late, never negative", () => {
+    // dueDate is 2026-07-02; "today" of 2026-07-28 is exactly 26 days later.
     const ctx = templateContext(inv, "Sivan Studio", new Date(2026, 6, 28));
-    expect(Number(ctx.days_late)).toBeGreaterThan(0);
+    expect(ctx.days_late).toBe("26");
     const early = templateContext(inv, "Sivan Studio", new Date(2026, 5, 1));
     expect(early.days_late).toBe("0");
   });

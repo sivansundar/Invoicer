@@ -37,6 +37,20 @@ export function cadenceLabel(config: FollowupConfig): string {
 }
 
 /**
+ * Adds months without rolling past the end of a shorter target month —
+ * `Date#setMonth` on a month-end anchor (e.g. 31 Jan) overflows into the
+ * following month (3 Mar, skipping Feb entirely) rather than clamping to the
+ * target month's last day (28 Feb).
+ */
+function addMonthsClamped(date: Date, months: number): Date {
+  const day = date.getDate();
+  const shifted = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const lastDay = new Date(shifted.getFullYear(), shifted.getMonth() + 1, 0).getDate();
+  shifted.setDate(Math.min(day, lastDay));
+  return shifted;
+}
+
+/**
  * The first scheduled slot after the last reminder (or the due date).
  * Null means nothing more will be sent for this invoice.
  */
@@ -54,11 +68,13 @@ export function nextSendDate(
   if (config.stopAfter > 0 && sent.length >= config.stopAfter) return null;
 
   const anchor = sent.length > 0 ? sent[sent.length - 1] : invoice.dueDate;
-  const date = new Date(`${anchor}T00:00`);
+  const start = new Date(`${anchor}T00:00`);
 
+  let date: Date;
   if (config.mode === "custom" && config.repeat === "month") {
-    date.setMonth(date.getMonth() + 1);
+    date = addMonthsClamped(start, 1);
   } else {
+    date = new Date(start);
     date.setDate(date.getDate() + 7);
   }
 

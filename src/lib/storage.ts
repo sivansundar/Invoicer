@@ -1,8 +1,7 @@
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
-import { runMigration } from "./migrate";
+import { runMigration as runMigrationInternal } from "./migrate";
 
 export { nextInvoiceNumber } from "./numbering";
-export { runMigration };
 
 const BRANDS_KEY = "invoicer_brands";
 const CLIENTS_KEY = "invoicer_clients";
@@ -68,6 +67,28 @@ function getSnapshot<T>(key: string): T[] {
 
 function invalidate(key: string): void {
   snapshots.delete(key);
+  notify();
+}
+
+/**
+ * Runs the v1→v2 migration and clears every cached snapshot afterwards.
+ *
+ * `migrate.ts` writes the four data keys straight through `localStorage`,
+ * bypassing `setItem`/`invalidate` entirely (and must keep doing so — it
+ * cannot import this module, since this module already imports it). Without
+ * this wrapper, a hook that reads its snapshot during the same first render
+ * `Shell`'s `useEffect(() => runMigration())` runs in would cache
+ * pre-migration data, and nothing would ever tell that cache slot to drop
+ * it — the UI would keep serving pre-migration records (brands missing
+ * `accentColor`/`followup`, invoices missing `brandSnapshot`/`reminders`)
+ * for the rest of the session. Clearing the whole cache — not just the
+ * cache for a key we'd have to guess — makes invalidation the migration's
+ * own responsibility rather than every caller's.
+ */
+export function runMigration(): void {
+  runMigrationInternal();
+  snapshots.clear();
+  planSnapshot = null;
   notify();
 }
 
