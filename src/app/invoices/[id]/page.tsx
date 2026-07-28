@@ -83,19 +83,28 @@ export default function InvoiceDetailPage() {
   const followupState = resolveFollowupState(invoice, config);
   const showFollowups = invoice.status !== "draft" || invoice.reminders.length > 0;
 
+  // `save`/`remove` (from `useInvoices`) pass through `storage.ts`'s own
+  // return value — `false` means the write didn't actually persist (e.g. a
+  // full `localStorage` quota, which `storage.ts` has already toasted its
+  // own clear failure message for). Every handler below checks it and bails
+  // before its own success toast or any other side effect (closing a dialog,
+  // navigating away) — the invoice on screen must keep showing what's
+  // actually saved, not what the user just tried to save. "Mark as paid" is
+  // the sharpest case: toasting an amount "in the bank" that was never
+  // actually recorded is the worst version of this bug.
   const handleMarkSent = () => {
     if (!canMarkSent(invoice)) {
       toast("Add a due date before marking this sent");
       return;
     }
     const updated: Invoice = { ...invoice, status: "sent", updatedAt: new Date().toISOString() };
-    save(updated);
+    if (!save(updated)) return;
     toast(`${invoice.invoiceNumber} marked as sent`);
   };
 
   const handleMarkPaid = () => {
     const updated: Invoice = { ...invoice, status: "paid", updatedAt: new Date().toISOString() };
-    save(updated);
+    if (!save(updated)) return;
     const amount = formatCurrency(invoice.total, currency);
     toast(
       invoice.reminders.length > 0
@@ -110,7 +119,7 @@ export default function InvoiceDetailPage() {
       followupsPaused: !invoice.followupsPaused,
       updatedAt: new Date().toISOString(),
     };
-    save(updated);
+    if (!save(updated)) return;
     toast(
       updated.followupsPaused
         ? `Follow-ups paused for ${invoice.invoiceNumber}`
@@ -126,12 +135,12 @@ export default function InvoiceDetailPage() {
       reminders: [...invoice.reminders, format(new Date(), "yyyy-MM-dd")],
       updatedAt: new Date().toISOString(),
     };
-    save(updated);
+    if (!save(updated)) return;
     toast(`"${template?.name ?? "Reminder"}" sent to ${invoice.client.companyName}`);
   };
 
   const handleDelete = () => {
-    remove(invoice.id);
+    if (!remove(invoice.id)) return;
     setDeleteOpen(false);
     toast(`${invoice.invoiceNumber} deleted`);
     router.push("/");

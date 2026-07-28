@@ -179,7 +179,15 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       followupsPaused: isEdit ? existingInvoice.followupsPaused : false,
     };
 
-    save(invoice);
+    // `save` (from `useInvoices`) passes through `storage.saveInvoice`'s own
+    // return value — `false` means the write didn't actually persist (e.g. a
+    // full `localStorage` quota, which `storage.ts` has already toasted its
+    // own clear failure message for). Toasting success and navigating away
+    // regardless would tell the user this worked when it didn't, and take
+    // them off the one screen still holding what they typed.
+    const persisted = save(invoice);
+    if (!persisted) return;
+
     toast(
       asDraft
         ? "Draft saved — finish it anytime"

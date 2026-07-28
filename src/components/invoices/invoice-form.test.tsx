@@ -247,4 +247,37 @@ describe("InvoiceForm", () => {
     expect(push).not.toHaveBeenCalled();
     expect(storage.getInvoices()).toHaveLength(0);
   });
+
+  it("does not show the success toast or navigate away when the save itself fails", async () => {
+    // Regression coverage for the same false-success gap fix round 2 closed
+    // in brand-form.tsx: a full `localStorage` quota must not be reported as
+    // a successful save. `storage.ts` toasts its own "Storage is full…"
+    // failure message; `InvoiceForm` must neither toast its own success copy
+    // on top of that nor navigate away from the unsaved invoice.
+    storage.saveBrand(brand());
+    storage.saveClient(client());
+
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+
+    const descriptionInput = screen.getByPlaceholderText("What did you do?");
+    await user.type(descriptionInput, "Website redesign");
+    const row = descriptionInput.parentElement as HTMLElement;
+    const amountInput = row.querySelectorAll("input")[1];
+    await user.type(amountInput, "5000");
+
+    await user.click(screen.getByRole("button", { name: "Create invoice" }));
+
+    expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("sent to"));
+    expect(push).not.toHaveBeenCalled();
+    expect(storage.getInvoices()).toHaveLength(0);
+  });
 });
