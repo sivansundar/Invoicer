@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import type { Invoice } from "@/lib/types";
 import { monthlyPaidSeries } from "@/lib/chart";
@@ -40,6 +40,14 @@ export function RevenueChart({ invoices: allInvoices }: RevenueChartProps) {
 
   const [range, setRange] = useState<RangeMonths>(12);
 
+  // SVG ids are document-global — without a per-mount scope, a second chart
+  // on the page (e.g. Task 21's Reports screen) could silently resolve this
+  // gradient to the wrong instance's <defs>. useId() gives each mount its
+  // own id; the colon it returns is invalid in a CSS url(#…) selector, so
+  // strip it the same way ChartContainer already does.
+  const reactId = useId();
+  const gradientId = `fillTotal-${reactId.replace(/:/g, "")}`;
+
   const series = useMemo(() => monthlyPaidSeries(invoices, range), [invoices, range]);
   const total = useMemo(() => series.reduce((sum, point) => sum + point.total, 0), [series]);
 
@@ -75,7 +83,7 @@ export function RevenueChart({ invoices: allInvoices }: RevenueChartProps) {
       <ChartContainer config={chartConfig} className="h-[250px] w-full">
         <AreaChart data={series} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
           <defs>
-            <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="var(--color-total)" stopOpacity={0.8} />
               <stop offset="95%" stopColor="var(--color-total)" stopOpacity={0.05} />
             </linearGradient>
@@ -86,7 +94,7 @@ export function RevenueChart({ invoices: allInvoices }: RevenueChartProps) {
           <Area
             dataKey="total"
             type="linear"
-            fill="url(#fillTotal)"
+            fill={`url(#${gradientId})`}
             stroke="var(--color-total)"
             strokeWidth={2}
           />
