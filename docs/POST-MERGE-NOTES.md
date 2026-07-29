@@ -41,9 +41,6 @@ summary report correctly stays on bill dates. Full design in
 - **`loading` and `refresh` are dead** on all four collection hooks — leftover API shape from
   before `useSyncExternalStore`. No consumers.
 - **`usePlan().downgrade` is never called.**
-- **Export covers invoices only**, not brands, clients or templates. The Reports copy was
-  corrected to say so. A fuller `{ brands, clients, invoices, templates }` envelope would
-  change the import contract — worth doing, deliberately deferred.
 - **A corrupted custom email template** is silently replaced by the seeded defaults with no
   quarantine trail, unlike corrupted brands/clients/invoices which are quarantined.
 - **`site-header.tsx` shows "New client"** when editing an existing client. The sibling brand

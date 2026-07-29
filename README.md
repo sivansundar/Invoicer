@@ -188,7 +188,7 @@ Go to **Reports → Summary Report** to build a financial-year summary: pick a f
 
 ### 8 — Back Up Your Data
 
-Your data lives only in your browser's `localStorage`. To back it up or move it to another device, use **Reports → Export** to download a JSON snapshot. Use **Import** to restore from a snapshot; conflicting invoice numbers are resolved one at a time.
+Your data lives only in your browser's `localStorage`. To back it up or move it to another device, use **Reports → Export** to download a full backup — brands, clients, follow-up templates and invoices, in one file. Use **Import** to restore it: brands, clients and templates whose `id` already exists locally are skipped (never overwritten), and conflicting invoice numbers are resolved one at a time. Existing `invoices-<date>.json` files from before this format still import exactly as they always did.
 
 ---
 

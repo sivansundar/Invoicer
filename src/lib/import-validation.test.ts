@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateImportedInvoices } from "./import-validation";
+import { validateImportedBackup, validateImportedInvoices } from "./import-validation";
 
 function wellFormedInvoice(overrides: Record<string, unknown> = {}) {
   return {
@@ -108,5 +108,124 @@ describe("validateImportedInvoices", () => {
     if (!result.ok) throw new Error("expected ok: true");
     expect(result.valid).toEqual([good1, good2]);
     expect(result.skipped).toBe(2);
+  });
+});
+
+function wellFormedBrand(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "b1",
+    name: "Sivan Studio",
+    address: "12 MG Road, Bengaluru",
+    email: "hello@sivanstudio.com",
+    invoicePrefix: "SC",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    bankDetails: {
+      accountName: "Sivan Studio",
+      accountNumber: "1234567890",
+      bankName: "HDFC Bank",
+      ifscCode: "HDFC0000123",
+    },
+    ...overrides,
+  };
+}
+
+function wellFormedClient(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "c1",
+    companyName: "Acme Studio",
+    address: "12 Residency Rd, Bengaluru 560025",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function wellFormedTemplate(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "tpl-1",
+    name: "Gentle nudge",
+    subject: "Following up on {{invoiceNumber}}",
+    tone: "Friendly",
+    body: "Hi {{clientName}}, just a friendly nudge...",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("validateImportedBackup", () => {
+  it("rejects a payload that isn't a JSON object (arrays are handled by the legacy path instead)", () => {
+    expect(validateImportedBackup([])).toEqual({ ok: false });
+    expect(validateImportedBackup("just a string")).toEqual({ ok: false });
+    expect(validateImportedBackup(42)).toEqual({ ok: false });
+    expect(validateImportedBackup(null)).toEqual({ ok: false });
+  });
+
+  it("treats an absent collection as empty, not an error", () => {
+    const result = validateImportedBackup({ version: 2, invoices: [] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [], skipped: 0, invalidShape: false });
+    expect(result.clients).toEqual({ valid: [], skipped: 0, invalidShape: false });
+    expect(result.templates).toEqual({ valid: [], skipped: 0, invalidShape: false });
+  });
+
+  it("flags a collection that isn't an array without rejecting the rest of the file", () => {
+    const brand = wellFormedBrand();
+    const result = validateImportedBackup({
+      version: 2,
+      brands: [brand],
+      clients: "not a list",
+      templates: [],
+      invoices: [],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [brand], skipped: 0, invalidShape: false });
+    expect(result.clients).toEqual({ valid: [], skipped: 0, invalidShape: true });
+  });
+
+  it("validates brands, clients and templates independently, skipping malformed records", () => {
+    const goodBrand = wellFormedBrand();
+    const badBrand = wellFormedBrand({ id: "b2", bankDetails: undefined });
+    const goodClient = wellFormedClient();
+    const badClient = wellFormedClient({ id: "c2", companyName: "" });
+    const goodTemplate = wellFormedTemplate();
+    const badTemplate = wellFormedTemplate({ id: "tpl-2", tone: "Aggressive" });
+
+    const result = validateImportedBackup({
+      version: 2,
+      brands: [goodBrand, badBrand, null],
+      clients: [goodClient, badClient],
+      templates: [goodTemplate, badTemplate],
+      invoices: [],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [goodBrand], skipped: 2, invalidShape: false });
+    expect(result.clients).toEqual({ valid: [goodClient], skipped: 1, invalidShape: false });
+    expect(result.templates).toEqual({ valid: [goodTemplate], skipped: 1, invalidShape: false });
+  });
+
+  it("passes a well-formed full backup through intact", () => {
+    const brand = wellFormedBrand();
+    const client = wellFormedClient();
+    const template = wellFormedTemplate();
+    const invoice = wellFormedInvoice();
+
+    const result = validateImportedBackup({
+      version: 2,
+      exportedAt: "2026-07-28T00:00:00.000Z",
+      brands: [brand],
+      clients: [client],
+      templates: [template],
+      invoices: [invoice],
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [brand], skipped: 0, invalidShape: false });
+    expect(result.clients).toEqual({ valid: [client], skipped: 0, invalidShape: false });
+    expect(result.templates).toEqual({ valid: [template], skipped: 0, invalidShape: false });
+    expect(result.invoices).toEqual({ valid: [invoice], skipped: 0, invalidShape: false });
   });
 });
