@@ -18,6 +18,7 @@ import {
 import { Invoice, BrandSnapshot } from "@/lib/types";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
+import { chunkPaymentFieldRows, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
 
 Font.register({
   family: "JetBrains Mono",
@@ -33,8 +34,10 @@ Font.register({
   ],
 });
 
-// Noto Sans is registered solely for currency amounts — JetBrains Mono lacks the
-// ₹ glyph, causing it to render as a corrupt character in react-pdf.
+// Noto Sans is the PDF's body/sans font — it stands in for the app's Geist
+// Sans (a next/font/google face with no static file this renderer can load)
+// and is also what supplies the ₹ glyph that JetBrains Mono lacks, so
+// currency symbols are always wrapped in it explicitly below.
 Font.register({
   family: "Noto Sans",
   fonts: [
@@ -43,59 +46,118 @@ Font.register({
   ],
 });
 
+// Neutral palette lifted from the app's light-theme CSS variables
+// (src/app/globals.css :root) — the PDF always renders on white, regardless
+// of the viewer's app theme, so only the light values apply here.
+const color = {
+  foreground: "#1a1a1a",
+  mutedForeground: "#737373",
+  border: "#e5e5e5",
+  muted: "#f5f5f5",
+  primary: "#262626",
+  primaryForeground: "#fafafa",
+  accent: "#ececec",
+};
+
 const s = StyleSheet.create({
   page: {
-    fontFamily: "JetBrains Mono",
+    fontFamily: "Noto Sans",
     fontSize: 9,
     padding: 40,
-    color: "#1a1a1a",
+    color: color.foreground,
     backgroundColor: "#ffffff",
   },
+  mono: { fontFamily: "JetBrains Mono" },
+
+  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 24,
+    alignItems: "flex-start",
+    marginBottom: 26,
   },
-  brandSection: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  logo: { width: 32, height: 32, objectFit: "contain" },
-  brandName: { fontSize: 11, fontWeight: 700 },
-  brandDetail: { fontSize: 7, color: "#666", marginTop: 1 },
-  invoiceTitle: { fontSize: 16, fontWeight: 700, letterSpacing: 2 },
-  invoiceNumber: { fontSize: 10, fontWeight: 700, marginTop: 2, textAlign: "right" },
-  separator: { borderBottomWidth: 0.5, borderBottomColor: "#e0e0e0", marginVertical: 12 },
-  row: { flexDirection: "row" },
-  col: { flex: 1 },
-  label: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, fontWeight: 700 },
-  value: { fontSize: 9 },
-  tableHeader: {
+  brandSection: { flexDirection: "row", alignItems: "flex-start", gap: 8, minWidth: 0 },
+  logo: { width: 28, height: 28, borderRadius: 6, objectFit: "contain" },
+  logoFallback: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: color.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoFallbackText: { color: color.primaryForeground, fontSize: 12, fontWeight: 700 },
+  brandName: { fontSize: 10.5, fontWeight: 700 },
+  brandAddress: { fontSize: 8, color: color.mutedForeground, marginTop: 2, lineHeight: 1.5, maxWidth: 230 },
+  headerRight: { alignItems: "flex-end" },
+  eyebrow: { fontSize: 7, color: color.mutedForeground, textTransform: "uppercase", letterSpacing: 1 },
+  invoiceNumber: { fontSize: 9.5, marginTop: 3 },
+  paidPill: {
+    marginTop: 8,
+    backgroundColor: color.accent,
+    color: color.primary,
+    fontSize: 7.5,
+    fontWeight: 700,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+
+  // Parties
+  parties: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20, gap: 16 },
+  partyLabel: { fontSize: 8, color: color.mutedForeground, marginBottom: 3 },
+  billedToName: { fontSize: 9.5, fontWeight: 700 },
+  billedToAddress: { fontSize: 8, color: color.mutedForeground, marginTop: 2, lineHeight: 1.5, maxWidth: 260 },
+  datesRight: { alignItems: "flex-end" },
+  dateValue: { fontSize: 9.5, marginBottom: 6 },
+
+  // Line items
+  ruleStrong: { borderBottomWidth: 1, borderBottomColor: color.foreground, marginBottom: 2 },
+  itemRow: {
     flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#ccc",
-    paddingBottom: 4,
-    marginBottom: 4,
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    gap: 12,
   },
-  tableHeaderText: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 4,
+  itemDescription: { flex: 1, fontSize: 9.5 },
+  itemTaxNote: { fontSize: 8, color: color.mutedForeground },
+  itemAmount: { fontSize: 9.5 },
+
+  // Totals
+  totals: { borderTopWidth: 0.5, borderTopColor: color.border, marginTop: 2, paddingTop: 8, gap: 4 },
+  totalsRow: { flexDirection: "row", justifyContent: "space-between" },
+  totalsLabel: { fontSize: 9, color: color.mutedForeground },
+  totalsValue: { fontSize: 9 },
+  totalDueRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
+  totalDueLabel: { fontSize: 12, fontWeight: 700 },
+  totalDueValue: { fontSize: 12, fontWeight: 700 },
+
+  // Payment details
+  paymentBlock: { borderWidth: 0.5, borderColor: color.border, borderRadius: 8, marginTop: 24, overflow: "hidden" },
+  paymentHeaderStrip: {
+    backgroundColor: color.muted,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: color.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  colDesc: { flex: 1 },
-  colAmount: { width: 100, textAlign: "right" },
-  colTax: { width: 70, textAlign: "right" },
-  colTotal: { width: 100, textAlign: "right" },
-  totalsRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 2 },
-  totalsLabel: { fontSize: 9, color: "#666", width: 80 },
-  totalsValue: { fontSize: 9, width: 160, textAlign: "right" },
-  totalsBold: { fontSize: 11, fontWeight: 700, width: 160, textAlign: "right" },
-  totalsBoldLabel: { fontSize: 11, fontWeight: 700, width: 80 },
-  bankColumns: { flexDirection: "row", justifyContent: "space-between" },
-  bankColumn: { width: "48%" },
-  bankRow: { flexDirection: "row", marginBottom: 3 },
-  bankLabel: { fontSize: 8, color: "#888", width: 80 },
-  bankValue: { fontSize: 8 },
-  notes: { fontSize: 8, color: "#666", lineHeight: 1.5 },
+  paymentHeaderText: {
+    fontSize: 7.5,
+    fontWeight: 700,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: color.mutedForeground,
+  },
+  paymentRow: { flexDirection: "row" },
+  paymentRowDivider: { borderTopWidth: 0.5, borderTopColor: color.border },
+  paymentCell: { flex: 1, padding: 8 },
+  paymentCellDivider: { borderRightWidth: 0.5, borderRightColor: color.border },
+  paymentCellFull: { width: "100%", padding: 8 },
+  paymentLabel: { fontSize: 7.5, color: color.mutedForeground },
+  paymentValue: { fontSize: 8.5, fontWeight: 700, marginTop: 2 },
+
+  // Notes
+  notes: { fontSize: 8, color: color.mutedForeground, lineHeight: 1.6, marginTop: 20 },
 });
 
 interface InvoicePDFProps {
@@ -108,186 +170,138 @@ interface InvoicePDFProps {
   snapshot: BrandSnapshot;
 }
 
+// Derived from our own StyleSheet rather than react-pdf's exported types:
+// `Text`'s `style` prop type is a union that also covers its (unused here)
+// SVG overload, which is broader than what a plain object literal satisfies.
+type TextStyle = (typeof s)[keyof typeof s];
+
+/** Renders an amount with the currency symbol swapped to a face that has the
+ * glyph (JetBrains Mono lacks ₹), inside a tabular-number-friendly mono run. */
+function Amount({ n, currency, style }: { n: number; currency: Invoice["currency"]; style?: TextStyle }) {
+  const symbol = getCurrencySymbol(currency ?? "INR");
+  return (
+    <Text style={style ? [s.mono, style] : s.mono}>
+      <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>
+      {formatCurrencyAmount(n, currency ?? "INR")}
+    </Text>
+  );
+}
+
 export function InvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
   const cur = invoice.currency ?? "INR";
-  const symbol = getCurrencySymbol(cur);
-  const fmtAmount = (n: number) => formatCurrencyAmount(n, cur);
+  const isPaid = invoice.status === "paid";
+  const fields = paymentDetailFields(snapshot.bankDetails);
+  const rows = chunkPaymentFieldRows(fields);
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
           <View style={s.brandSection}>
-            {snapshot.logo && <PdfImage src={snapshot.logo} style={s.logo} />}
-            <View>
-              <Text style={s.brandName}>{snapshot.name}</Text>
-              <Text style={s.brandDetail}>{snapshot.address}</Text>
-              {snapshot.phone && (
-                <Text style={s.brandDetail}>{snapshot.phone}</Text>
-              )}
-              {snapshot.gstNumber && (
-                <Text style={s.brandDetail}>GST: {snapshot.gstNumber}</Text>
-              )}
-              <Text style={[s.brandDetail, { marginTop: 4 }]}>
-                <Text style={{ fontWeight: 700 }}>Email: </Text>
-                {snapshot.email}
-              </Text>
-              {snapshot.panNumber && (
-                <Text style={[s.brandDetail, { marginTop: 4 }]}>
-                  <Text style={{ fontWeight: 700 }}>PAN: </Text>
-                  {snapshot.panNumber}
+            {snapshot.logo ? (
+              <PdfImage src={snapshot.logo} style={s.logo} />
+            ) : (
+              <View style={s.logoFallback}>
+                <Text style={s.logoFallbackText}>
+                  {snapshot.name.trim().charAt(0).toUpperCase() || "?"}
                 </Text>
-              )}
+              </View>
+            )}
+            <View style={{ minWidth: 0 }}>
+              <Text style={s.brandName}>{snapshot.name}</Text>
+              <Text style={s.brandAddress}>{snapshot.address}</Text>
             </View>
           </View>
-          <View>
-            <Text style={s.invoiceTitle}>INVOICE</Text>
-            <Text style={s.invoiceNumber}>{invoice.invoiceNumber}</Text>
+          <View style={s.headerRight}>
+            <Text style={s.eyebrow}>Invoice</Text>
+            <Text style={[s.mono, s.invoiceNumber]}>{invoice.invoiceNumber}</Text>
+            {isPaid && <Text style={s.paidPill}>Paid</Text>}
           </View>
         </View>
 
-        <View style={s.separator} />
-
-        {/* Dates + Client */}
-        <View style={[s.row, { marginBottom: 16 }]}>
-          <View style={s.col}>
-            <View style={{ marginBottom: 8 }}>
-              <Text style={s.label}>Bill Date</Text>
-              <Text style={s.value}>
-                {formatStoredDate(invoice.billDate, "dd MMM yyyy")}
-              </Text>
-            </View>
-            <View>
-              <Text style={s.label}>Due Date</Text>
-              <Text style={s.value}>
-                {formatStoredDate(invoice.dueDate, "dd MMM yyyy")}
-              </Text>
-            </View>
+        {/* Parties */}
+        <View style={s.parties}>
+          <View style={{ minWidth: 0 }}>
+            <Text style={s.partyLabel}>Billed to</Text>
+            <Text style={s.billedToName}>{invoice.client.companyName}</Text>
+            <Text style={s.billedToAddress}>{invoice.client.address}</Text>
           </View>
-          <View style={s.col}>
-            <Text style={s.label}>Billed To</Text>
-            <Text style={[s.value, { fontWeight: 700 }]}>
-              {invoice.client.companyName}
+          <View style={s.datesRight}>
+            <Text style={s.partyLabel}>Bill date</Text>
+            <Text style={[s.mono, s.dateValue]}>
+              {formatStoredDate(invoice.billDate, "dd MMM yyyy")}
             </Text>
-            {invoice.client.name && (
-              <Text style={s.value}>{invoice.client.name}</Text>
-            )}
-            {invoice.client.address && (
-              <Text style={[s.value, { color: "#666" }]}>
-                {invoice.client.address}
-              </Text>
-            )}
-            {invoice.client.gstNumber && (
-              <Text style={[s.brandDetail, { marginTop: 2 }]}>
-                GST: {invoice.client.gstNumber}
-              </Text>
-            )}
+            <Text style={s.partyLabel}>Due date</Text>
+            <Text style={[s.mono, s.dateValue, { marginBottom: 0 }]}>
+              {formatStoredDate(invoice.dueDate, "dd MMM yyyy")}
+            </Text>
           </View>
         </View>
 
-        <View style={s.separator} />
-
-        {/* Line Items Table */}
-        <View style={s.tableHeader}>
-          <Text style={[s.tableHeaderText, s.colDesc]}>Description</Text>
-          <Text style={[s.tableHeaderText, s.colAmount]}>Amount</Text>
-          <Text style={[s.tableHeaderText, s.colTax]}>Tax</Text>
-          <Text style={[s.tableHeaderText, s.colTotal]}>Total</Text>
-        </View>
-        {invoice.items.map((item) => {
-          const taxAmt = (item.amount * item.tax) / 100;
-          return (
-            <View key={item.id} style={s.tableRow}>
-              <Text style={s.colDesc}>{item.description}</Text>
-              <Text style={s.colAmount}>
-                <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(item.amount)}
-              </Text>
-              <Text style={[s.colTax, { color: "#888" }]}>{item.tax}%</Text>
-              <Text style={s.colTotal}>
-                <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(item.amount + taxAmt)}
-              </Text>
-            </View>
-          );
-        })}
+        {/* Line items */}
+        <View style={s.ruleStrong} />
+        {invoice.items.map((item) => (
+          <View key={item.id} style={s.itemRow}>
+            <Text style={s.itemDescription}>
+              {item.description}
+              {item.tax > 0 && <Text style={s.itemTaxNote}> · {item.tax}% tax</Text>}
+            </Text>
+            <Amount n={item.amount} currency={cur} style={s.itemAmount} />
+          </View>
+        ))}
 
         {/* Totals */}
-        <View style={{ marginTop: 12, alignItems: "flex-end" }}>
+        <View style={s.totals}>
           <View style={s.totalsRow}>
             <Text style={s.totalsLabel}>Subtotal</Text>
-            <Text style={s.totalsValue}>
-              <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.subtotal)}
-            </Text>
+            <Amount n={invoice.subtotal} currency={cur} style={s.totalsValue} />
           </View>
           <View style={s.totalsRow}>
-            <Text style={s.totalsLabel}>Tax</Text>
-            <Text style={s.totalsValue}>
-              <Text style={{ fontFamily: "Noto Sans" }}>{symbol}</Text>{fmtAmount(invoice.totalTax)}
-            </Text>
+            <Text style={s.totalsLabel}>{taxLabel(invoice.items)}</Text>
+            <Amount n={invoice.totalTax} currency={cur} style={s.totalsValue} />
           </View>
-          <View style={[s.separator, { width: 240, marginVertical: 4 }]} />
-          <View style={s.totalsRow}>
-            <Text style={s.totalsBoldLabel}>Total</Text>
-            <Text style={s.totalsBold}>
-              <Text style={{ fontFamily: "Noto Sans", fontWeight: 700 }}>{symbol}</Text>{fmtAmount(invoice.total)}
-            </Text>
+          <View style={s.totalDueRow}>
+            <Text style={s.totalDueLabel}>Total due</Text>
+            <Amount n={invoice.total} currency={cur} style={s.totalDueValue} />
           </View>
         </View>
 
-        <View style={[s.separator, { marginTop: 20 }]} />
-
-        {/* Bank Details */}
-        <View>
-          <Text style={[s.label, { marginBottom: 6 }]}>Payment Details</Text>
-          <View style={s.bankColumns}>
-            {/* Left column: Account Name, Bank, Branch */}
-            <View style={s.bankColumn}>
-              <View style={s.bankRow}>
-                <Text style={s.bankLabel}>Account Name</Text>
-                <Text style={s.bankValue}>
-                  {snapshot.bankDetails.accountName}
-                </Text>
-              </View>
-              <View style={s.bankRow}>
-                <Text style={s.bankLabel}>Bank</Text>
-                <Text style={s.bankValue}>{snapshot.bankDetails.bankName}</Text>
-              </View>
-              {snapshot.bankDetails.branch && (
-                <View style={s.bankRow}>
-                  <Text style={s.bankLabel}>Branch</Text>
-                  <Text style={s.bankValue}>{snapshot.bankDetails.branch}</Text>
-                </View>
-              )}
+        {/* Payment details */}
+        {rows.length > 0 && (
+          <View style={s.paymentBlock}>
+            <View style={s.paymentHeaderStrip}>
+              <Text style={s.paymentHeaderText}>Payment details</Text>
             </View>
-            {/* Right column: Account Number, IFSC, UPI */}
-            <View style={s.bankColumn}>
-              <View style={s.bankRow}>
-                <Text style={s.bankLabel}>Account No.</Text>
-                <Text style={s.bankValue}>
-                  {snapshot.bankDetails.accountNumber}
-                </Text>
+            {rows.map((row, rowIndex) => (
+              <View
+                key={row.map((f) => f.label).join("|")}
+                style={rowIndex === 0 ? s.paymentRow : [s.paymentRow, s.paymentRowDivider]}
+              >
+                {row.length === 2 ? (
+                  <>
+                    <View style={[s.paymentCell, s.paymentCellDivider]}>
+                      <Text style={s.paymentLabel}>{row[0].label}</Text>
+                      <Text style={s.paymentValue}>{row[0].value}</Text>
+                    </View>
+                    <View style={s.paymentCell}>
+                      <Text style={s.paymentLabel}>{row[1].label}</Text>
+                      <Text style={s.paymentValue}>{row[1].value}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={s.paymentCellFull}>
+                    <Text style={s.paymentLabel}>{row[0].label}</Text>
+                    <Text style={s.paymentValue}>{row[0].value}</Text>
+                  </View>
+                )}
               </View>
-              <View style={s.bankRow}>
-                <Text style={s.bankLabel}>IFSC</Text>
-                <Text style={s.bankValue}>{snapshot.bankDetails.ifscCode}</Text>
-              </View>
-              {snapshot.bankDetails.upiId && (
-                <View style={s.bankRow}>
-                  <Text style={s.bankLabel}>UPI</Text>
-                  <Text style={s.bankValue}>{snapshot.bankDetails.upiId}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Notes */}
-        {invoice.notes && (
-          <View style={{ marginTop: 16 }}>
-            <View style={s.separator} />
-            <Text style={[s.label, { marginBottom: 4 }]}>Notes</Text>
-            <Text style={s.notes}>{invoice.notes}</Text>
+            ))}
           </View>
         )}
+
+        {/* Notes */}
+        {invoice.notes && <Text style={s.notes}>{invoice.notes}</Text>}
       </Page>
     </Document>
   );

@@ -122,12 +122,20 @@ export function InvoicePreview({
             Payment details
           </div>
           <div className="grid grid-cols-2 gap-px bg-border">
-            {fields.map((field) => (
-              <div key={field.label} className="bg-card px-3 py-1.5 text-xs">
-                <p className="text-[11px] text-muted-foreground">{field.label}</p>
-                <p className="font-medium tabular-nums break-words">{field.value}</p>
-              </div>
-            ))}
+            {fields.map((field, index) => {
+              // A lone trailing field (odd total count) spans both columns
+              // instead of leaving an empty cell beside it.
+              const isLoneLast = index === fields.length - 1 && fields.length % 2 === 1;
+              return (
+                <div
+                  key={field.label}
+                  className={`bg-card px-3 py-1.5 text-xs ${isLoneLast ? "col-span-2" : ""}`}
+                >
+                  <p className="text-[11px] text-muted-foreground">{field.label}</p>
+                  <p className="font-medium tabular-nums break-words">{field.value}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

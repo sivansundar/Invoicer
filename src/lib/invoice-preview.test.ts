@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { paymentDetailFields, taxLabel } from "./invoice-preview";
+import { chunkPaymentFieldRows, paymentDetailFields, taxLabel } from "./invoice-preview";
 import type { BankDetails, LineItem } from "./types";
+import type { PaymentDetailField } from "./invoice-preview";
 
 function item(tax: number, amount = 100): LineItem {
   return { id: Math.random().toString(), description: "x", amount, tax };
@@ -79,6 +80,38 @@ describe("paymentDetailFields", () => {
       { label: "Account number", value: "12345" },
       { label: "IFSC", value: "HDFC0001" },
       { label: "UPI ID", value: "acme@upi" },
+    ]);
+  });
+});
+
+function field(label: string): PaymentDetailField {
+  return { label, value: `${label} value` };
+}
+
+describe("chunkPaymentFieldRows", () => {
+  it("is empty when there are no fields", () => {
+    expect(chunkPaymentFieldRows([])).toEqual([]);
+  });
+
+  it("puts a single field in a row of its own", () => {
+    const a = field("Account name");
+    expect(chunkPaymentFieldRows([a])).toEqual([[a]]);
+  });
+
+  it("pairs up an even number of fields into full rows", () => {
+    const [a, b, c, d] = ["A", "B", "C", "D"].map(field);
+    expect(chunkPaymentFieldRows([a, b, c, d])).toEqual([
+      [a, b],
+      [c, d],
+    ]);
+  });
+
+  it("leaves a trailing odd field alone in the last row", () => {
+    const [a, b, c, d, e] = ["A", "B", "C", "D", "E"].map(field);
+    expect(chunkPaymentFieldRows([a, b, c, d, e])).toEqual([
+      [a, b],
+      [c, d],
+      [e],
     ]);
   });
 });

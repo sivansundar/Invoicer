@@ -59,3 +59,20 @@ export function paymentDetailFields(bankDetails: BankDetails | undefined): Payme
     value: (bankDetails[key] ?? "").trim(),
   })).filter((field) => field.value !== "");
 }
+
+/**
+ * Chunks payment-detail fields into rows of (up to) two, for renderers that
+ * must lay out the two-column payment grid by hand rather than with CSS
+ * grid — namely the PDF, which is built with `@react-pdf/renderer`'s
+ * flexbox-only layout. A trailing odd field forms its own row of one, which
+ * callers render at full width instead of leaving a paired cell empty.
+ */
+export function chunkPaymentFieldRows(
+  fields: PaymentDetailField[]
+): PaymentDetailField[][] {
+  const rows: PaymentDetailField[][] = [];
+  for (let i = 0; i < fields.length; i += 2) {
+    rows.push(fields.slice(i, i + 2));
+  }
+  return rows;
+}
