@@ -160,6 +160,12 @@ export function migrateToV2(input: RawPayload): V2Payload {
         null,
       reminders: invoice.reminders ?? [],
       followupsPaused: invoice.followupsPaused ?? false,
+      // A stale payment date on an invoice that isn't (or is no longer)
+      // "paid" is worse than no date at all — see `paid-on.ts` and
+      // `chart.ts`'s `monthlyPaidSeries`. Deliberately NOT backfilled for a
+      // "paid" invoice that has none: its real payment date is unknown, and
+      // fabricating one would make the data look more precise than it is.
+      paidOn: invoice.status === "paid" ? invoice.paidOn : undefined,
     };
   });
 

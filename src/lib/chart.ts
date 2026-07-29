@@ -17,9 +17,10 @@ export interface MonthPoint {
 }
 
 /**
- * Sums invoices with status "paid" by their bill month. Note: the series reflects
- * when work was *billed* (billDate), not when payment was *received*, because the
- * Invoice model does not record a payment date.
+ * Sums invoices with status "paid" by the month payment actually arrived
+ * (`paidOn`). Falls back to `billDate` for invoices with no `paidOn` — every
+ * invoice paid before that field existed, since its real payment date is
+ * unknown and was deliberately never backfilled (see `migrateToV2`).
  */
 export function monthlyPaidSeries(
   invoices: Invoice[],
@@ -39,7 +40,8 @@ export function monthlyPaidSeries(
   const byKey = new Map(months.map((m) => [m.key, m]));
   for (const invoice of invoices) {
     if (invoice.status !== "paid") continue;
-    const point = byKey.get(invoice.billDate.slice(0, 7));
+    const bucketDate = invoice.paidOn ?? invoice.billDate;
+    const point = byKey.get(bucketDate.slice(0, 7));
     if (!point) continue;
     point.total += invoice.total * APPROX_INR_RATES[invoice.currency ?? "INR"];
   }

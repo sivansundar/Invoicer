@@ -12,6 +12,8 @@ import { InvoicePreview } from "@/components/invoices/invoice-preview";
 import { StatusBadge } from "@/components/invoices/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +29,7 @@ import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
 import { taxLabel } from "@/lib/invoice-preview";
 import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
+import { validatePaidOn } from "@/lib/paid-on";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { FollowupConfig, Invoice } from "@/lib/types";
@@ -103,7 +106,15 @@ export default function InvoiceDetailPage() {
   };
 
   const handleMarkPaid = () => {
-    const updated: Invoice = { ...invoice, status: "paid", updatedAt: new Date().toISOString() };
+    // Defaults `paidOn` to today — one click, no friction. Editable
+    // afterwards from the "Paid on" field below: you mark an invoice paid
+    // when you *notice*, not necessarily when the money actually landed.
+    const updated: Invoice = {
+      ...invoice,
+      status: "paid",
+      paidOn: format(new Date(), "yyyy-MM-dd"),
+      updatedAt: new Date().toISOString(),
+    };
     if (!save(updated)) return;
     const amount = formatCurrency(invoice.total, currency);
     toast(
@@ -111,6 +122,29 @@ export default function InvoiceDetailPage() {
         ? `${amount} in the bank — follow-ups stopped`
         : `${amount} in the bank — nice work`
     );
+  };
+
+  // Editing `paidOn` never touches status, amount, or anything else about
+  // the invoice — it only moves which month's revenue this invoice counts
+  // toward on the dashboard chart (`monthlyPaidSeries`). Validated rather
+  // than clamped: a rejected edit leaves the field showing the last
+  // persisted value (it's a controlled input bound to `invoice.paidOn`, not
+  // local state), so there's nothing to revert.
+  const handlePaidOnChange = (value: string) => {
+    if (value) {
+      const result = validatePaidOn(value, invoice.billDate);
+      if (!result.ok) {
+        toast(result.error);
+        return;
+      }
+    }
+    const updated: Invoice = {
+      ...invoice,
+      paidOn: value || undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!save(updated)) return;
+    toast(value ? "Payment date updated" : "Payment date cleared");
   };
 
   const handleTogglePause = () => {
@@ -289,6 +323,22 @@ export default function InvoiceDetailPage() {
               <p className="text-xs text-muted-foreground mb-2">Dates</p>
               <p className="text-[13px]">Billed {formatDate(invoice.billDate)}</p>
               <p className="text-[13px] mt-1">Due {formatDate(invoice.dueDate)}</p>
+              {invoice.status === "paid" && (
+                <div className="mt-2.5 pt-2.5 border-t space-y-1">
+                  <Label className="text-xs text-muted-foreground" htmlFor="paid-on">
+                    Paid on
+                  </Label>
+                  <Input
+                    id="paid-on"
+                    type="date"
+                    value={invoice.paidOn ?? ""}
+                    min={invoice.billDate || undefined}
+                    max={format(new Date(), "yyyy-MM-dd")}
+                    onChange={(e) => handlePaidOnChange(e.target.value)}
+                    className="text-sm h-8"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

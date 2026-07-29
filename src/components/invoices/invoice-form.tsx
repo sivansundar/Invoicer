@@ -157,6 +157,19 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     const clientId = isManualClient ? null : selectValue || null;
     const { subtotal, totalTax, total } = computeTotals(items);
 
+    // `paidOn` never appears in this form's own UI — it's edited from the
+    // invoice detail screen — but this save path can still invalidate it two
+    // ways: "Save as draft" moves status off "paid", which must clear it
+    // (a stale payment date on an unpaid invoice is worse than none), and
+    // editing `billDate` forward past an already-recorded `paidOn` would
+    // leave a payment date that precedes the bill it's for, the same
+    // incoherent state `paid-on.ts` rejects when the date is entered
+    // directly. Otherwise the existing value is carried through untouched.
+    const paidOn =
+      status === "paid" && existingInvoice?.paidOn && existingInvoice.paidOn >= billDate
+        ? existingInvoice.paidOn
+        : undefined;
+
     const invoice: Invoice = {
       id: isEdit ? existingInvoice.id : crypto.randomUUID(),
       invoiceNumber,
@@ -177,6 +190,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       clientId,
       reminders: isEdit ? existingInvoice.reminders : [],
       followupsPaused: isEdit ? existingInvoice.followupsPaused : false,
+      paidOn,
     };
 
     // `save` (from `useInvoices`) passes through `storage.saveInvoice`'s own

@@ -76,6 +76,15 @@ export interface Invoice {
   /** ISO "yyyy-MM-dd" dates on which a reminder was recorded. MOCK: nothing is sent. */
   reminders: string[];
   followupsPaused: boolean;
+  /**
+   * "yyyy-MM-dd" date payment actually arrived, as distinct from `billDate`.
+   * Set to today when the invoice is marked paid; editable afterwards from
+   * the invoice detail screen because you mark an invoice paid when you
+   * *notice*, not when the money landed. Undefined for invoices paid before
+   * this field existed — never backfilled, since the real date is unknown —
+   * and cleared whenever `status` moves off `"paid"`.
+   */
+  paidOn?: string;
 }
 
 export type EmailTone = "Friendly" | "Direct" | "Firm";
