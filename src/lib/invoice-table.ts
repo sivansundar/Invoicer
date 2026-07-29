@@ -1,3 +1,4 @@
+import { effectiveStatus } from "./dashboard";
 import type { Invoice, InvoiceStatus } from "./types";
 
 export type InvoiceTab = "all" | InvoiceStatus;
@@ -13,6 +14,10 @@ export interface InvoiceTablePipelineParams {
   /** 1-based. */
   page: number;
   pageSize: number;
+  /** Defaults to `new Date()`. Threaded through for deterministic tests —
+   *  the tab filter is scoped against `effectiveStatus`, not the raw stored
+   *  status, so "today" affects which invoices count as overdue. */
+  today?: Date;
 }
 
 export interface InvoiceTablePipelineResult {
@@ -50,14 +55,20 @@ function matchesQuery(invoice: Invoice, needle: string): boolean {
 export function runInvoiceTablePipeline(
   params: InvoiceTablePipelineParams
 ): InvoiceTablePipelineResult {
-  const { invoices, brandId, tab, query, page, pageSize } = params;
+  const { invoices, brandId, tab, query, page, pageSize, today = new Date() } = params;
 
   const brandScoped = brandId
     ? invoices.filter((invoice) => invoice.brandId === brandId)
     : invoices;
 
+  // effectiveStatus, not the raw stored status — "overdue" is never actually
+  // written (see dashboard.ts's doc), so a raw-status tab filter would leave
+  // the Overdue tab permanently empty and never move a late invoice out of
+  // the Sent tab.
   const tabScoped =
-    tab === "all" ? brandScoped : brandScoped.filter((invoice) => invoice.status === tab);
+    tab === "all"
+      ? brandScoped
+      : brandScoped.filter((invoice) => effectiveStatus(invoice, today) === tab);
 
   const needle = query.trim().toLowerCase();
   const filtered = tabScoped
@@ -83,13 +94,20 @@ export type InvoiceTabCounts = Record<InvoiceTab, number>;
  * of the search query and the selected tab, so the pills always describe the
  * whole (brand-scoped) dataset rather than chasing whatever the user typed.
  */
-export function invoiceTabCounts(invoices: Invoice[], brandId: string | null): InvoiceTabCounts {
+export function invoiceTabCounts(
+  invoices: Invoice[],
+  brandId: string | null,
+  today: Date = new Date()
+): InvoiceTabCounts {
   const scoped = brandId ? invoices.filter((invoice) => invoice.brandId === brandId) : invoices;
+  // paid/draft are read straight off the stored status (never reclassified);
+  // sent/overdue go through effectiveStatus so a late invoice counts once,
+  // under Overdue, not under Sent — see dashboard.ts's doc.
   return {
     all: scoped.length,
     paid: scoped.filter((invoice) => invoice.status === "paid").length,
-    sent: scoped.filter((invoice) => invoice.status === "sent").length,
+    sent: scoped.filter((invoice) => effectiveStatus(invoice, today) === "sent").length,
     draft: scoped.filter((invoice) => invoice.status === "draft").length,
-    overdue: scoped.filter((invoice) => invoice.status === "overdue").length,
+    overdue: scoped.filter((invoice) => effectiveStatus(invoice, today) === "overdue").length,
   };
 }

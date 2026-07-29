@@ -52,6 +52,13 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   const [renameMode, setRenameMode] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [showConflictDialog, setShowConflictDialog] = useState(false);
+  // Every invoice number already in storage at the moment the file was
+  // parsed — the "rename" resolution below is validated against this (plus
+  // already-resolved renames and the batch's own non-conflicting incoming
+  // numbers) so typing/confirming a number that's still taken can't create
+  // a fresh duplicate, which is exactly the bug the rename dialog exists to
+  // prevent.
+  const [existingNumbers, setExistingNumbers] = useState<Set<string>>(new Set());
   // Set while a file is being parsed, read again once conflict resolution
   // (which can take several dialog round-trips) finishes and the final
   // summary is built — the validation pass happens once, up front.
@@ -133,6 +140,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
       setNonConflicting(newNonConflicting);
       setConflicts(newConflicts);
+      setExistingNumbers(new Set(existingByNumber.keys()));
       setResolutions([]);
       setConflictIndex(0);
       setRenameMode(false);
@@ -256,6 +264,21 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
   const currentConflict = conflicts[conflictIndex];
 
+  // Taken = already in storage, already chosen as a rename earlier in this
+  // same batch, or already claimed by one of the batch's own non-conflicting
+  // incoming invoices — any of the three would land two invoices under the
+  // same number the moment this resolution (plus the rest of the batch) is
+  // saved. The prefilled default (the conflicting number itself) always
+  // collides via the first check, which is exactly why Confirm must stay
+  // disabled until the user actually changes it.
+  const trimmedRename = renameValue.trim();
+  const renameTaken =
+    trimmedRename.length > 0 &&
+    (existingNumbers.has(trimmedRename) ||
+      resolutions.some((r) => r.action === "rename" && r.newNumber === trimmedRename) ||
+      nonConflicting.some((inv) => inv.invoiceNumber === trimmedRename));
+  const renameValid = trimmedRename.length > 0 && !renameTaken;
+
   return (
     <>
       <input
@@ -368,10 +391,10 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && renameValue.trim()) {
+                        if (e.key === "Enter" && renameValid) {
                           applyResolution({
                             action: "rename",
-                            newNumber: renameValue.trim(),
+                            newNumber: trimmedRename,
                           });
                         }
                       }}
@@ -380,11 +403,11 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
                     <Button
                       size="sm"
                       className="text-xs"
-                      disabled={!renameValue.trim()}
+                      disabled={!renameValid}
                       onClick={() =>
                         applyResolution({
                           action: "rename",
-                          newNumber: renameValue.trim(),
+                          newNumber: trimmedRename,
                         })
                       }
                     >
@@ -402,6 +425,11 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
                       Back
                     </Button>
                   </div>
+                  {renameTaken && (
+                    <p className="text-xs text-destructive">
+                      That invoice number is already in use — choose a different one.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

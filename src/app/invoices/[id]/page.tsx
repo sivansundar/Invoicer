@@ -25,7 +25,7 @@ import { useBrands } from "@/hooks/use-brands";
 import { useTemplates } from "@/hooks/use-templates";
 import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
 import { taxLabel } from "@/lib/invoice-preview";
-import { daysLate } from "@/lib/dashboard";
+import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
@@ -163,7 +163,11 @@ export default function InvoiceDetailPage() {
               <h1 className="text-2xl font-semibold tracking-[-0.02em] font-mono">
                 {invoice.invoiceNumber}
               </h1>
-              <StatusBadge status={invoice.status} />
+              {/* effectiveStatus, not the raw stored status — the due line
+                  right below already derives its "overdue" wording from
+                  daysLate, and the badge must not contradict it by saying
+                  "Sent" next to "N days overdue". */}
+              <StatusBadge status={effectiveStatus(invoice)} />
             </div>
             <p className={cn("text-sm mt-1.5", line.destructive ? "text-destructive" : "text-muted-foreground")}>
               {line.text}

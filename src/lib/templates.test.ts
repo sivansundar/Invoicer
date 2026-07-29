@@ -66,6 +66,17 @@ describe("sampleInvoiceForPreview", () => {
     // ...and among same-status invoices, array order (not id, not date) wins.
     expect(sampleInvoiceForPreview(sentOnly)?.id).toBe("sent-2");
   });
+
+  it("treats a sent invoice past its due date as overdue for preview purposes (effectiveStatus, not stored status)", () => {
+    // Nothing this app writes ever stores status "overdue" literally — this
+    // is the real-world shape the preview must actually match against.
+    const today = new Date(2026, 6, 28);
+    const invoices = [
+      invoice("sent-1", { status: "sent", dueDate: "2026-06-01" }), // well past due
+      invoice("sent-2", { status: "sent", dueDate: "2026-08-01" }), // not yet due
+    ];
+    expect(sampleInvoiceForPreview(invoices, today)?.id).toBe("sent-1");
+  });
 });
 
 describe("templateBrandNames", () => {

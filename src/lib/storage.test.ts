@@ -106,6 +106,33 @@ function fullBrand(overrides: Partial<Brand> = {}): Brand {
   };
 }
 
+describe("storage — corrupt stored value", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+  });
+
+  // getSnapshot (useSyncExternalStore's snapshot function) reads straight
+  // through getItem with no error boundary anywhere above it — an unguarded
+  // JSON.parse or missing Array.isArray check here throws during render and
+  // white-screens every route, not just the screen that touches this key.
+  it("reads an empty array instead of throwing for unparseable JSON", async () => {
+    localStorage.setItem("invoicer_brands", "{not valid json");
+    const storage = await import("./storage");
+    expect(() => storage.getBrands()).not.toThrow();
+    expect(storage.getBrands()).toEqual([]);
+    expect(() => storage.getBrandsSnapshot()).not.toThrow();
+    expect(storage.getBrandsSnapshot()).toEqual([]);
+  });
+
+  it("reads an empty array instead of throwing for valid JSON that isn't an array", async () => {
+    localStorage.setItem("invoicer_invoices", JSON.stringify({ not: "an array" }));
+    const storage = await import("./storage");
+    expect(() => storage.getInvoices()).not.toThrow();
+    expect(storage.getInvoices()).toEqual([]);
+  });
+});
+
 describe("storage — quota exceeded", () => {
   beforeEach(() => {
     localStorage.clear();

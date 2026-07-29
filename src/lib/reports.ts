@@ -1,4 +1,5 @@
 import { Invoice, InvoiceStatus, Currency } from "./types";
+import { effectiveStatus } from "./dashboard";
 
 // Financial year runs April → March (Indian FY). A financial year is identified
 // by its starting calendar year: FY 2025-26 has startYear 2025 and spans
@@ -77,7 +78,11 @@ function monthKey(year: number, month: number): number {
   return year * 12 + month;
 }
 
-export function filterInvoices(invoices: Invoice[], filters: ReportFilters): Invoice[] {
+export function filterInvoices(
+  invoices: Invoice[],
+  filters: ReportFilters,
+  today: Date = new Date()
+): Invoice[] {
   const fromKey = monthKey(
     calendarYearForFyMonth(filters.startYear, filters.fromMonth),
     filters.fromMonth
@@ -94,7 +99,10 @@ export function filterInvoices(invoices: Invoice[], filters: ReportFilters): Inv
       if (!parsed) return false;
       const key = monthKey(parsed.year, parsed.month);
       if (key < fromKey || key > toKey) return false;
-      if (!statusSet.has(inv.status)) return false;
+      // effectiveStatus, not the raw stored status — nothing this app writes
+      // ever stores "overdue" literally (see dashboard.ts's doc), so
+      // checking the Overdue box here previously matched nothing, ever.
+      if (!statusSet.has(effectiveStatus(inv, today))) return false;
       if (filters.brandId && inv.brandId !== filters.brandId) return false;
       return true;
     })

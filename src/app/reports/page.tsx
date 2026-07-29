@@ -40,7 +40,7 @@ function ReportsPageContent() {
       <div className="border rounded-[14px] bg-card shadow-sm p-6">
         <h2 className="text-sm font-semibold">Import and export</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          Take your invoices, brands and clients with you — or bring them back.
+          Take your invoices with you — or bring them back.
         </p>
         <div className="mt-4 flex gap-2">
           <ImportExport onImportDone={() => {}} />

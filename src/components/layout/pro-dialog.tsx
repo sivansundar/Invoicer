@@ -32,7 +32,10 @@ export function ProDialog({
   const router = useRouter();
 
   const handleUpgrade = () => {
-    upgrade();
+    // `upgrade()` returns whether the write actually persisted — a quota
+    // failure must not tell the user Pro is unlocked and send them off to
+    // create a brand while `isPro` is still false underneath them.
+    if (!upgrade()) return;
     onOpenChange(false);
     router.push("/brands/create");
     toast("Pro unlocked for this prototype");

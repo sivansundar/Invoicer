@@ -1,3 +1,4 @@
+import { effectiveStatus } from "./dashboard";
 import type { Brand, Invoice } from "./types";
 
 /**
@@ -16,12 +17,17 @@ import type { Brand, Invoice } from "./types";
  * sorts), matching the "don't sort by createdAt" rule the rest of this
  * feature already follows, so the pick is stable and doesn't depend on
  * which invoice a caller happens to add most recently.
+ *
+ * Matched via `effectiveStatus` (`@/lib/dashboard`), not the raw stored
+ * status — nothing this app writes ever stores "overdue" literally, so a
+ * raw-status check here could never find one and this preview would never
+ * reflect the exact case a reminder email is written for.
  */
-export function sampleInvoiceForPreview(invoices: Invoice[]): Invoice | null {
-  const overdue = invoices.find((invoice) => invoice.status === "overdue");
+export function sampleInvoiceForPreview(invoices: Invoice[], today: Date = new Date()): Invoice | null {
+  const overdue = invoices.find((invoice) => effectiveStatus(invoice, today) === "overdue");
   if (overdue) return overdue;
 
-  const sent = invoices.find((invoice) => invoice.status === "sent");
+  const sent = invoices.find((invoice) => effectiveStatus(invoice, today) === "sent");
   if (sent) return sent;
 
   return invoices[0] ?? null;

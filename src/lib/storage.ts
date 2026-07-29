@@ -13,10 +13,24 @@ const INVOICES_KEY = "invoicer_invoices";
 const TEMPLATES_KEY = "invoicer_templates";
 const PLAN_KEY = "invoicer_plan";
 
+/**
+ * Same hardening as `migrate.ts`'s own `read()` — unguarded, this fed
+ * `getSnapshot`, which is `useSyncExternalStore`'s snapshot function. A
+ * corrupt value (tampered with, or corrupted after `VERSION_KEY` was
+ * written, which the migration never revisits) threw straight out of a
+ * render with no error boundary anywhere in the tree: a white screen on
+ * every route, unrecoverable without devtools.
+ */
 function getItem<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
   const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+  try {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 /**

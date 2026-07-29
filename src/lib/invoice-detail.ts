@@ -25,6 +25,14 @@ function plural(n: number, unit: string): string {
  * `Math.round(NaN)` would otherwise produce. A `dueDate` that is present but
  * fails to parse (e.g. corrupted storage) hits the same `NaN` and gets its
  * own honest "unreadable" copy rather than the plausible-but-false "Past due".
+ *
+ * The overdue branch below checks `daysLateCount > 0` on a `sent` invoice,
+ * not `invoice.status === "overdue"` alone — nothing this app writes ever
+ * stores that status (see `dashboard.ts`'s `effectiveStatus`), so a
+ * status-only check left every genuinely late invoice falling through to the
+ * "sent" branch's grey, count-less "Past due" below instead of this
+ * destructive line. A literal stored "overdue" (import/hand-edited data)
+ * still takes this branch regardless of `daysLateCount`.
  */
 export function dueLine(
   invoice: Invoice,
@@ -37,7 +45,7 @@ export function dueLine(
   if (invoice.status === "draft") {
     return { text: "Draft — not sent to the client yet", destructive: false };
   }
-  if (invoice.status === "overdue") {
+  if (invoice.status === "overdue" || (invoice.status === "sent" && daysLateCount > 0)) {
     return {
       text: `${plural(daysLateCount, "day")} overdue — a friendly nudge might help`,
       destructive: true,

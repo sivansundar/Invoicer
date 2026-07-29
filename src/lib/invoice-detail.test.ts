@@ -69,6 +69,17 @@ describe("dueLine", () => {
     });
   });
 
+  it("marks a sent invoice destructive-overdue once daysLateCount is positive, not just a literal 'overdue' status", () => {
+    // Nothing this app writes ever stores status "overdue" (see
+    // dashboard.ts's effectiveStatus) — this is the real-world shape a late
+    // invoice actually arrives in: status stays "sent", and daysLate (passed
+    // in by the caller) is what tells this line to go destructive.
+    expect(dueLine(makeInvoice({ status: "sent", dueDate: "2026-06-01" }), 39, today)).toEqual({
+      text: "39 days overdue — a friendly nudge might help",
+      destructive: true,
+    });
+  });
+
   it("reads Past due once a sent invoice's due date has passed", () => {
     expect(dueLine(makeInvoice({ status: "sent", dueDate: "2026-07-01" }), 0, today)).toEqual({
       text: "Past due",

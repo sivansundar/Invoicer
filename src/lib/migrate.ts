@@ -179,14 +179,36 @@ export function migrateToV2(input: RawPayload): V2Payload {
   };
 }
 
-function read(key: string): unknown[] {
+/**
+ * A whole localStorage key that failed to parse as an array — corrupt JSON,
+ * or valid JSON that isn't an array. Distinct from an element-level reject
+ * (`partitionRecords`'s `dropped`, one bad record among otherwise-good
+ * ones): this is the *entire* collection, and the raw string is the only
+ * copy of whatever it held. Kept verbatim in the same quarantine batch as
+ * element-level rejects rather than being silently written over with `[]`
+ * — on a device with no server and no backup, that would be destroying
+ * what may have been a real issued invoice with no way to recover it.
+ */
+interface WholeKeyCorruption {
+  wholeKeyCorruption: true;
+  raw: string;
+}
+
+interface KeyRead {
+  values: unknown[];
+  /** Set only when the stored value didn't parse as an array at all. */
+  corruption: WholeKeyCorruption | null;
+}
+
+function read(key: string): KeyRead {
   const raw = localStorage.getItem(key);
-  if (!raw) return [];
+  if (!raw) return { values: [], corruption: null };
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) return { values: parsed, corruption: null };
+    return { values: [], corruption: { wholeKeyCorruption: true, raw } };
   } catch {
-    return [];
+    return { values: [], corruption: { wholeKeyCorruption: true, raw } };
   }
 }
 
@@ -198,12 +220,28 @@ export function runMigration(): void {
   if (typeof window === "undefined") return;
   if (localStorage.getItem(VERSION_KEY) === String(SCHEMA_VERSION)) return;
 
+  const brandsRead = read(BRANDS_KEY);
+  const clientsRead = read(CLIENTS_KEY);
+  const invoicesRead = read(INVOICES_KEY);
+  const templatesRead = read(TEMPLATES_KEY);
+
   const result = migrateToV2({
-    brands: read(BRANDS_KEY),
-    clients: read(CLIENTS_KEY),
-    invoices: read(INVOICES_KEY),
-    templates: read(TEMPLATES_KEY),
+    brands: brandsRead.values,
+    clients: clientsRead.values,
+    invoices: invoicesRead.values,
+    templates: templatesRead.values,
   });
+
+  // A whole-key parse failure loses an entire collection, not just one bad
+  // element — captured here (before `collectionWrites` below overwrites the
+  // key with `[]`) and routed into the same quarantine batch as
+  // element-level rejects, so `totalDropped`/the quarantine write further
+  // down pick it up automatically. `read()` itself already ran before any
+  // write this function makes, so the raw string is safely in memory by
+  // this point regardless of what happens to the stored key next.
+  if (brandsRead.corruption) result.dropped.brands.push(brandsRead.corruption);
+  if (clientsRead.corruption) result.dropped.clients.push(clientsRead.corruption);
+  if (invoicesRead.corruption) result.dropped.invoices.push(invoicesRead.corruption);
 
   // Collections first, `VERSION_KEY` last, and stop at the first failure —
   // that ordering makes an interrupted migration self-healing on retry.

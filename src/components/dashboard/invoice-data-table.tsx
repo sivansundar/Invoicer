@@ -6,6 +6,7 @@ import { AlignLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import type { Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
+import { effectiveStatus } from "@/lib/dashboard";
 import {
   INVOICE_TABS,
   invoiceTabCounts,
@@ -241,7 +242,10 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
                 )}
                 {columns.status && (
                   <div className="flex-[0_0_100px] text-right">
-                    <StatusBadge status={invoice.status} />
+                    {/* effectiveStatus, not the raw stored status — a row
+                        that just got filtered into the Overdue tab must not
+                        turn around and badge itself "Sent". */}
+                    <StatusBadge status={effectiveStatus(invoice)} />
                   </div>
                 )}
               </Link>

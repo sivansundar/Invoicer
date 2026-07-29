@@ -3,6 +3,7 @@ import {
   collectionRate,
   collectionRateFooter,
   daysLate,
+  effectiveStatus,
   oldestDaysLate,
   revenueCardCopy,
   revenueTrend,
@@ -198,5 +199,44 @@ describe("oldestDaysLate", () => {
 
   it("is 0 for an empty list", () => {
     expect(oldestDaysLate([], today)).toBe(0);
+  });
+});
+
+describe("effectiveStatus", () => {
+  it("reclassifies a sent invoice past its due date as overdue", () => {
+    expect(effectiveStatus(inv({ status: "sent", dueDate: "2026-07-01" }), today)).toBe(
+      "overdue"
+    );
+  });
+
+  it("leaves a sent invoice not yet due as sent", () => {
+    expect(effectiveStatus(inv({ status: "sent", dueDate: "2026-08-01" }), today)).toBe("sent");
+  });
+
+  it("leaves a sent invoice due today as sent (not late yet)", () => {
+    expect(effectiveStatus(inv({ status: "sent", dueDate: "2026-07-28" }), today)).toBe("sent");
+  });
+
+  it("never reclassifies a paid invoice, however far past its due date", () => {
+    expect(effectiveStatus(inv({ status: "paid", dueDate: "2026-01-01" }), today)).toBe("paid");
+  });
+
+  it("never reclassifies a draft invoice, however far past its due date", () => {
+    expect(effectiveStatus(inv({ status: "draft", dueDate: "2026-01-01" }), today)).toBe("draft");
+  });
+
+  it("does not reclassify a sent invoice with a malformed due date", () => {
+    // daysLate treats an unparseable dueDate as 0 (not late) rather than NaN
+    // — see its own doc — so this must stay "sent", not silently flip to
+    // "overdue" off a broken date.
+    expect(effectiveStatus(inv({ status: "sent", dueDate: "not-a-date" }), today)).toBe("sent");
+  });
+
+  it("passes through a stored status of literally 'overdue' unchanged", () => {
+    // Reachable via import/hand-edited data even though nothing in this app
+    // writes it directly.
+    expect(effectiveStatus(inv({ status: "overdue", dueDate: "2026-01-01" }), today)).toBe(
+      "overdue"
+    );
   });
 });

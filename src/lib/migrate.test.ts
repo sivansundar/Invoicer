@@ -312,6 +312,55 @@ describe("runMigration", () => {
     expect(typeof quarantine.batches[0].migratedAt).toBe("string");
   });
 
+  it("quarantines the raw string instead of silently writing [] over unparseable JSON in a whole key", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", "{not valid json at all");
+
+    runMigration();
+
+    // The key itself moves forward as an empty collection...
+    expect(JSON.parse(localStorage.getItem("invoicer_invoices")!)).toEqual([]);
+
+    // ...but the raw string that used to be there is preserved, not lost.
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.invoices).toEqual([
+      { wholeKeyCorruption: true, raw: "{not valid json at all" },
+    ]);
+  });
+
+  it("quarantines the raw string when a key holds valid JSON that isn't an array", () => {
+    const rawObject = JSON.stringify({ not: "an array" });
+    localStorage.setItem("invoicer_invoices", rawObject);
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches[0].dropped.invoices).toEqual([
+      { wholeKeyCorruption: true, raw: rawObject },
+    ]);
+  });
+
+  it("combines a whole-key corruption with element-level rejects in the same batch", () => {
+    localStorage.setItem("invoicer_brands", "not json either");
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.brands).toEqual([
+      { wholeKeyCorruption: true, raw: "not json either" },
+    ]);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage"]);
+  });
+
   it("does not write a quarantine key when nothing was dropped", () => {
     localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
     localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));

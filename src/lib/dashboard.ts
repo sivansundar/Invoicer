@@ -1,4 +1,4 @@
-import type { Invoice } from "./types";
+import type { Invoice, InvoiceStatus } from "./types";
 import { monthlyPaidSeries } from "./chart";
 
 export interface RevenueTrend {
@@ -104,4 +104,30 @@ export function daysLate(invoice: Invoice, today: Date = new Date()): number {
 /** The largest `daysLate` among a set of (presumably overdue) invoices, or 0 for none. */
 export function oldestDaysLate(invoices: Invoice[], today: Date = new Date()): number {
   return invoices.reduce((max, invoice) => Math.max(max, daysLate(invoice, today)), 0);
+}
+
+/**
+ * The status actually shown to the user — derived on every read rather than
+ * ever written back to storage. The only status writes this app makes are
+ * "draft", "sent" and "paid" (see `invoice-form.tsx`/`invoices/[id]/page.tsx`);
+ * nothing ever stores "overdue", which used to make it permanently
+ * unreachable everywhere the app checked `invoice.status === "overdue"` —
+ * the dashboard's Overdue card, the Overdue tab, the detail page's due line,
+ * the template preview sample and the FY summary report filter all silently
+ * disagreed with `followups.ts`'s `isUnpaid`, which correctly keeps queuing
+ * reminders for a late "sent" invoice regardless of that dead branch.
+ *
+ * Deliberately a derived read, not a stored write + migration: a write would
+ * need a boot-time mutation pass plus a write-result check, and reintroduces
+ * exactly the unvalidated-status-transition class of bug closed elsewhere on
+ * this branch. A "paid" or "draft" invoice is never reclassified — only a
+ * "sent" invoice whose due date has passed (`daysLate`, which already
+ * treats an empty/unparseable `dueDate` as "not late" — see its own doc)
+ * reads as "overdue" here. A record whose stored status is literally
+ * "overdue" already (e.g. imported from a pre-branch export or hand-edited
+ * data) passes through unchanged.
+ */
+export function effectiveStatus(invoice: Invoice, today: Date = new Date()): InvoiceStatus {
+  if (invoice.status === "sent" && daysLate(invoice, today) > 0) return "overdue";
+  return invoice.status;
 }

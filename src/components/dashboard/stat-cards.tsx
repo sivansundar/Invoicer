@@ -7,6 +7,7 @@ import { formatCurrencyGroups, groupTotalsByCurrency, overflowSummary } from "@/
 import {
   collectionRate,
   collectionRateFooter,
+  effectiveStatus,
   oldestDaysLate,
   revenueCardCopy,
   revenueTrend,
@@ -74,17 +75,20 @@ export function StatCards({ invoices: allInvoices }: StatCardsProps) {
   const TrendIcon = trend.direction === "up" ? TrendingUp : TrendingDown;
   const revenueOverflow = overflowSummary(paidGroups);
 
-  // Card 2: Outstanding
-  const pendingInvoices = invoices.filter(
-    (invoice) => invoice.status === "sent" || invoice.status === "overdue"
-  );
+  // Card 2: Outstanding. `effectiveStatus`, not the raw stored status — see
+  // its own doc — since nothing this app writes is ever literally "overdue"
+  // and a raw-status check here would silently never count a late invoice.
+  const pendingInvoices = invoices.filter((invoice) => {
+    const status = effectiveStatus(invoice);
+    return status === "sent" || status === "overdue";
+  });
   const pendingGroups = groupTotalsByCurrency(pendingInvoices);
   const outstandingValue = pendingGroups.length === 0 ? "None" : formatCurrencyGroups(pendingGroups);
   const openCount = pendingInvoices.length;
   const pendingOverflow = overflowSummary(pendingGroups);
 
   // Card 3: Overdue
-  const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
+  const overdueInvoices = invoices.filter((invoice) => effectiveStatus(invoice) === "overdue");
   const overdueGroups = groupTotalsByCurrency(overdueInvoices);
   const lateCount = overdueInvoices.length;
   const overdueValue = lateCount === 0 ? "None" : formatCurrencyGroups(overdueGroups);

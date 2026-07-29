@@ -14,6 +14,7 @@ import {
   ReportSummary,
   groupByCurrency,
 } from "@/lib/reports";
+import { effectiveStatus } from "@/lib/dashboard";
 import { formatStoredDate } from "@/lib/dates";
 
 // Reuse the same fonts registered by the invoice PDF. Registering again with the
@@ -229,7 +230,10 @@ export function SummaryReportPDF({
                       {formatStoredDate(inv.billDate, "dd MMM yy")}
                     </Text>
                     <Text style={s.colClient}>{inv.client.companyName}</Text>
-                    <Text style={[s.colStatus, { color: "#666" }]}>{inv.status}</Text>
+                    {/* effectiveStatus, not the raw stored status — an
+                        invoice included here because the Overdue checkbox
+                        was ticked must not print "sent" in its own row. */}
+                    <Text style={[s.colStatus, { color: "#666" }]}>{effectiveStatus(inv)}</Text>
                     <Text style={s.colTotal}>
                       <Amount currency={group.currency} value={inv.total} />
                     </Text>

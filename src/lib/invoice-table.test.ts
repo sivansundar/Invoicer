@@ -26,6 +26,11 @@ function inv(overrides: Partial<Invoice> = {}): Invoice {
   };
 }
 
+// Pinned well before the fixture's default dueDate (2026-07-20) so a default
+// "sent" invoice never accidentally reads as overdue in a test that isn't
+// about lateness — and well after it in the tests that deliberately are.
+const today = new Date(2026, 6, 15); // 15 Jul 2026
+
 function run(overrides: Partial<Parameters<typeof runInvoiceTablePipeline>[0]> = {}) {
   return runInvoiceTablePipeline({
     invoices: [],
@@ -34,6 +39,7 @@ function run(overrides: Partial<Parameters<typeof runInvoiceTablePipeline>[0]> =
     query: "",
     page: 1,
     pageSize: 10,
+    today,
     ...overrides,
   });
 }
@@ -64,6 +70,20 @@ describe("runInvoiceTablePipeline", () => {
     ];
     const result = run({ invoices, tab: "paid" });
     expect(result.rows.map((r) => r.id).sort()).toEqual(["1", "3"]);
+  });
+
+  it("the Overdue tab picks up a sent invoice past its due date (effectiveStatus, not stored status)", () => {
+    // Nothing this app writes is ever literally status "overdue" — the tab
+    // must derive it from a sent invoice's due date, or it's permanently empty.
+    const invoices = [
+      inv({ id: "1", status: "sent", dueDate: "2026-07-01" }), // past due
+      inv({ id: "2", status: "sent", dueDate: "2026-08-01" }), // not yet due
+    ];
+    const overdueResult = run({ invoices, tab: "overdue" });
+    expect(overdueResult.rows.map((r) => r.id)).toEqual(["1"]);
+
+    const sentResult = run({ invoices, tab: "sent" });
+    expect(sentResult.rows.map((r) => r.id)).toEqual(["2"]);
   });
 
   it("the 'all' tab includes every status", () => {
@@ -180,7 +200,7 @@ describe("invoiceTabCounts", () => {
       inv({ status: "draft" }),
       inv({ status: "overdue" }),
     ];
-    expect(invoiceTabCounts(invoices, null)).toEqual({
+    expect(invoiceTabCounts(invoices, null, today)).toEqual({
       all: 5,
       paid: 2,
       sent: 1,
@@ -195,7 +215,7 @@ describe("invoiceTabCounts", () => {
       inv({ brandId: "b2", status: "paid" }),
       inv({ brandId: "b1", status: "sent" }),
     ];
-    expect(invoiceTabCounts(invoices, "b1")).toEqual({
+    expect(invoiceTabCounts(invoices, "b1", today)).toEqual({
       all: 2,
       paid: 1,
       sent: 1,
@@ -205,12 +225,26 @@ describe("invoiceTabCounts", () => {
   });
 
   it("returns all-zero counts for an empty list", () => {
-    expect(invoiceTabCounts([], null)).toEqual({
+    expect(invoiceTabCounts([], null, today)).toEqual({
       all: 0,
       paid: 0,
       sent: 0,
       draft: 0,
       overdue: 0,
+    });
+  });
+
+  it("moves a sent invoice past its due date into the overdue count, out of sent (effectiveStatus)", () => {
+    const invoices = [
+      inv({ id: "1", status: "sent", dueDate: "2026-07-01" }), // past due
+      inv({ id: "2", status: "sent", dueDate: "2026-08-01" }), // not yet due
+    ];
+    expect(invoiceTabCounts(invoices, null, today)).toEqual({
+      all: 2,
+      paid: 0,
+      sent: 1,
+      draft: 0,
+      overdue: 1,
     });
   });
 });
