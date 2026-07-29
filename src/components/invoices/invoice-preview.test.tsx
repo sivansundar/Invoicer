@@ -24,11 +24,14 @@ function snapshot(overrides: Partial<BrandSnapshot> = {}): BrandSnapshot {
   };
 }
 
-function renderPreview(overrides: Partial<BrandSnapshot> = {}) {
+function renderPreview(
+  overrides: Partial<BrandSnapshot> = {},
+  clientOverrides: Partial<InvoiceClient> = {}
+) {
   render(
     <InvoicePreview
       snapshot={snapshot(overrides)}
-      client={client}
+      client={{ ...client, ...clientOverrides }}
       invoiceNumber="SC-2026-014"
       billDate="2026-07-21"
       dueDate="2026-08-04"
@@ -54,5 +57,34 @@ describe("InvoicePreview header avatar", () => {
 
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByText("S")).toBeInTheDocument();
+  });
+});
+
+describe("InvoicePreview tax IDs", () => {
+  it("renders the brand's GST and PAN under its address when present", () => {
+    renderPreview({ gstNumber: "29ABCDE1234F1Z5", panNumber: "ABCDE1234F" });
+
+    expect(screen.getByText("GST: 29ABCDE1234F1Z5")).toBeInTheDocument();
+    expect(screen.getByText("PAN: ABCDE1234F")).toBeInTheDocument();
+  });
+
+  it("renders neither brand tax ID line when both are absent", () => {
+    renderPreview({ gstNumber: undefined, panNumber: undefined });
+
+    expect(screen.queryByText(/^GST:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^PAN:/)).not.toBeInTheDocument();
+  });
+
+  it("renders the client's contact name and GST under Billed to when present", () => {
+    renderPreview({}, { name: "Priya Rao", gstNumber: "27AAAAA0000A1Z5" });
+
+    expect(screen.getByText("Priya Rao")).toBeInTheDocument();
+    expect(screen.getByText("GST: 27AAAAA0000A1Z5")).toBeInTheDocument();
+  });
+
+  it("renders no client contact name or GST line when absent", () => {
+    renderPreview({}, { name: undefined, gstNumber: undefined });
+
+    expect(screen.queryByText(/^GST:/)).not.toBeInTheDocument();
   });
 });

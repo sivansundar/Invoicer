@@ -89,6 +89,8 @@ const s = StyleSheet.create({
   logoFallbackText: { color: color.primaryForeground, fontSize: 12, fontWeight: 700 },
   brandName: { fontSize: 10.5, fontWeight: 700 },
   brandAddress: { fontSize: 8, color: color.mutedForeground, marginTop: 2, lineHeight: 1.5, maxWidth: 230 },
+  brandComplianceGroup: { marginTop: 3 },
+  brandCompliance: { fontSize: 8, color: color.mutedForeground },
   headerRight: { alignItems: "flex-end" },
   eyebrow: { fontSize: 7, color: color.mutedForeground, textTransform: "uppercase", letterSpacing: 1 },
   invoiceNumber: { fontSize: 9.5, marginTop: 3 },
@@ -107,7 +109,9 @@ const s = StyleSheet.create({
   parties: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20, gap: 16 },
   partyLabel: { fontSize: 8, color: color.mutedForeground, marginBottom: 3 },
   billedToName: { fontSize: 9.5, fontWeight: 700 },
+  billedToContact: { fontSize: 8, color: color.mutedForeground, marginTop: 2 },
   billedToAddress: { fontSize: 8, color: color.mutedForeground, marginTop: 2, lineHeight: 1.5, maxWidth: 260 },
+  billedToCompliance: { fontSize: 8, color: color.mutedForeground, marginTop: 3 },
   datesRight: { alignItems: "flex-end" },
   dateValue: { fontSize: 9.5, marginBottom: 6 },
 
@@ -211,6 +215,16 @@ export function InvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             <View style={{ minWidth: 0 }}>
               <Text style={s.brandName}>{snapshot.name}</Text>
               <Text style={s.brandAddress}>{snapshot.address}</Text>
+              {(snapshot.gstNumber || snapshot.panNumber) && (
+                <View style={s.brandComplianceGroup}>
+                  {snapshot.gstNumber && (
+                    <Text style={s.brandCompliance}>GST: {snapshot.gstNumber}</Text>
+                  )}
+                  {snapshot.panNumber && (
+                    <Text style={s.brandCompliance}>PAN: {snapshot.panNumber}</Text>
+                  )}
+                </View>
+              )}
             </View>
           </View>
           <View style={s.headerRight}>
@@ -225,7 +239,13 @@ export function InvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           <View style={{ minWidth: 0 }}>
             <Text style={s.partyLabel}>Billed to</Text>
             <Text style={s.billedToName}>{invoice.client.companyName}</Text>
+            {invoice.client.name && (
+              <Text style={s.billedToContact}>{invoice.client.name}</Text>
+            )}
             <Text style={s.billedToAddress}>{invoice.client.address}</Text>
+            {invoice.client.gstNumber && (
+              <Text style={s.billedToCompliance}>GST: {invoice.client.gstNumber}</Text>
+            )}
           </View>
           <View style={s.datesRight}>
             <Text style={s.partyLabel}>Bill date</Text>

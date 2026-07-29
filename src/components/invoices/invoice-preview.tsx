@@ -54,6 +54,16 @@ export function InvoicePreview({
             <p className="text-xs text-muted-foreground leading-[1.5] max-w-[190px] whitespace-pre-line break-words">
               {snapshot.address}
             </p>
+            {(snapshot.gstNumber || snapshot.panNumber) && (
+              <div className="mt-1">
+                {snapshot.gstNumber && (
+                  <p className="text-xs text-muted-foreground">GST: {snapshot.gstNumber}</p>
+                )}
+                {snapshot.panNumber && (
+                  <p className="text-xs text-muted-foreground">PAN: {snapshot.panNumber}</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -72,9 +82,15 @@ export function InvoicePreview({
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground mb-1">Billed to</p>
           <p className="text-[13px] font-medium">{client.companyName}</p>
+          {client.name && (
+            <p className="text-xs text-muted-foreground">{client.name}</p>
+          )}
           <p className="text-xs text-muted-foreground whitespace-pre-line break-words">
             {client.address}
           </p>
+          {client.gstNumber && (
+            <p className="text-xs text-muted-foreground mt-1">GST: {client.gstNumber}</p>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs text-muted-foreground">Bill date</p>
