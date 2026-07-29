@@ -28,6 +28,42 @@ import { computeTotals } from "@/lib/invoice-preview";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { snapshotFromBrand } from "@/lib/migrate";
 import { paletteColorForIndex } from "@/lib/palette";
+import {
+  describeInvoiceValidationError,
+  validateInvoiceForCreate,
+  InvoiceField,
+} from "@/lib/invoice-validation";
+
+// A red asterisk after a field's label — the mandatory-field affordance used
+// throughout this form. Pairs with the "Optional" placeholder convention
+// already used on genuinely optional fields (see the client and brand
+// forms): mandatory fields get this marker, optional fields get that
+// placeholder, and no field gets both.
+function Required() {
+  // `Label` lays its children out with `gap-2` (see `label.tsx`), so no
+  // leading space is needed here to separate this from the field name.
+  return (
+    <span className="text-destructive" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
+// Maps each validated field to the DOM node its error should scroll to and
+// highlight — in the same order the fields actually appear on the page, so
+// "scroll to the first error" always means the first one visually, not just
+// the first one `validateInvoiceForCreate` happened to check.
+const FIELD_DOM_ID: Record<InvoiceField, string> = {
+  brand: "field-brand",
+  client: "field-client",
+  companyName: "field-company-name",
+  contactName: "field-contact-name",
+  address: "field-address",
+  billDate: "field-bill-date",
+  dueDate: "field-due-date",
+  currency: "field-currency",
+  lineItems: "field-line-items",
+};
 
 interface InvoiceFormProps {
   existingInvoice?: Invoice;
@@ -78,9 +114,46 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     existingInvoice?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
   );
 
+  // Which mandatory fields failed the most recent "Create invoice" attempt.
+  // Only ever populated on that path — "Save as draft" and editing
+  // ("Save changes") never touch this.
+  const [errors, setErrors] = useState<Partial<Record<InvoiceField, boolean>>>({});
+
+  // A saved client's own record is read-only from here — `client` below is
+  // always this invoice's own snapshot. When that client is missing a
+  // mandatory field (most commonly no contact name, which the client form
+  // itself marks Optional), this holds just the gaps the user fills in for
+  // *this invoice*, so the saved record is never touched. Reset whenever
+  // "Billed to" changes, so a patch typed for one client can't leak onto
+  // the next one selected.
+  const [clientPatch, setClientPatch] = useState<Partial<InvoiceClient>>({});
+
+  const clearErrors = (fields: InvoiceField[]) => {
+    setErrors((prev) => {
+      if (!fields.some((f) => prev[f])) return prev;
+      const next = { ...prev };
+      fields.forEach((f) => delete next[f]);
+      return next;
+    });
+  };
+
   const brand = brands.find((b) => b.id === brandId);
   const isManualClient = selectValue === MANUAL_CLIENT_VALUE;
   const selectedClient = isManualClient ? undefined : clients.find((c) => c.id === selectValue);
+
+  // Which of the selected saved client's mandatory fields it doesn't
+  // actually have — surfaced inline (below) for completion rather than
+  // leaving "contact name required" with no field to type it into.
+  const savedClientGaps = selectedClient
+    ? {
+        companyName: !selectedClient.companyName.trim(),
+        contactName: !(selectedClient.name ?? "").trim(),
+        address: !selectedClient.address.trim(),
+      }
+    : { companyName: false, contactName: false, address: false };
+  const hasSavedClientGaps =
+    !!selectedClient &&
+    (savedClientGaps.companyName || savedClientGaps.contactName || savedClientGaps.address);
 
   // Copies the whole saved client record into the embedded snapshot — the
   // two fields (`clientId` and `client`) coexist by design: `clientId` is
@@ -92,9 +165,9 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     ? manualClient
     : selectedClient
     ? {
-        name: selectedClient.name,
-        companyName: selectedClient.companyName,
-        address: selectedClient.address,
+        name: clientPatch.name ?? selectedClient.name,
+        companyName: clientPatch.companyName ?? selectedClient.companyName,
+        address: clientPatch.address ?? selectedClient.address,
         email: selectedClient.email,
         gstNumber: selectedClient.gstNumber,
       }
@@ -117,12 +190,42 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
 
   const handleSave = (asDraft: boolean) => {
     if (!asDraft) {
-      const hasValidLine = items.some(
-        (item) => item.description.trim() !== "" && item.amount > 0
-      );
-      if (!hasValidLine) {
-        toast("Add at least one line item first");
-        return;
+      if (isEdit) {
+        // Editing keeps its own long-standing, narrower guard — an invoice
+        // that was already valid enough to create can still be saved even
+        // if, say, its client record has since lost its contact name.
+        // Full mandatory-field validation below is a "Create invoice"-only
+        // concern.
+        const hasValidLine = items.some(
+          (item) => item.description.trim() !== "" && item.amount > 0
+        );
+        if (!hasValidLine) {
+          toast("Add at least one line item first");
+          return;
+        }
+      } else {
+        const result = validateInvoiceForCreate({
+          brandId,
+          clientSelected: selectValue !== "",
+          client: {
+            companyName: previewClient.companyName,
+            name: previewClient.name,
+            address: previewClient.address,
+          },
+          billDate,
+          dueDate,
+          currency,
+          items,
+        });
+        if (!result.ok) {
+          setErrors(Object.fromEntries(result.fields.map((f) => [f, true])));
+          toast(describeInvoiceValidationError(result.fields));
+          document
+            .getElementById(FIELD_DOM_ID[result.fields[0]])
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          return;
+        }
+        setErrors({});
       }
     }
 
@@ -232,10 +335,24 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
 
         <div className="flex flex-col gap-5 max-w-[580px]">
           <div className="flex gap-3 flex-wrap">
-            <div className="flex-[1_1_200px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">From (brand)</Label>
-              <Select value={brandId} onValueChange={setBrandId} disabled={isEdit}>
-                <SelectTrigger className="w-full text-sm">
+            <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.brand}>
+              <Label className="text-xs text-muted-foreground">
+                From (brand)
+                <Required />
+              </Label>
+              <Select
+                value={brandId}
+                onValueChange={(v) => {
+                  setBrandId(v);
+                  clearErrors(["brand"]);
+                }}
+                disabled={isEdit}
+              >
+                <SelectTrigger
+                  className="w-full text-sm"
+                  aria-invalid={!!errors.brand}
+                  aria-describedby={errors.brand ? "brand-error" : undefined}
+                >
                   <SelectValue placeholder="Select brand" />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,6 +363,11 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   ))}
                 </SelectContent>
               </Select>
+              {errors.brand && (
+                <p id="brand-error" className="text-xs text-destructive">
+                  Required
+                </p>
+              )}
               {!isEdit && brands.length === 0 && (
                 <p className="text-xs text-destructive">
                   No brands yet.{" "}
@@ -255,10 +377,24 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 </p>
               )}
             </div>
-            <div className="flex-[1_1_200px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Billed to</Label>
-              <Select value={selectValue} onValueChange={setSelectValue}>
-                <SelectTrigger className="w-full text-sm">
+            <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.client}>
+              <Label className="text-xs text-muted-foreground">
+                Billed to
+                <Required />
+              </Label>
+              <Select
+                value={selectValue}
+                onValueChange={(v) => {
+                  setSelectValue(v);
+                  setClientPatch({});
+                  clearErrors(["client", "companyName", "contactName", "address"]);
+                }}
+              >
+                <SelectTrigger
+                  className="w-full text-sm"
+                  aria-invalid={!!errors.client}
+                  aria-describedby={errors.client ? "client-error" : undefined}
+                >
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,46 +407,84 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   <SelectItem value={MANUAL_CLIENT_VALUE}>Enter manually…</SelectItem>
                 </SelectContent>
               </Select>
+              {errors.client && (
+                <p id="client-error" className="text-xs text-destructive">
+                  Required
+                </p>
+              )}
             </div>
           </div>
 
           {isManualClient && (
             <div className="border rounded-xl bg-card p-3 flex flex-col gap-3">
               <div className="flex gap-3 flex-wrap">
-                <div className="flex-[1_1_200px] space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Company name</Label>
+                <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.companyName}>
+                  <Label className="text-xs text-muted-foreground">
+                    Company name
+                    <Required />
+                  </Label>
                   <Input
                     value={manualClient.companyName}
-                    onChange={(e) =>
-                      setManualClient((prev) => ({ ...prev, companyName: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setManualClient((prev) => ({ ...prev, companyName: e.target.value }));
+                      clearErrors(["companyName"]);
+                    }}
                     placeholder="Acme Corp"
                     className="text-sm"
+                    aria-invalid={!!errors.companyName}
+                    aria-describedby={errors.companyName ? "company-name-error" : undefined}
                   />
+                  {errors.companyName && (
+                    <p id="company-name-error" className="text-xs text-destructive">
+                      Required
+                    </p>
+                  )}
                 </div>
-                <div className="flex-[1_1_200px] space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Contact name</Label>
+                <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.contactName}>
+                  <Label className="text-xs text-muted-foreground">
+                    Contact name
+                    <Required />
+                  </Label>
                   <Input
                     value={manualClient.name ?? ""}
-                    onChange={(e) =>
-                      setManualClient((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    placeholder="Optional"
+                    onChange={(e) => {
+                      setManualClient((prev) => ({ ...prev, name: e.target.value }));
+                      clearErrors(["contactName"]);
+                    }}
+                    placeholder="Priya Nair"
                     className="text-sm"
+                    aria-invalid={!!errors.contactName}
+                    aria-describedby={errors.contactName ? "contact-name-error" : undefined}
                   />
+                  {errors.contactName && (
+                    <p id="contact-name-error" className="text-xs text-destructive">
+                      Required
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-3 flex-wrap">
-                <div className="flex-[1_1_200px] space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Address</Label>
+                <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.address}>
+                  <Label className="text-xs text-muted-foreground">
+                    Address
+                    <Required />
+                  </Label>
                   <Textarea
                     value={manualClient.address}
-                    onChange={(e) =>
-                      setManualClient((prev) => ({ ...prev, address: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setManualClient((prev) => ({ ...prev, address: e.target.value }));
+                      clearErrors(["address"]);
+                    }}
                     rows={2}
                     className="text-sm"
+                    aria-invalid={!!errors.address}
+                    aria-describedby={errors.address ? "address-error" : undefined}
                   />
+                  {errors.address && (
+                    <p id="address-error" className="text-xs text-destructive">
+                      Required
+                    </p>
+                  )}
                 </div>
                 <div className="flex-[1_1_200px] space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Email</Label>
@@ -341,26 +515,140 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             </div>
           )}
 
+          {hasSavedClientGaps && (
+            <div className="border rounded-xl bg-card p-3 flex flex-col gap-3">
+              <p className="text-xs text-muted-foreground">
+                {selectedClient!.companyName || "This client"}&rsquo;s saved record is missing a
+                few details — fill them in for this invoice. The saved client itself won&rsquo;t
+                change.
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                {savedClientGaps.companyName && (
+                  <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.companyName}>
+                    <Label className="text-xs text-muted-foreground">
+                      Company name
+                      <Required />
+                    </Label>
+                    <Input
+                      value={clientPatch.companyName ?? ""}
+                      onChange={(e) => {
+                        setClientPatch((prev) => ({ ...prev, companyName: e.target.value }));
+                        clearErrors(["companyName"]);
+                      }}
+                      placeholder="Acme Corp"
+                      className="text-sm"
+                      aria-invalid={!!errors.companyName}
+                      aria-describedby={errors.companyName ? "company-name-error" : undefined}
+                    />
+                    {errors.companyName && (
+                      <p id="company-name-error" className="text-xs text-destructive">
+                        Required
+                      </p>
+                    )}
+                  </div>
+                )}
+                {savedClientGaps.contactName && (
+                  <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.contactName}>
+                    <Label className="text-xs text-muted-foreground">
+                      Contact name
+                      <Required />
+                    </Label>
+                    <Input
+                      value={clientPatch.name ?? ""}
+                      onChange={(e) => {
+                        setClientPatch((prev) => ({ ...prev, name: e.target.value }));
+                        clearErrors(["contactName"]);
+                      }}
+                      placeholder="Priya Nair"
+                      className="text-sm"
+                      aria-invalid={!!errors.contactName}
+                      aria-describedby={errors.contactName ? "contact-name-error" : undefined}
+                    />
+                    {errors.contactName && (
+                      <p id="contact-name-error" className="text-xs text-destructive">
+                        Required
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              {savedClientGaps.address && (
+                <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.address}>
+                  <Label className="text-xs text-muted-foreground">
+                    Address
+                    <Required />
+                  </Label>
+                  <Textarea
+                    value={clientPatch.address ?? ""}
+                    onChange={(e) => {
+                      setClientPatch((prev) => ({ ...prev, address: e.target.value }));
+                      clearErrors(["address"]);
+                    }}
+                    rows={2}
+                    className="text-sm"
+                    aria-invalid={!!errors.address}
+                    aria-describedby={errors.address ? "address-error" : undefined}
+                  />
+                  {errors.address && (
+                    <p id="address-error" className="text-xs text-destructive">
+                      Required
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3 flex-wrap">
-            <div className="flex-[1_1_150px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Bill date</Label>
+            <div className="flex-[1_1_150px] space-y-1.5" id={FIELD_DOM_ID.billDate}>
+              <Label className="text-xs text-muted-foreground">
+                Bill date
+                <Required />
+              </Label>
               <Input
                 type="date"
                 value={billDate}
-                onChange={(e) => setBillDate(e.target.value)}
+                onChange={(e) => {
+                  setBillDate(e.target.value);
+                  clearErrors(["billDate"]);
+                }}
                 className="text-sm"
+                aria-invalid={!!errors.billDate}
+                aria-describedby={errors.billDate ? "bill-date-error" : undefined}
               />
+              {errors.billDate && (
+                <p id="bill-date-error" className="text-xs text-destructive">
+                  Required
+                </p>
+              )}
             </div>
-            <div className="flex-[1_1_150px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Due date</Label>
+            <div className="flex-[1_1_150px] space-y-1.5" id={FIELD_DOM_ID.dueDate}>
+              <Label className="text-xs text-muted-foreground">
+                Due date
+                <Required />
+              </Label>
               <Input
                 type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={(e) => {
+                  setDueDate(e.target.value);
+                  clearErrors(["dueDate"]);
+                }}
                 className="text-sm"
+                aria-invalid={!!errors.dueDate}
+                aria-describedby={errors.dueDate ? "due-date-error" : undefined}
               />
+              {errors.dueDate && (
+                <p id="due-date-error" className="text-xs text-destructive">
+                  Required
+                </p>
+              )}
             </div>
-            <div className="flex-[1_1_120px] space-y-1.5">
+            {/* No `<Required />` marker here: the default value ("INR") means
+               this Select can never actually reach the empty state its
+               validation still checks for defensively — see the comment on
+               `currency` in `invoice-validation.ts`. */}
+            <div className="flex-[1_1_120px] space-y-1.5" id={FIELD_DOM_ID.currency}>
               <Label className="text-xs text-muted-foreground">Currency</Label>
               <Select value={currency} onValueChange={(v) => setCurrency(v as Currency)}>
                 <SelectTrigger className="w-full text-sm">
@@ -375,9 +663,26 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Line items</Label>
-            <LineItemsTable items={items} onChange={setItems} currency={currency} />
+          <div className="space-y-1.5" id={FIELD_DOM_ID.lineItems}>
+            <Label className="text-xs text-muted-foreground">
+              Line items
+              <Required />
+            </Label>
+            <LineItemsTable
+              items={items}
+              onChange={(next) => {
+                setItems(next);
+                clearErrors(["lineItems"]);
+              }}
+              currency={currency}
+              invalid={!!errors.lineItems}
+              aria-describedby={errors.lineItems ? "line-items-error" : undefined}
+            />
+            {errors.lineItems && (
+              <p id="line-items-error" className="text-xs text-destructive">
+                Add at least one line item with a description and an amount
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">

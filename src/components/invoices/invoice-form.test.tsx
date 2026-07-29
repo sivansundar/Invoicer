@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvoiceForm } from "./invoice-form";
@@ -93,6 +93,11 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
 
 describe("InvoiceForm", () => {
   beforeEach(() => {
+    // Restores any `vi.spyOn` from a previous test — most importantly the
+    // `localStorage.setItem` quota-failure spy below, which would otherwise
+    // silently break every `storage.save*` call in every test that runs
+    // after it.
+    vi.restoreAllMocks();
     window.localStorage.clear();
     // Fully resets the storage module's snapshot cache (not just the
     // underlying localStorage mock) so no fixture from a previous test can
@@ -162,6 +167,9 @@ describe("InvoiceForm", () => {
 
   it("a new invoice starts \"sent\" via the primary button", async () => {
     storage.saveBrand(brand());
+    // Fully populated, so selecting it satisfies company/contact/address —
+    // "Create invoice" now requires all three, plus a due date, on top of
+    // what this test already exercised.
     storage.saveClient(client());
 
     const user = userEvent.setup();
@@ -169,12 +177,17 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
 
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
     const amountInput = row.querySelectorAll("input")[1];
     await user.type(amountInput, "5000");
+    fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+      target: { value: "2026-07-20" },
+    });
 
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
@@ -216,12 +229,20 @@ describe("InvoiceForm", () => {
     await user.click(await screen.findByRole("option", { name: "Enter manually…" }));
 
     await user.type(screen.getByPlaceholderText("Acme Corp"), "One-off Client Ltd");
+    // Contact name and address are mandatory for "Create invoice" too, same
+    // as company name — manual entry is not a way around that.
+    await user.type(screen.getByPlaceholderText("Priya Nair"), "Jordan Lee");
+    const addressField = document.getElementById("field-address")!.querySelector("textarea")!;
+    await user.type(addressField, "1 High St");
     const gstField = screen.getByText("GST Number").parentElement!.querySelector("input")!;
     await user.type(gstField, "29ABCDE1234F1Z5");
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
     await user.type(row.querySelectorAll("input")[1], "5000");
+    fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+      target: { value: "2026-07-20" },
+    });
 
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
@@ -266,6 +287,11 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+    fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+      target: { value: "2026-07-20" },
+    });
 
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
@@ -279,5 +305,141 @@ describe("InvoiceForm", () => {
     expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("sent to"));
     expect(push).not.toHaveBeenCalled();
     expect(storage.getInvoices()).toHaveLength(0);
+  });
+
+  describe("mandatory-field validation on create", () => {
+    it("toasts, highlights every missing field, and scrolls to the first one in form order", async () => {
+      // "Create invoice" is disabled with no brand at all, so the earliest
+      // this can actually be exercised is right after a brand is chosen —
+      // everything after it (Billed to, dates, line items) is still empty.
+      storage.saveBrand(brand());
+      const scrollIntoView = vi
+        .spyOn(Element.prototype, "scrollIntoView")
+        .mockImplementation(() => {});
+
+      const user = userEvent.setup();
+      render(<InvoiceForm />);
+
+      await user.click(screen.getAllByRole("combobox")[0]);
+      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+
+      const createButton = screen.getByRole("button", { name: "Create invoice" });
+      expect(createButton).not.toBeDisabled();
+      // Radix's Select internally calls `scrollIntoView` too (e.g. scrolling
+      // an open dropdown's items into view) — clear those out so only the
+      // validation's own call is observed below.
+      scrollIntoView.mockClear();
+      await user.click(createButton);
+
+      // "Billed to" is the first thing still missing once a brand is picked.
+      expect(toast).toHaveBeenCalledWith(
+        "Who's this invoice for? Choose a client or enter one manually — a few other required fields need it too"
+      );
+      expect(push).not.toHaveBeenCalled();
+      expect(storage.getInvoices()).toHaveLength(0);
+
+      const clientTrigger = document
+        .getElementById("field-client")!
+        .querySelector('[role="combobox"]')!;
+      expect(clientTrigger).toHaveAttribute("aria-invalid", "true");
+      const dueDateInput = document.getElementById("field-due-date")!.querySelector("input")!;
+      expect(dueDateInput).toHaveAttribute("aria-invalid", "true");
+      expect(document.getElementById("field-line-items")).toHaveTextContent(
+        "Add at least one line item with a description and an amount"
+      );
+
+      expect(scrollIntoView).toHaveBeenCalled();
+      // `field-client` is first in form order among what's actually missing
+      // (brand is already filled) — confirms the scroll target tracks visual
+      // order, not whatever order the checks happened to run in.
+      expect(document.getElementById("field-client")!.contains(scrollIntoView.mock.instances[0] as Node)).toBe(
+        true
+      );
+    });
+
+    it("lets a client selected with no saved contact name be completed inline, without touching the saved record", async () => {
+      storage.saveBrand(brand());
+      // No `name` at all — exactly what the client form allows by marking
+      // it Optional, and the dead end this task exists to avoid.
+      storage.saveClient(client({ name: undefined }));
+
+      const user = userEvent.setup();
+      render(<InvoiceForm />);
+
+      await user.click(screen.getAllByRole("combobox")[0]);
+      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+      await user.click(screen.getAllByRole("combobox")[1]);
+      await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+      // The gap is surfaced right on the page — an editable field, not a
+      // dead-end toast.
+      const contactField = document.getElementById("field-contact-name")!.querySelector("input")!;
+      await user.type(contactField, "Priya Nair");
+
+      fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+        target: { value: "2026-07-20" },
+      });
+      const descriptionInput = screen.getByPlaceholderText("What did you do?");
+      await user.type(descriptionInput, "Website redesign");
+      const row = descriptionInput.parentElement as HTMLElement;
+      await user.type(row.querySelectorAll("input")[1], "5000");
+
+      await user.click(screen.getByRole("button", { name: "Create invoice" }));
+
+      expect(push).toHaveBeenCalledWith("/");
+      const saved = storage.getInvoices()[0];
+      expect(saved.clientId).toBe("c1");
+      expect(saved.client.name).toBe("Priya Nair");
+      // This invoice's snapshot gained a contact name — the saved client
+      // record itself must not have been silently rewritten.
+      expect(storage.getClients().find((c) => c.id === "c1")?.name).toBeUndefined();
+    });
+
+    it('"Save as draft" still saves an otherwise-empty invoice — only a brand is required', async () => {
+      storage.saveBrand(brand());
+
+      const user = userEvent.setup();
+      render(<InvoiceForm />);
+
+      await user.click(screen.getAllByRole("combobox")[0]);
+      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+
+      // No client, no due date, no line items — none of the new "Create
+      // invoice" checks apply here.
+      await user.click(screen.getByRole("button", { name: "Save as draft" }));
+
+      expect(push).toHaveBeenCalledWith("/");
+      const saved = storage.getInvoices()[0];
+      expect(saved.status).toBe("draft");
+      expect(saved.dueDate).toBe("");
+      expect(saved.clientId).toBeNull();
+    });
+
+    it("never blocks creation on a missing email", async () => {
+      storage.saveBrand(brand());
+      // The saved client has no `email` field at all.
+      storage.saveClient(client({ email: undefined }));
+
+      const user = userEvent.setup();
+      render(<InvoiceForm />);
+
+      await user.click(screen.getAllByRole("combobox")[0]);
+      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+      await user.click(screen.getAllByRole("combobox")[1]);
+      await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+      fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+        target: { value: "2026-07-20" },
+      });
+      const descriptionInput = screen.getByPlaceholderText("What did you do?");
+      await user.type(descriptionInput, "Website redesign");
+      const row = descriptionInput.parentElement as HTMLElement;
+      await user.type(row.querySelectorAll("input")[1], "5000");
+
+      await user.click(screen.getByRole("button", { name: "Create invoice" }));
+
+      expect(push).toHaveBeenCalledWith("/");
+      expect(storage.getInvoices()).toHaveLength(1);
+    });
   });
 });

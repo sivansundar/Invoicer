@@ -3,16 +3,30 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LineItem, Currency } from "@/lib/types";
-import { getCurrencySymbol } from "@/lib/utils";
+import { getCurrencySymbol, cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 
 interface LineItemsTableProps {
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
   currency: Currency;
+  /** There's no single control to hang the usual `aria-invalid` convention
+   * (see `input.tsx`) on here — `role="group"` doesn't support that
+   * attribute (per `jsx-a11y/role-supports-aria-props`) — so the highlight
+   * is applied directly via `className` instead, and the error text is
+   * still associated programmatically through `aria-describedby`, which
+   * *is* a global attribute. */
+  invalid?: boolean;
+  "aria-describedby"?: string;
 }
 
-export function LineItemsTable({ items, onChange, currency }: LineItemsTableProps) {
+export function LineItemsTable({
+  items,
+  onChange,
+  currency,
+  invalid,
+  "aria-describedby": ariaDescribedby,
+}: LineItemsTableProps) {
   const addItem = () => {
     onChange([...items, { id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]);
   };
@@ -26,7 +40,12 @@ export function LineItemsTable({ items, onChange, currency }: LineItemsTableProp
   };
 
   return (
-    <div className="border rounded-xl bg-card overflow-hidden">
+    <div
+      role="group"
+      aria-label="Line items"
+      aria-describedby={ariaDescribedby}
+      className={cn("border rounded-xl bg-card overflow-hidden", invalid && "border-destructive")}
+    >
       <div className="h-9 px-3 border-b text-[13px] text-muted-foreground flex items-center gap-2">
         <span className="flex-[1_1_120px]">Description</span>
         <span className="flex-[0_0_120px]">Amount</span>
