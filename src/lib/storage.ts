@@ -208,10 +208,6 @@ export function getClients(): Client[] {
   return getItem<Client>(CLIENTS_KEY);
 }
 
-export function getClient(id: string): Client | null {
-  return getClients().find((c) => c.id === id) ?? null;
-}
-
 export function saveClient(client: Client): boolean {
   const clients = getClients();
   const index = clients.findIndex((c) => c.id === client.id);
@@ -233,10 +229,6 @@ export function deleteClient(id: string): boolean {
 // Invoices
 export function getInvoices(): Invoice[] {
   return getItem<Invoice>(INVOICES_KEY);
-}
-
-export function getInvoice(id: string): Invoice | null {
-  return getInvoices().find((i) => i.id === id) ?? null;
 }
 
 export function saveInvoice(invoice: Invoice): boolean {
@@ -262,10 +254,6 @@ export function getTemplates(): EmailTemplate[] {
   return getItem<EmailTemplate>(TEMPLATES_KEY);
 }
 
-export function getTemplate(id: string): EmailTemplate | null {
-  return getTemplates().find((t) => t.id === id) ?? null;
-}
-
 export function saveTemplate(template: EmailTemplate): boolean {
   const templates = getTemplates();
   const index = templates.findIndex((t) => t.id === template.id);
@@ -285,10 +273,6 @@ export function deleteTemplate(id: string): boolean {
 }
 
 // MOCK: plan state is local-only. There is no billing integration.
-export function getPlan(): PlanState {
-  return readPlan();
-}
-
 export function savePlan(plan: PlanState): boolean {
   if (!writeLocalStorage(PLAN_KEY, JSON.stringify(plan))) return false;
   invalidatePlan();

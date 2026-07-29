@@ -12,7 +12,9 @@ export default function DashboardPage() {
   return (
     <Shell>
       <div className="flex flex-col gap-6 py-6">
-        <StatCards invoices={invoices} />
+        <div className="px-6">
+          <StatCards invoices={invoices} />
+        </div>
         <div className="px-6">
           <RevenueChart invoices={invoices} />
         </div>

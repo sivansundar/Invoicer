@@ -1,5 +1,5 @@
 import type { Brand, Invoice } from "./types";
-import { nextSendDate } from "./followups";
+import { isUnpaid, nextSendDate } from "./followups";
 
 export interface FollowupQueueEntry {
   invoice: Invoice;
@@ -32,7 +32,7 @@ export function buildFollowupQueue(
   const entries: FollowupQueueEntry[] = [];
 
   for (const invoice of invoices) {
-    if (invoice.status !== "sent" && invoice.status !== "overdue") continue;
+    if (!isUnpaid(invoice)) continue;
 
     const brand = brands.find((b) => b.id === invoice.brandId);
     if (!brand) continue;

@@ -94,7 +94,7 @@ export function StatCards({ invoices: allInvoices }: StatCardsProps) {
   const { rate, paid, issued } = collection;
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 px-6">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
       <StatCard
         label="Total revenue"
         value={revenueValue}

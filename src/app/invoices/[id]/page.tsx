@@ -182,11 +182,16 @@ export default function InvoiceDetailPage() {
               </Button>
             )}
             <PDFDownloadButton invoice={invoice} snapshot={invoice.brandSnapshot} />
-            {invoice.status === "draft" && (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/invoices/${invoice.id}/edit`}>Edit draft</Link>
-              </Button>
-            )}
+            {/* Editing preserves whatever status the invoice already has
+                (`InvoiceForm`'s `status` assignment) — the invoice number,
+                brand snapshot and reminder history are untouched either
+                way, so surfacing Edit here for every status just makes an
+                already-safe transition reachable without typing the URL. */}
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                {invoice.status === "draft" ? "Edit draft" : "Edit"}
+              </Link>
+            </Button>
             <Button
               variant="ghost"
               size="sm"

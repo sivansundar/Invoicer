@@ -89,6 +89,13 @@ describe("dueLine", () => {
       destructive: false,
     });
   });
+
+  it("reads an honest unreadable line for a malformed due date, rather than a false Past due", () => {
+    expect(dueLine(makeInvoice({ status: "sent", dueDate: "not-a-date" }), 0, today)).toEqual({
+      text: "Due date unreadable",
+      destructive: false,
+    });
+  });
 });
 
 describe("resolveFollowupState", () => {

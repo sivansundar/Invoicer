@@ -26,6 +26,25 @@ export const TEMPLATE_TOKENS = [
   "brand",
 ] as const;
 
+/**
+ * `{{token}}` syntax for a known template token, typed against
+ * `TEMPLATE_TOKENS` so a hardcoded reference to e.g. `{{brand}}` elsewhere
+ * (the template-form preview's zero-invoice fallback) fails to compile
+ * rather than silently drifting if a token is ever renamed.
+ */
+export function tokenPlaceholder(token: (typeof TEMPLATE_TOKENS)[number]): string {
+  return `{{${token}}}`;
+}
+
+/**
+ * Whether an invoice is still owed money and therefore eligible for a
+ * follow-up — "sent" or "overdue". Shared by the follow-ups queue and the
+ * per-brand follow-up card so the two can't drift on what "unpaid" means.
+ */
+export function isUnpaid(invoice: Invoice): boolean {
+  return invoice.status === "sent" || invoice.status === "overdue";
+}
+
 export function timeLabel(time: string): string {
   const [hours, minutes] = (time || "09:00").split(":").map(Number);
   const suffix = hours >= 12 ? "PM" : "AM";

@@ -9,7 +9,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { buildFollowupQueue } from "@/lib/followup-queue";
-import { cadenceLabel, DAYS } from "@/lib/followups";
+import { cadenceLabel, DAYS, isUnpaid } from "@/lib/followups";
 import type { Brand, EmailTemplate, FollowupConfig, Invoice } from "@/lib/types";
 
 const STOP_AFTER_OPTIONS = [2, 3, 4, 6, 0] as const;
@@ -33,9 +33,7 @@ export function BrandFollowupCard({
 }: BrandFollowupCardProps) {
   const config = brand.followup;
   const brandInvoices = invoices.filter((invoice) => invoice.brandId === brand.id);
-  const unpaidInvoices = brandInvoices.filter(
-    (invoice) => invoice.status === "sent" || invoice.status === "overdue"
-  );
+  const unpaidInvoices = brandInvoices.filter(isUnpaid);
   const queuedCount = buildFollowupQueue(unpaidInvoices, [brand]).length;
   const remindersSent = brandInvoices.reduce(
     (sum, invoice) => sum + (invoice.reminders?.length ?? 0),
@@ -45,12 +43,13 @@ export function BrandFollowupCard({
   // Every control here is bound straight to the brand record from the
   // reactive store (`useBrands`), so a successful write is already visible
   // as the control's own new value on the next render — there's nothing
-  // further to toast. A failed write (a full storage quota) leaves the
-  // brand record, and therefore every control reading from it, unchanged —
-  // `writeLocalStorage` has already surfaced that failure with its own
-  // toast, so there's nothing to revert here either. The boolean is still
-  // captured, not discarded, so a future caller that needs to react to a
-  // failure has it to hand.
+  // further to toast. `onSaveBrand`'s boolean result is deliberately
+  // discarded here (a bare expression statement, not assigned): a failed
+  // write (a full storage quota) leaves the brand record, and therefore
+  // every control reading from it, unchanged, so the controlled inputs
+  // simply revert to their pre-edit values on the next render — and
+  // `writeLocalStorage` has already surfaced the failure with its own toast,
+  // so there's nothing further to do with the result here.
   const updateConfig = (patch: Partial<FollowupConfig>) => {
     onSaveBrand({ ...brand, followup: { ...config, ...patch } });
   };

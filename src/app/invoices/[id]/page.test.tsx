@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import InvoiceDetailPage from "./page";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import * as storage from "@/lib/storage";
@@ -98,6 +98,14 @@ describe("InvoiceDetailPage", () => {
     );
   });
 
+  // Every test below spies on `window.localStorage.setItem` to force a
+  // write failure — restoring after each test keeps that spy from leaking
+  // into the next one and breaking its (unrelated) writes, e.g. the theme
+  // provider's own `setItem` call on mount.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("does not report success and leaves the status unchanged when marking paid fails", async () => {
     storage.saveBrand(brand());
     storage.saveInvoice(invoice({ status: "sent" }));
@@ -122,6 +130,98 @@ describe("InvoiceDetailPage", () => {
     // (only rendered for sent/overdue invoices) is still there, and the
     // stored record was never actually flipped to "paid".
     expect(screen.getByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
-    expect(storage.getInvoice("i1")?.status).toBe("sent");
+    expect(storage.getInvoices().find((i) => i.id === "i1")?.status).toBe("sent");
+  });
+
+  it("does not report success and leaves the status unchanged when marking sent fails", async () => {
+    storage.saveBrand(brand());
+    storage.saveInvoice(invoice({ status: "draft", dueDate: "2026-06-15" }));
+
+    const user = userEvent.setup();
+    render(
+      <ThemeProvider>
+        <InvoiceDetailPage />
+      </ThemeProvider>
+    );
+
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Mark as sent" }));
+
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("marked as sent"));
+    expect(screen.getByRole("button", { name: "Mark as sent" })).toBeInTheDocument();
+    expect(storage.getInvoices().find((i) => i.id === "i1")?.status).toBe("draft");
+  });
+
+  it("does not report success and leaves the pause flag unchanged when toggling pause fails", async () => {
+    storage.saveBrand(brand());
+    storage.saveInvoice(invoice({ status: "sent", followupsPaused: false }));
+
+    const user = userEvent.setup();
+    render(
+      <ThemeProvider>
+        <InvoiceDetailPage />
+      </ThemeProvider>
+    );
+
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Pause follow-ups" }));
+
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("Follow-ups paused"));
+    // Still reads "Pause follow-ups" — a successful toggle would have flipped
+    // the label to "Resume follow-ups".
+    expect(screen.getByRole("button", { name: "Pause follow-ups" })).toBeInTheDocument();
+    expect(storage.getInvoices().find((i) => i.id === "i1")?.followupsPaused).toBe(false);
+  });
+
+  it("does not report success and leaves reminder history unchanged when sending now fails", async () => {
+    storage.saveBrand(brand());
+    storage.saveInvoice(invoice({ status: "sent", reminders: [] }));
+
+    const user = userEvent.setup();
+    render(
+      <ThemeProvider>
+        <InvoiceDetailPage />
+      </ThemeProvider>
+    );
+
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Send one now" }));
+
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("sent to"));
+    expect(storage.getInvoices().find((i) => i.id === "i1")?.reminders).toEqual([]);
+  });
+
+  it("does not navigate away or drop the record when deleting fails", async () => {
+    storage.saveBrand(brand());
+    storage.saveInvoice(invoice());
+
+    const user = userEvent.setup();
+    render(
+      <ThemeProvider>
+        <InvoiceDetailPage />
+      </ThemeProvider>
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = screen.getByRole("dialog");
+
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("deleted"));
+    expect(push).not.toHaveBeenCalled();
+    expect(storage.getInvoices().find((i) => i.id === "i1")).toBeDefined();
   });
 });

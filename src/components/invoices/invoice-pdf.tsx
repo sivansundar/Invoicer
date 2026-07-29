@@ -6,7 +6,13 @@ import {
   Text,
   View,
   StyleSheet,
-  Image,
+  // Aliased on import: eslint-config-next maps any JSX element literally
+  // named `Image` to `jsx-a11y/alt-text`'s `img` check (so next/image usage
+  // gets alt-text linting), but this is @react-pdf/renderer's own `Image`
+  // primitive for the generated PDF document — an unrelated component that
+  // doesn't take or render an HTML `alt` attribute at all. The rename avoids
+  // the name collision rather than suppressing the (otherwise-correct) rule.
+  Image as PdfImage,
   Font,
 } from "@react-pdf/renderer";
 import { Invoice, BrandSnapshot } from "@/lib/types";
@@ -112,7 +118,7 @@ export function InvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.brandSection}>
-            {snapshot.logo && <Image src={snapshot.logo} style={s.logo} />}
+            {snapshot.logo && <PdfImage src={snapshot.logo} style={s.logo} />}
             <View>
               <Text style={s.brandName}>{snapshot.name}</Text>
               <Text style={s.brandDetail}>{snapshot.address}</Text>

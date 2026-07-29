@@ -18,7 +18,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTemplates } from "@/hooks/use-templates";
-import { fillTemplate, TEMPLATE_TOKENS, templateContext } from "@/lib/followups";
+import { fillTemplate, TEMPLATE_TOKENS, templateContext, tokenPlaceholder } from "@/lib/followups";
 import { sampleInvoiceForPreview, templateBrandNames } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 import type { EmailTemplate, EmailTone } from "@/lib/types";
@@ -259,7 +259,7 @@ export function TemplateForm({ template }: TemplateFormProps) {
             <p className="text-xs text-muted-foreground">
               {previewContext
                 ? `${previewContext.brand} → ${previewContext.company}`
-                : "{{brand}} → {{company}}"}
+                : `${tokenPlaceholder("brand")} → ${tokenPlaceholder("company")}`}
             </p>
           </div>
           <div className="p-5 text-[13px] leading-[1.7] whitespace-pre-wrap">

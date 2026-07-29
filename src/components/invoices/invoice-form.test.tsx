@@ -116,7 +116,7 @@ describe("InvoiceForm", () => {
 
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-        const saved = storage.getInvoice("i1");
+        const saved = storage.getInvoices().find((i) => i.id === "i1");
         expect(saved?.status).toBe(status);
       });
     }
@@ -133,7 +133,7 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
-    const saved = storage.getInvoice("i1");
+    const saved = storage.getInvoices().find((i) => i.id === "i1");
     expect(saved?.status).toBe("draft");
   });
 
@@ -154,7 +154,7 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    const saved = storage.getInvoice("i1");
+    const saved = storage.getInvoices().find((i) => i.id === "i1");
     expect(saved?.reminders).toEqual(["2026-06-05", "2026-06-12"]);
     expect(saved?.followupsPaused).toBe(true);
     expect(saved?.brandSnapshot.name).toBe("Old Brand Name");

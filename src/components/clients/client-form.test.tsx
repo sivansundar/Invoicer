@@ -93,7 +93,7 @@ describe("ClientForm", () => {
   it("toasts a distinct message on create vs. on editing an existing client", async () => {
     storage.saveClient(client());
     const user = userEvent.setup();
-    render(<ClientForm client={storage.getClient("c1")!} />);
+    render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -112,17 +112,17 @@ describe("ClientForm", () => {
       storage.saveInvoice(invoice({ id: "i4", clientId: null })); // already unlinked
 
       const user = userEvent.setup();
-      render(<ClientForm client={storage.getClient("c1")!} />);
+      render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
 
       expect(storage.getClients()).toHaveLength(0);
-      expect(storage.getInvoice("i1")?.clientId).toBeNull();
-      expect(storage.getInvoice("i2")?.clientId).toBeNull();
-      expect(storage.getInvoice("i1")?.updatedAt).not.toBe("2026-06-01T00:00:00.000Z");
+      expect(storage.getInvoices().find((i) => i.id === "i1")?.clientId).toBeNull();
+      expect(storage.getInvoices().find((i) => i.id === "i2")?.clientId).toBeNull();
+      expect(storage.getInvoices().find((i) => i.id === "i1")?.updatedAt).not.toBe("2026-06-01T00:00:00.000Z");
       // Untouched: different client, and already-null.
-      expect(storage.getInvoice("i3")?.clientId).toBe("c2");
-      expect(storage.getInvoice("i4")?.clientId).toBeNull();
+      expect(storage.getInvoices().find((i) => i.id === "i3")?.clientId).toBe("c2");
+      expect(storage.getInvoices().find((i) => i.id === "i4")?.clientId).toBeNull();
 
       expect(toast).toHaveBeenCalledWith("Acme Studio removed");
       expect(push).toHaveBeenCalledWith("/clients");
@@ -135,7 +135,7 @@ describe("ClientForm", () => {
       const saveInvoiceSpy = vi.spyOn(storage, "saveInvoice");
 
       const user = userEvent.setup();
-      render(<ClientForm client={storage.getClient("c1")!} />);
+      render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
 
@@ -165,7 +165,7 @@ describe("ClientForm", () => {
       });
 
       const user = userEvent.setup();
-      render(<ClientForm client={storage.getClient("c1")!} />);
+      render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
 

@@ -22,7 +22,9 @@ function plural(n: number, unit: string): string {
  * unset due date is marked sent directly from the detail screen — the
  * create/edit form requires a due date for anything other than a draft) gets
  * its own defensive copy rather than silently reading as "Past due", which
- * `Math.round(NaN)` would otherwise produce.
+ * `Math.round(NaN)` would otherwise produce. A `dueDate` that is present but
+ * fails to parse (e.g. corrupted storage) hits the same `NaN` and gets its
+ * own honest "unreadable" copy rather than the plausible-but-false "Past due".
  */
 export function dueLine(
   invoice: Invoice,
@@ -49,6 +51,9 @@ export function dueLine(
   const midnight = new Date(today.toDateString());
   const due = new Date(`${invoice.dueDate}T00:00`);
   const diffDays = Math.round((due.getTime() - midnight.getTime()) / 864e5);
+  if (Number.isNaN(diffDays)) {
+    return { text: "Due date unreadable", destructive: false };
+  }
   if (diffDays > 0) {
     return { text: `Due in ${plural(diffDays, "day")}`, destructive: false };
   }
