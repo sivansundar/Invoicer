@@ -1,6 +1,7 @@
 import { paletteColorForIndex } from "./palette";
 import { SEED_TEMPLATES, defaultFollowupConfig } from "./seed";
 import { writeLocalStorage } from "./local-storage";
+import { DEFAULT_INVOICE_DESIGN, resolveInvoiceDesign } from "./invoice-design";
 import type { Brand, BrandSnapshot, Client, EmailTemplate, Invoice } from "./types";
 
 export const SCHEMA_VERSION = 2;
@@ -109,6 +110,7 @@ export function snapshotFromBrand(brand: Brand): BrandSnapshot {
     invoicePrefix: brand.invoicePrefix,
     accentColor: brand.accentColor,
     bankDetails: brand.bankDetails,
+    invoiceDesign: resolveInvoiceDesign(brand.invoiceDesign),
   };
 }
 
@@ -119,6 +121,7 @@ function fallbackSnapshot(invoiceNumber: string): BrandSnapshot {
     invoicePrefix: prefixFromInvoiceNumber(invoiceNumber),
     accentColor: paletteColorForIndex(0),
     bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+    invoiceDesign: DEFAULT_INVOICE_DESIGN,
   };
 }
 
@@ -132,6 +135,10 @@ export function migrateToV2(input: RawPayload): V2Payload {
     ...brand,
     accentColor: brand.accentColor ?? paletteColorForIndex(index),
     followup: brand.followup ?? defaultFollowupConfig(),
+    // Every brand that predates this field rendered as "Modern" (this
+    // branch's only design at the time) — backfilling anything else would
+    // silently change how its invoices look.
+    invoiceDesign: resolveInvoiceDesign(brand.invoiceDesign),
   }));
 
   const clientsPartition = partitionRecords(input.clients);
@@ -147,13 +154,21 @@ export function migrateToV2(input: RawPayload): V2Payload {
   const invoicesPartition = partitionRecords(input.invoices);
   const invoices = (invoicesPartition.kept as unknown as Invoice[]).map((invoice) => {
     const brand = brandsById.get(invoice.brandId);
+    // Legacy invoice numbers are deliberately left alone — they may already
+    // be in a client's inbox. A snapshot that already exists is backfilled
+    // in place (only `invoiceDesign`, defaulted to how it actually rendered
+    // — "modern" — rather than being replaced wholesale), so nothing else
+    // frozen on it at issue time changes. Only a wholly missing snapshot is
+    // synthesised fresh, and both `snapshotFromBrand` and `fallbackSnapshot`
+    // already carry their own correct `invoiceDesign`.
+    const brandSnapshot = invoice.brandSnapshot
+      ? { ...invoice.brandSnapshot, invoiceDesign: resolveInvoiceDesign(invoice.brandSnapshot.invoiceDesign) }
+      : brand
+      ? snapshotFromBrand(brand)
+      : fallbackSnapshot(invoice.invoiceNumber);
     return {
       ...invoice,
-      // Legacy invoice numbers are deliberately left alone — they may already
-      // be in a client's inbox.
-      brandSnapshot:
-        invoice.brandSnapshot ??
-        (brand ? snapshotFromBrand(brand) : fallbackSnapshot(invoice.invoiceNumber)),
+      brandSnapshot,
       clientId:
         invoice.clientId ??
         clientsByCompany.get(normaliseCompanyName(invoice.client?.companyName)) ??

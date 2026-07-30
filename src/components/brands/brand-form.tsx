@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { defaultFollowupConfig } from "@/lib/seed";
 import { BRAND_PALETTE } from "@/lib/palette";
+import { DEFAULT_INVOICE_DESIGN, INVOICE_DESIGN_OPTIONS } from "@/lib/invoice-design";
 import {
   brandDeleteGuard,
   derivePrefix,
@@ -24,7 +26,7 @@ import {
   validateLogoFile,
 } from "@/lib/brands";
 import { cn } from "@/lib/utils";
-import type { Brand } from "@/lib/types";
+import type { Brand, InvoiceDesign } from "@/lib/types";
 
 interface BrandFormProps {
   brand?: Brand;
@@ -44,6 +46,9 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [logoProcessing, setLogoProcessing] = useState(false);
   const [accentColor, setAccentColor] = useState(
     brand?.accentColor ?? nextUnusedAccentColor(brands)
+  );
+  const [invoiceDesign, setInvoiceDesign] = useState<InvoiceDesign>(
+    brand?.invoiceDesign ?? DEFAULT_INVOICE_DESIGN
   );
   const [address, setAddress] = useState(brand?.address ?? "");
   const [email, setEmail] = useState(brand?.email ?? "");
@@ -126,6 +131,7 @@ export function BrandForm({ brand }: BrandFormProps) {
       nextInvoiceNumber: brand?.nextInvoiceNumber ?? 1,
       accentColor,
       followup: brand?.followup ?? defaultFollowupConfig(),
+      invoiceDesign,
       bankDetails: {
         accountName,
         accountNumber,
@@ -271,6 +277,34 @@ export function BrandForm({ brand }: BrandFormProps) {
               />
             ))}
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Invoice design</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            spacing={1}
+            value={invoiceDesign}
+            onValueChange={(value) => {
+              if (value) setInvoiceDesign(value as InvoiceDesign);
+            }}
+            className="grid grid-cols-2 gap-2 w-full"
+          >
+            {INVOICE_DESIGN_OPTIONS.map((option) => (
+              <ToggleGroupItem
+                key={option.value}
+                value={option.value}
+                aria-label={option.label}
+                className="h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-lg px-3 py-2.5 text-left data-[state=on]:border-foreground data-[state=on]:bg-accent"
+              >
+                <span className="text-[13px] font-medium">{option.label}</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {option.description}
+                </span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
 
         <div className="space-y-1.5">

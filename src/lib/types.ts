@@ -7,6 +7,14 @@ export interface BankDetails {
   upiId?: string;
 }
 
+/**
+ * Which of the two predefined invoice layouts a brand's invoices render as.
+ * Unrelated to `EmailTemplate` / `useTemplates()` (the follow-up email
+ * copy) — this governs the invoice document itself, on screen and in the
+ * PDF, so it's named `InvoiceDesign` rather than overloading "template".
+ */
+export type InvoiceDesign = "modern" | "classic";
+
 export interface Brand {
   id: string;
   name: string;
@@ -22,6 +30,13 @@ export interface Brand {
   createdAt: string;
   accentColor: string;
   followup: FollowupConfig;
+  /**
+   * Undefined on any brand written before this field existed. Never read
+   * directly — go through `resolveInvoiceDesign` (`@/lib/invoice-design`),
+   * which treats undefined the same as `"modern"`, so every call site gets
+   * the same default instead of re-deciding it.
+   */
+  invoiceDesign?: InvoiceDesign;
 }
 
 export interface Client {
@@ -126,6 +141,14 @@ export interface BrandSnapshot {
   invoicePrefix: string;
   accentColor: string;
   bankDetails: BankDetails;
+  /**
+   * The design this invoice was rendered with at creation time, frozen the
+   * same way every other brand detail is — changing a brand's design later
+   * must never change how an already-issued invoice looks. Undefined on any
+   * snapshot written before this field existed; resolve with
+   * `resolveInvoiceDesign` (`@/lib/invoice-design`), never a bare `?? "modern"`.
+   */
+  invoiceDesign?: InvoiceDesign;
 }
 
 /** MOCK: no payment integration exists. Persisted locally only. */

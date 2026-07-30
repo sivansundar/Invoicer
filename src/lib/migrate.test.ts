@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SCHEMA_VERSION, forceMigration, migrateToV2, runMigration } from "./migrate";
+import { SCHEMA_VERSION, forceMigration, migrateToV2, runMigration, snapshotFromBrand } from "./migrate";
 import { DEFAULT_TEMPLATE_ID, SEED_TEMPLATES } from "./seed";
 import { BRAND_PALETTE } from "./palette";
+import type { Brand } from "./types";
 
 const toast = vi.fn();
 vi.mock("sonner", () => ({
@@ -107,6 +108,20 @@ describe("migrateToV2 — brands", () => {
     });
     expect(result.brands[0].accentColor).toBe("");
   });
+
+  it("backfills a legacy brand's invoiceDesign to modern — how it actually renders today", () => {
+    expect(migrate().brands[0].invoiceDesign).toBe("modern");
+  });
+
+  it("does not overwrite a brand's invoiceDesign that is already set", () => {
+    const result = migrateToV2({
+      brands: [{ ...v1Brand, invoiceDesign: "classic" }],
+      clients: [],
+      invoices: [],
+      templates: [],
+    });
+    expect(result.brands[0].invoiceDesign).toBe("classic");
+  });
 });
 
 describe("migrateToV2 — invoices", () => {
@@ -179,6 +194,91 @@ describe("migrateToV2 — invoices", () => {
     expect(invoice.subtotal).toBe(40000);
     expect(invoice.totalTax).toBe(7200);
     expect(invoice.total).toBe(47200);
+  });
+
+  it("backfills invoiceDesign to modern on a freshly-synthesised snapshot", () => {
+    const snapshot = migrate().invoices[0].brandSnapshot;
+    expect(snapshot.invoiceDesign).toBe("modern");
+  });
+
+  it("backfills invoiceDesign to modern on an existing snapshot that predates the field, without touching its other fields", () => {
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [v1Client],
+      invoices: [
+        {
+          ...v1Invoice,
+          brandSnapshot: {
+            name: "Sivan Studio",
+            address: "44, 100 Feet Rd",
+            invoicePrefix: "SC",
+            accentColor: "#059669",
+            bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+          },
+        },
+      ],
+      templates: [],
+    });
+    const snapshot = result.invoices[0].brandSnapshot;
+    expect(snapshot.invoiceDesign).toBe("modern");
+    expect(snapshot.accentColor).toBe("#059669");
+    expect(snapshot.address).toBe("44, 100 Feet Rd");
+  });
+
+  it("never rewrites an existing snapshot's invoiceDesign to something else", () => {
+    const classicSnapshot = { ...migrate().invoices[0].brandSnapshot, invoiceDesign: "classic" as const };
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [v1Client],
+      invoices: [{ ...v1Invoice, brandSnapshot: classicSnapshot }],
+      templates: [],
+    });
+    expect(result.invoices[0].brandSnapshot.invoiceDesign).toBe("classic");
+  });
+});
+
+describe("snapshotFromBrand — invoiceDesign", () => {
+  const fullBrand: Brand = {
+    id: "b1",
+    name: "Sivan Studio",
+    address: "44, 100 Feet Rd",
+    email: "billing@sivan.studio",
+    invoicePrefix: "SC",
+    nextInvoiceNumber: 1,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    accentColor: "#2563eb",
+    followup: {
+      enabled: false,
+      mode: "weekly",
+      weekday: 1,
+      time: "09:00",
+      repeat: "week",
+      templateId: "",
+      stopAfter: 0,
+    },
+    bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+  };
+
+  it("defaults to modern when the brand has no invoiceDesign set", () => {
+    expect(snapshotFromBrand(fullBrand).invoiceDesign).toBe("modern");
+  });
+
+  it("carries an explicit classic design onto the snapshot", () => {
+    expect(snapshotFromBrand({ ...fullBrand, invoiceDesign: "classic" }).invoiceDesign).toBe(
+      "classic"
+    );
+  });
+
+  it("freezes the design at snapshot time — changing the brand's design afterwards does not affect the snapshot already taken", () => {
+    const brand: Brand = { ...fullBrand, invoiceDesign: "classic" };
+    const snapshot = snapshotFromBrand(brand);
+
+    // Simulate editing the brand later, exactly like brand-form.tsx would.
+    const updatedBrand: Brand = { ...brand, invoiceDesign: "modern" };
+
+    expect(snapshot.invoiceDesign).toBe("classic");
+    expect(updatedBrand.invoiceDesign).toBe("modern");
+    expect(snapshotFromBrand(updatedBrand).invoiceDesign).toBe("modern");
   });
 });
 

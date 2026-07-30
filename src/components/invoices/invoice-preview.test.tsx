@@ -88,3 +88,27 @@ describe("InvoicePreview tax IDs", () => {
     expect(screen.queryByText(/^GST:/)).not.toBeInTheDocument();
   });
 });
+
+describe("InvoicePreview design dispatch", () => {
+  // The classic design renders an explicit line-item table header
+  // ("Description"/"Amount"/"Tax"/"Total") that the modern design has no
+  // equivalent of — a reliable signal for which design actually rendered
+  // without reaching into either design's internals.
+  it("renders the modern design when the snapshot carries no invoiceDesign", () => {
+    renderPreview({ invoiceDesign: undefined });
+
+    expect(screen.queryByText("Description")).not.toBeInTheDocument();
+  });
+
+  it("renders the modern design when the snapshot explicitly says modern", () => {
+    renderPreview({ invoiceDesign: "modern" });
+
+    expect(screen.queryByText("Description")).not.toBeInTheDocument();
+  });
+
+  it("renders the classic design when the snapshot says classic", () => {
+    renderPreview({ invoiceDesign: "classic" });
+
+    expect(screen.getByText("Description")).toBeInTheDocument();
+  });
+});
