@@ -48,11 +48,18 @@ export interface InvoiceValidationResult {
 }
 
 /**
- * Mandatory-field gate for *creating* an invoice (the "Create invoice"
- * button on a new, non-draft invoice). Never applied to "Save as draft" —
- * a draft is explicitly a work in progress — nor to editing an existing
- * invoice ("Save changes"), which keeps its own narrower, pre-existing
- * line-item-only guard in `invoice-form.tsx`.
+ * Mandatory-field gate for the *primary* save action on an invoice — the
+ * "Create invoice" button on a new invoice, and the "Save changes" button
+ * on an existing one. Deliberately the same rule set for both: an invoice
+ * that would be rejected as incomplete on creation is no less incomplete
+ * because it happens to already have an id. An older invoice missing, say,
+ * a contact name isn't blocked forever by this — the field is highlighted
+ * and filled in right there, the same inline-completion path a newly
+ * selected saved client with a gap already uses.
+ *
+ * Never applied to "Save as draft" on either screen — a draft is explicitly
+ * a work in progress. `invoice-form.tsx` gates on `asDraft` alone; no
+ * `isEdit` branch belongs anywhere in that decision.
  *
  * `currency` is checked here for completeness even though the form's
  * Select always carries a default ("INR") and can never actually reach
@@ -61,7 +68,7 @@ export interface InvoiceValidationResult {
  * function documents ("currency is mandatory") is still true of the
  * function itself, not just of the form around it.
  */
-export function validateInvoiceForCreate(input: InvoiceValidationInput): InvoiceValidationResult {
+export function validateInvoiceForSave(input: InvoiceValidationInput): InvoiceValidationResult {
   const missing = new Set<InvoiceField>();
 
   if (!input.brandId) missing.add("brand");
@@ -106,7 +113,7 @@ const FIELD_MESSAGE: Record<InvoiceField, string> = {
 };
 
 /**
- * Toast copy for a failed `validateInvoiceForCreate`. Leads with the first
+ * Toast copy for a failed `validateInvoiceForSave`. Leads with the first
  * problem in form order — the same one the caller scrolls to — rather than
  * an itemised list, and only hints at the rest so the message stays a single
  * calm sentence instead of growing into a checklist.

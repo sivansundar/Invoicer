@@ -112,6 +112,10 @@ describe("InvoiceForm", () => {
     (status) => {
       it(`preserves "${status}" when the primary save button is clicked`, async () => {
         storage.saveBrand(brand({ name: "New Brand Name" }));
+        // Fully populated, so this also proves "Save changes" runs the same
+        // mandatory-field gate as "Create invoice" without being blocked by
+        // it — the fixture below satisfies it, `status` is the only thing
+        // under test here.
         storage.saveClient(client());
         const existing = invoice({ status });
         storage.saveInvoice(existing);
@@ -121,6 +125,7 @@ describe("InvoiceForm", () => {
 
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
+        expect(push).toHaveBeenCalledWith("/");
         const saved = storage.getInvoices().find((i) => i.id === "i1");
         expect(saved?.status).toBe(status);
       });
@@ -307,7 +312,7 @@ describe("InvoiceForm", () => {
     expect(storage.getInvoices()).toHaveLength(0);
   });
 
-  describe("mandatory-field validation on create", () => {
+  describe("mandatory-field validation on save (create and edit, identically)", () => {
     it("toasts, highlights every missing field, and scrolls to the first one in form order", async () => {
       // "Create invoice" is disabled with no brand at all, so the earliest
       // this can actually be exercised is right after a brand is chosen —
@@ -440,6 +445,86 @@ describe("InvoiceForm", () => {
 
       expect(push).toHaveBeenCalledWith("/");
       expect(storage.getInvoices()).toHaveLength(1);
+    });
+
+    describe("editing", () => {
+      it('"Save changes" is blocked when the linked client has no contact name, and can be completed inline', async () => {
+        storage.saveBrand(brand());
+        // No `name` at all — an older client record, or one saved before
+        // contact name became mandatory for an invoice.
+        storage.saveClient(client({ name: undefined }));
+        const existing = invoice({ status: "sent" });
+        storage.saveInvoice(existing);
+
+        const user = userEvent.setup();
+        render(<InvoiceForm existingInvoice={existing} />);
+
+        await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+        // Blocked, not silently re-saved with the gap still there.
+        expect(toast).toHaveBeenCalledWith("This client needs a contact name to continue");
+        expect(push).not.toHaveBeenCalled();
+        const contactField = document.getElementById("field-contact-name")!.querySelector("input")!;
+        expect(contactField).toHaveAttribute("aria-invalid", "true");
+
+        // The same inline-completion field the create path uses — not a
+        // dead end.
+        await user.type(contactField, "Priya Nair");
+        await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+        expect(push).toHaveBeenCalledWith("/");
+        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        expect(saved?.status).toBe("sent");
+        expect(saved?.client.name).toBe("Priya Nair");
+        // This invoice's own snapshot gained the contact name — the saved
+        // client record itself must not have been silently rewritten.
+        expect(storage.getClients().find((c) => c.id === "c1")?.name).toBeUndefined();
+      });
+
+      it('"Save changes" persists an edit when the invoice is already complete', async () => {
+        storage.saveBrand(brand());
+        storage.saveClient(client());
+        const existing = invoice({ status: "sent", notes: "Original notes" });
+        storage.saveInvoice(existing);
+
+        const user = userEvent.setup();
+        render(<InvoiceForm existingInvoice={existing} />);
+
+        const notesField = screen.getByPlaceholderText("Payment terms, a thank-you, anything.");
+        await user.clear(notesField);
+        await user.type(notesField, "Updated notes");
+
+        await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+        expect(push).toHaveBeenCalledWith("/");
+        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        expect(saved?.notes).toBe("Updated notes");
+      });
+
+      it('"Save as draft" from the edit screen still saves with fields missing', async () => {
+        storage.saveBrand(brand());
+        storage.saveClient(client());
+        const existing = invoice({ status: "sent" });
+        storage.saveInvoice(existing);
+
+        const user = userEvent.setup();
+        render(<InvoiceForm existingInvoice={existing} />);
+
+        // Clear the due date and the only line item's description — both
+        // mandatory for "Save changes", neither should matter for a draft.
+        fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+          target: { value: "" },
+        });
+        const descriptionInput = screen.getByDisplayValue("Design work");
+        await user.clear(descriptionInput);
+
+        await user.click(screen.getByRole("button", { name: "Save as draft" }));
+
+        expect(push).toHaveBeenCalledWith("/");
+        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        expect(saved?.status).toBe("draft");
+        expect(saved?.dueDate).toBe("");
+      });
     });
   });
 });

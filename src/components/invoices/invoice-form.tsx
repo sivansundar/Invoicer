@@ -30,7 +30,7 @@ import { snapshotFromBrand } from "@/lib/migrate";
 import { paletteColorForIndex } from "@/lib/palette";
 import {
   describeInvoiceValidationError,
-  validateInvoiceForCreate,
+  validateInvoiceForSave,
   InvoiceField,
 } from "@/lib/invoice-validation";
 
@@ -114,9 +114,9 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     existingInvoice?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
   );
 
-  // Which mandatory fields failed the most recent "Create invoice" attempt.
-  // Only ever populated on that path — "Save as draft" and editing
-  // ("Save changes") never touch this.
+  // Which mandatory fields failed the most recent primary-save attempt
+  // ("Create invoice" or "Save changes" — the same rule set for both).
+  // "Save as draft" never touches this.
   const [errors, setErrors] = useState<Partial<Record<InvoiceField, boolean>>>({});
 
   // A saved client's own record is read-only from here — `client` below is
@@ -189,44 +189,34 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     : EMPTY_SNAPSHOT;
 
   const handleSave = (asDraft: boolean) => {
+    // Same mandatory-field gate for the primary save action whether this is
+    // a brand-new invoice ("Create invoice") or an existing one ("Save
+    // changes") — an invoice missing, say, a contact name is exactly as
+    // incomplete either way. Only "Save as draft" skips this; a draft is
+    // explicitly a work in progress. This check never looks at `isEdit`.
     if (!asDraft) {
-      if (isEdit) {
-        // Editing keeps its own long-standing, narrower guard — an invoice
-        // that was already valid enough to create can still be saved even
-        // if, say, its client record has since lost its contact name.
-        // Full mandatory-field validation below is a "Create invoice"-only
-        // concern.
-        const hasValidLine = items.some(
-          (item) => item.description.trim() !== "" && item.amount > 0
-        );
-        if (!hasValidLine) {
-          toast("Add at least one line item first");
-          return;
-        }
-      } else {
-        const result = validateInvoiceForCreate({
-          brandId,
-          clientSelected: selectValue !== "",
-          client: {
-            companyName: previewClient.companyName,
-            name: previewClient.name,
-            address: previewClient.address,
-          },
-          billDate,
-          dueDate,
-          currency,
-          items,
-        });
-        if (!result.ok) {
-          setErrors(Object.fromEntries(result.fields.map((f) => [f, true])));
-          toast(describeInvoiceValidationError(result.fields));
-          document
-            .getElementById(FIELD_DOM_ID[result.fields[0]])
-            ?.scrollIntoView({ behavior: "smooth", block: "center" });
-          return;
-        }
-        setErrors({});
+      const result = validateInvoiceForSave({
+        brandId,
+        clientSelected: selectValue !== "",
+        client: {
+          companyName: previewClient.companyName,
+          name: previewClient.name,
+          address: previewClient.address,
+        },
+        billDate,
+        dueDate,
+        currency,
+        items,
+      });
+      if (!result.ok) {
+        setErrors(Object.fromEntries(result.fields.map((f) => [f, true])));
+        toast(describeInvoiceValidationError(result.fields));
+        document
+          .getElementById(FIELD_DOM_ID[result.fields[0]])
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
       }
+      setErrors({});
     }
 
     // Editing an invoice must never silently change its status — only an

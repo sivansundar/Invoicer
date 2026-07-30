@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeInvoiceValidationError,
-  validateInvoiceForCreate,
+  validateInvoiceForSave,
   type InvoiceValidationInput,
 } from "./invoice-validation";
 
@@ -18,13 +18,13 @@ function validInput(overrides: Partial<InvoiceValidationInput> = {}): InvoiceVal
   };
 }
 
-describe("validateInvoiceForCreate", () => {
+describe("validateInvoiceForSave", () => {
   it("passes a fully-valid invoice", () => {
-    expect(validateInvoiceForCreate(validInput())).toEqual({ ok: true, fields: [] });
+    expect(validateInvoiceForSave(validInput())).toEqual({ ok: true, fields: [] });
   });
 
   it("flags a missing brand", () => {
-    const result = validateInvoiceForCreate(validInput({ brandId: "" }));
+    const result = validateInvoiceForSave(validInput({ brandId: "" }));
     expect(result).toEqual({ ok: false, fields: ["brand"] });
   });
 
@@ -32,14 +32,14 @@ describe("validateInvoiceForCreate", () => {
     // Those three fields aren't even rendered until "Billed to" has a
     // selection — flagging them here would point at inputs the user can't
     // see yet.
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({ clientSelected: false, client: { companyName: "", address: "" } })
     );
     expect(result).toEqual({ ok: false, fields: ["client"] });
   });
 
   it("flags a missing company name once a client is selected", () => {
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({ client: { companyName: "  ", name: "Priya Nair", address: "12 Residency Rd" } })
     );
     expect(result).toEqual({ ok: false, fields: ["companyName"] });
@@ -49,50 +49,50 @@ describe("validateInvoiceForCreate", () => {
     // A saved `Client` record can legitimately have no `name` (the client
     // form marks it Optional). Selecting that client must still surface the
     // gap rather than silently accepting an invoice with no contact.
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({ client: { companyName: "Acme Studio", address: "12 Residency Rd" } })
     );
     expect(result).toEqual({ ok: false, fields: ["contactName"] });
   });
 
   it("flags a missing address", () => {
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({ client: { companyName: "Acme Studio", name: "Priya Nair", address: "   " } })
     );
     expect(result).toEqual({ ok: false, fields: ["address"] });
   });
 
   it("flags a missing bill date", () => {
-    const result = validateInvoiceForCreate(validInput({ billDate: "" }));
+    const result = validateInvoiceForSave(validInput({ billDate: "" }));
     expect(result).toEqual({ ok: false, fields: ["billDate"] });
   });
 
   it("flags a missing due date", () => {
-    const result = validateInvoiceForCreate(validInput({ dueDate: "" }));
+    const result = validateInvoiceForSave(validInput({ dueDate: "" }));
     expect(result).toEqual({ ok: false, fields: ["dueDate"] });
   });
 
   it("flags a missing currency", () => {
-    const result = validateInvoiceForCreate(validInput({ currency: "" }));
+    const result = validateInvoiceForSave(validInput({ currency: "" }));
     expect(result).toEqual({ ok: false, fields: ["currency"] });
   });
 
   it("treats an empty line-item row as no line item at all", () => {
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({ items: [{ description: "", amount: 0 }] })
     );
     expect(result).toEqual({ ok: false, fields: ["lineItems"] });
   });
 
   it("rejects a line item with a description but no positive amount", () => {
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({ items: [{ description: "Design work", amount: 0 }] })
     );
     expect(result).toEqual({ ok: false, fields: ["lineItems"] });
   });
 
   it("accepts manual client entry with all three fields filled in", () => {
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({
         client: { companyName: "One-off Client Ltd", name: "Jordan Lee", address: "1 High St" },
       })
@@ -101,7 +101,7 @@ describe("validateInvoiceForCreate", () => {
   });
 
   it("reports several missing fields at once, still in form order", () => {
-    const result = validateInvoiceForCreate(
+    const result = validateInvoiceForSave(
       validInput({
         brandId: "",
         billDate: "",
@@ -112,7 +112,7 @@ describe("validateInvoiceForCreate", () => {
   });
 
   it("reports every field missing on a completely empty invoice", () => {
-    const result = validateInvoiceForCreate({
+    const result = validateInvoiceForSave({
       brandId: "",
       clientSelected: false,
       client: { companyName: "", address: "" },
