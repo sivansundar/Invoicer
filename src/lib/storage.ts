@@ -10,8 +10,20 @@ function getItem<T>(key: string): T[] {
   return data ? JSON.parse(data) : [];
 }
 
-function setItem<T>(key: string, data: T[]): void {
-  localStorage.setItem(key, JSON.stringify(data));
+// Returns whether the write actually persisted. `localStorage.setItem` can
+// throw (most commonly `QuotaExceededError`) and a full-backup restore is
+// the largest write this app ever makes — the likeliest place to hit that
+// limit. Callers that need to report an honest result (the importer) check
+// this; existing callers that ignore the return value behave exactly as
+// before.
+function setItem<T>(key: string, data: T[]): boolean {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    return true;
+  } catch (err) {
+    console.error(`Failed to persist ${key} to localStorage`, err);
+    return false;
+  }
 }
 
 // Brands
@@ -23,7 +35,7 @@ export function getBrand(id: string): Brand | null {
   return getBrands().find((b) => b.id === id) ?? null;
 }
 
-export function saveBrand(brand: Brand): void {
+export function saveBrand(brand: Brand): boolean {
   const brands = getBrands();
   const index = brands.findIndex((b) => b.id === brand.id);
   if (index >= 0) {
@@ -31,7 +43,7 @@ export function saveBrand(brand: Brand): void {
   } else {
     brands.push(brand);
   }
-  setItem(BRANDS_KEY, brands);
+  return setItem(BRANDS_KEY, brands);
 }
 
 export function deleteBrand(id: string): void {
@@ -50,7 +62,7 @@ export function getClient(id: string): Client | null {
   return getClients().find((c) => c.id === id) ?? null;
 }
 
-export function saveClient(client: Client): void {
+export function saveClient(client: Client): boolean {
   const clients = getClients();
   const index = clients.findIndex((c) => c.id === client.id);
   if (index >= 0) {
@@ -58,7 +70,7 @@ export function saveClient(client: Client): void {
   } else {
     clients.push(client);
   }
-  setItem(CLIENTS_KEY, clients);
+  return setItem(CLIENTS_KEY, clients);
 }
 
 export function deleteClient(id: string): void {
@@ -77,7 +89,7 @@ export function getInvoice(id: string): Invoice | null {
   return getInvoices().find((i) => i.id === id) ?? null;
 }
 
-export function saveInvoice(invoice: Invoice): void {
+export function saveInvoice(invoice: Invoice): boolean {
   const invoices = getInvoices();
   const index = invoices.findIndex((i) => i.id === invoice.id);
   if (index >= 0) {
@@ -85,11 +97,11 @@ export function saveInvoice(invoice: Invoice): void {
   } else {
     invoices.push(invoice);
   }
-  setItem(INVOICES_KEY, invoices);
+  return setItem(INVOICES_KEY, invoices);
 }
 
-export function deleteInvoice(id: string): void {
-  setItem(
+export function deleteInvoice(id: string): boolean {
+  return setItem(
     INVOICES_KEY,
     getInvoices().filter((i) => i.id !== id)
   );
