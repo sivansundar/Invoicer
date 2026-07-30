@@ -13,6 +13,13 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/invoices/i1",
 }));
 
+// FEATURES.followups is off in production so the follow-ups card (and the
+// "Pause follow-ups" / "Send one now" buttons the tests below exercise)
+// doesn't render — see src/lib/features.ts. Turned on here so this file can
+// keep covering the underlying handlers' write-failure behaviour; a
+// dedicated test further down covers the default (flag-off) hidden state.
+vi.mock("@/lib/features", () => ({ FEATURES: { billing: false, followups: true } }));
+
 // No `<Toaster />` is mounted in these tests, so a toast call never reaches
 // the DOM — mock `toast` directly and assert on the call instead.
 const toast = vi.fn();

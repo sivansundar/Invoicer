@@ -25,15 +25,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { BrandSwitcher } from "./brand-switcher";
 import { PlanCard } from "./plan-card";
+import { FEATURES } from "@/lib/features";
 
-const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Invoices", icon: FileText, href: "/invoices/create" },
   { label: "Brands", icon: Building2, href: "/brands" },
   { label: "Clients", icon: Users, href: "/clients" },
-  { label: "Follow-ups", icon: Bell, href: "/followups" },
+  { label: "Follow-ups", icon: Bell, href: "/followups", flag: "followups" as const },
   { label: "Reports", icon: ChartNoAxesColumn, href: "/reports" },
 ];
+
+const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.flag || FEATURES[item.flag]);
 
 // The current user is a static local record — there is no auth in this build.
 const LOCAL_USER = { name: "Sivan", email: "hello@sivansundar.com" };
@@ -93,7 +96,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <PlanCard />
+        {FEATURES.billing && <PlanCard />}
         <div className="flex items-center gap-2 p-2">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-accent text-xs font-medium">
             {LOCAL_USER.name.charAt(0)}

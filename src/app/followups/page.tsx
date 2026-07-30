@@ -5,7 +5,9 @@
 // invoice's reminder history live in localStorage only and are never
 // transmitted anywhere.
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { BrandFollowupCard } from "@/components/followups/brand-followup-card";
@@ -16,8 +18,21 @@ import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTemplates } from "@/hooks/use-templates";
 import { buildFollowupQueue } from "@/lib/followup-queue";
+import { FEATURES } from "@/lib/features";
 
 export default function FollowupsPage() {
+  const router = useRouter();
+
+  // Follow-ups isn't shipped yet — redirect a direct/bookmarked visit to
+  // the dashboard rather than rendering a half-built screen or a 404 (the
+  // route itself is real, it's just switched off). Remove this guard once
+  // FEATURES.followups is back on.
+  useEffect(() => {
+    if (!FEATURES.followups) router.replace("/");
+  }, [router]);
+
+  if (!FEATURES.followups) return null;
+
   return (
     <Shell>
       <FollowupsPageContent />

@@ -29,6 +29,7 @@ import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
 import { taxLabel } from "@/lib/invoice-preview";
 import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
+import { FEATURES } from "@/lib/features";
 import { validatePaidOn } from "@/lib/paid-on";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
@@ -84,7 +85,8 @@ export default function InvoiceDetailPage() {
 
   const line = dueLine(invoice, daysLate(invoice));
   const followupState = resolveFollowupState(invoice, config);
-  const showFollowups = invoice.status !== "draft" || invoice.reminders.length > 0;
+  const showFollowups =
+    FEATURES.followups && (invoice.status !== "draft" || invoice.reminders.length > 0);
 
   // `save`/`remove` (from `useInvoices`) pass through `storage.ts`'s own
   // return value — `false` means the write didn't actually persist (e.g. a
@@ -147,6 +149,9 @@ export default function InvoiceDetailPage() {
     toast(value ? "Payment date updated" : "Payment date cleared");
   };
 
+  // Unreachable while FEATURES.followups is off — the follow-ups card below
+  // (the only UI that calls this) doesn't render. Left in place so it works
+  // the moment the flag flips back on.
   const handleTogglePause = () => {
     const updated: Invoice = {
       ...invoice,
@@ -163,6 +168,7 @@ export default function InvoiceDetailPage() {
 
   // MOCK: no email is ever sent. This only records today's date on the
   // invoice's reminder history and toasts as if it had gone out.
+  // Also unreachable while FEATURES.followups is off — see handleTogglePause.
   const handleSendNow = () => {
     const updated: Invoice = {
       ...invoice,

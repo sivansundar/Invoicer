@@ -12,6 +12,7 @@ import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { usePlan } from "@/hooks/use-plan";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
+import { FEATURES } from "@/lib/features";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { cadenceLabel } from "@/lib/followups";
 import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
@@ -42,7 +43,9 @@ function BrandsPageContent() {
   const [proDialogOpen, setProDialogOpen] = useState(false);
 
   const handleNewBrand = () => {
-    if (isPro) {
+    // Brand creation is unrestricted while billing is hidden — only gate
+    // behind Pro once FEATURES.billing is back on.
+    if (!FEATURES.billing || isPro) {
       router.push("/brands/create");
     } else {
       setProDialogOpen(true);
@@ -66,7 +69,7 @@ function BrandsPageContent() {
         <Button onClick={handleNewBrand} className="gap-1.5">
           <Plus className="size-4" />
           New brand
-          {!isPro && <ProPill />}
+          {FEATURES.billing && !isPro && <ProPill />}
         </Button>
       </div>
 
@@ -87,11 +90,11 @@ function BrandsPageContent() {
         >
           <Plus className="size-[18px]" />
           Add another brand
-          {!isPro && <ProPill />}
+          {FEATURES.billing && !isPro && <ProPill />}
         </button>
       </div>
 
-      <ProDialog open={proDialogOpen} onOpenChange={setProDialogOpen} />
+      {FEATURES.billing && <ProDialog open={proDialogOpen} onOpenChange={setProDialogOpen} />}
     </div>
   );
 }

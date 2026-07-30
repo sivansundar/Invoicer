@@ -16,6 +16,7 @@ import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { usePlan } from "@/hooks/use-plan";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
+import { FEATURES } from "@/lib/features";
 import { ProDialog } from "./pro-dialog";
 
 function initials(name: string) {
@@ -49,7 +50,9 @@ export function BrandSwitcher() {
               </span>
               <span className="truncate text-xs text-muted-foreground">
                 {selectedBrand
-                  ? `${selectedBrand.invoicePrefix} · ${isPro ? "Pro" : "Free"}`
+                  ? FEATURES.billing
+                    ? `${selectedBrand.invoicePrefix} · ${isPro ? "Pro" : "Free"}`
+                    : selectedBrand.invoicePrefix
                   : `${brands.length} ${brands.length === 1 ? "brand" : "brands"}`}
               </span>
             </span>
@@ -91,7 +94,9 @@ export function BrandSwitcher() {
 
           <DropdownMenuItem
             onSelect={(event) => {
-              if (isPro) {
+              // Brand creation is unrestricted while billing is hidden —
+              // only gate behind Pro once FEATURES.billing is back on.
+              if (!FEATURES.billing || isPro) {
                 router.push("/brands/create");
               } else {
                 event.preventDefault();
@@ -102,7 +107,7 @@ export function BrandSwitcher() {
           >
             <Plus className="h-4 w-4" />
             <span className="flex-1">Add brand</span>
-            {!isPro && (
+            {FEATURES.billing && !isPro && (
               <Badge variant="secondary" className="text-[10px] font-normal">
                 Pro
               </Badge>
@@ -111,7 +116,7 @@ export function BrandSwitcher() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ProDialog open={proDialogOpen} onOpenChange={setProDialogOpen} />
+      {FEATURES.billing && <ProDialog open={proDialogOpen} onOpenChange={setProDialogOpen} />}
     </>
   );
 }
