@@ -414,10 +414,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         const res = newResolutions[i];
 
         if (res.action === "overwrite") {
-          // Save the incoming record before touching the existing one — if
-          // the write fails (e.g. a full quota), the existing invoice is
-          // still there rather than being deleted out from under a save
-          // that never landed.
+          // Save the incoming record before deleting the existing one —
+          // this is a deliberate reorder from the app's pre-backup
+          // behaviour (which deleted first, then saved). If the save fails
+          // (e.g. a full quota), the existing invoice is still there rather
+          // than being deleted out from under a write that never landed.
+          // The narrow trade-off: if the save succeeds but the delete then
+          // fails, storage briefly holds two invoices sharing this
+          // invoiceNumber under different ids, and it's counted as
+          // `failed` even though a write did land — low likelihood, since
+          // the delete's payload is strictly smaller than the write that
+          // just succeeded, and preferable to the silent-deletion risk of
+          // the old order.
           if (!saveInvoice(incoming)) {
             failed++;
             continue;
