@@ -31,6 +31,7 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
       address: "",
       invoicePrefix: "SC",
       accentColor: "#2563eb",
+      invoiceDesign: "modern",
       bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
     },
     clientId: null,
@@ -60,6 +61,7 @@ function brand(overrides: Partial<Brand> = {}): Brand {
       stopAfter: 0,
     },
     bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+    invoiceDesign: "modern",
     ...overrides,
   };
 }

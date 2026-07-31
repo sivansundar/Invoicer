@@ -28,6 +28,7 @@ import { computeTotals } from "@/lib/invoice-preview";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { snapshotFromBrand } from "@/lib/migrate";
 import { paletteColorForIndex } from "@/lib/palette";
+import { DEFAULT_INVOICE_DESIGN } from "@/lib/invoice-design";
 import {
   describeInvoiceValidationError,
   validateInvoiceForSave,
@@ -77,6 +78,7 @@ const EMPTY_SNAPSHOT: BrandSnapshot = {
   invoicePrefix: "",
   accentColor: paletteColorForIndex(0),
   bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+  invoiceDesign: DEFAULT_INVOICE_DESIGN,
 };
 
 // Sentinel "Billed to" select value for the manual-entry option. Never a

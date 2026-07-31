@@ -26,6 +26,7 @@ function inv(index: number, overrides: Partial<Invoice> = {}): Invoice {
       address: "",
       invoicePrefix: "BR",
       accentColor: "#4f46e5",
+      invoiceDesign: "modern",
       bankDetails: {
         accountName: "",
         accountNumber: "",

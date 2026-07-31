@@ -14,6 +14,7 @@ function snapshot(overrides: Partial<BrandSnapshot> = {}): BrandSnapshot {
     address: "4th Floor, Prestige Tech Park",
     invoicePrefix: "SC",
     accentColor: "#6366f1",
+    invoiceDesign: "modern",
     bankDetails: {
       accountName: "",
       accountNumber: "",

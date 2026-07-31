@@ -46,6 +46,7 @@ function brand(overrides: Partial<Brand> = {}): Brand {
       templateId: "",
       stopAfter: 0,
     },
+    invoiceDesign: "modern",
     ...overrides,
   };
 }
@@ -82,6 +83,7 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
       address: "44, 100 Feet Rd",
       invoicePrefix: "SC",
       accentColor: "#2563eb",
+      invoiceDesign: "modern",
       bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
     },
     clientId: "c1",

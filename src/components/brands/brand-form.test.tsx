@@ -47,6 +47,7 @@ function brand(overrides: Partial<Brand> = {}): Brand {
       templateId: "tpl-gentle-nudge",
       stopAfter: 4,
     },
+    invoiceDesign: "modern",
     ...overrides,
   };
 }

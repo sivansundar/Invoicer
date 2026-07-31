@@ -102,6 +102,7 @@ function fullBrand(overrides: Partial<Brand> = {}): Brand {
       templateId: "",
       stopAfter: 0,
     },
+    invoiceDesign: "modern",
     ...overrides,
   };
 }

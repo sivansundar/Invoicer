@@ -96,7 +96,11 @@ function prefixFromInvoiceNumber(invoiceNumber: string): string {
  * creation time. Shared by the v1→v2 migration and the invoice form —
  * duplicating this mapping is exactly how a brand field ends up on one but
  * not the other, and the invoice form is the one place a client's PDF
- * actually depends on it being complete.
+ * actually depends on it being complete. `brand` is always an
+ * already-migrated, typed `Brand` here (the just-backfilled in-memory list
+ * within `migrateToV2` below, or a live brand from `useBrands()` in the
+ * invoice form) — `invoiceDesign` is read directly, the same way
+ * `accentColor` is, rather than through `resolveInvoiceDesign`.
  */
 export function snapshotFromBrand(brand: Brand): BrandSnapshot {
   return {
@@ -110,7 +114,7 @@ export function snapshotFromBrand(brand: Brand): BrandSnapshot {
     invoicePrefix: brand.invoicePrefix,
     accentColor: brand.accentColor,
     bankDetails: brand.bankDetails,
-    invoiceDesign: resolveInvoiceDesign(brand.invoiceDesign),
+    invoiceDesign: brand.invoiceDesign,
   };
 }
 

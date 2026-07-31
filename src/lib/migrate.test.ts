@@ -257,9 +257,15 @@ describe("snapshotFromBrand — invoiceDesign", () => {
       stopAfter: 0,
     },
     bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+    invoiceDesign: "modern",
   };
 
-  it("defaults to modern when the brand has no invoiceDesign set", () => {
+  it("carries the brand's invoiceDesign onto the snapshot unchanged", () => {
+    // `snapshotFromBrand` takes an already-migrated, typed `Brand` — where
+    // `invoiceDesign` is required — so it copies the field straight across
+    // rather than defaulting it itself; defaulting an old, not-yet-migrated
+    // brand happens at the actual raw-JSON boundary, exercised by
+    // "migrateToV2 — brands" above, not here.
     expect(snapshotFromBrand(fullBrand).invoiceDesign).toBe("modern");
   });
 

@@ -185,3 +185,114 @@ Playwright uninstalled afterward (`npm uninstall playwright`); `git diff package
   tree. I re-applied and re-verified both files (via direct `cat`, not just tool output) before
   continuing, and confirmed the final state via a clean `git diff` review below, but flagging
   it in case something similar affected files I didn't think to re-check.
+
+## Tightening `invoiceDesign` to required
+
+The scheduling constraint from "Field shape" above no longer applies (the concurrent agent's own
+fixture edits are done), so `Brand.invoiceDesign` and `BrandSnapshot.invoiceDesign` are now
+`InvoiceDesign` (required) in `src/lib/types.ts`, matching how `accentColor`/`followup` were
+always treated. Behaviour is unchanged everywhere — this was a type-level tightening, not a
+runtime fix; see "Runtime behaviour" below for the one thing I checked hardest for and did not
+find.
+
+### Sites touched
+
+**Runtime (non-test):**
+
+- `src/lib/types.ts` — both fields `?:` → `:`; doc comments rewritten to explain the new
+  guarantee (every in-memory `Brand`/`BrandSnapshot` has one, backfilled by `migrateToV2` the same
+  way `accentColor`/`followup` are) and where it still doesn't hold (raw, not-yet-migrated JSON).
+- `src/components/invoices/invoice-preview.tsx` and `invoice-pdf.tsx` — dropped the
+  `resolveInvoiceDesign` import/call; both dispatchers now do
+  `snapshot.invoiceDesign === "classic" ? Classic : Modern` directly. Functionally identical:
+  anything other than `"classic"` (including a stray `undefined` from a legacy object that
+  somehow bypassed migration) still renders modern, the same fallback `resolveInvoiceDesign`
+  produced — this dispatch never actually needed the resolver's naming, only its default.
+- `src/lib/migrate.ts` — `snapshotFromBrand` now does `invoiceDesign: brand.invoiceDesign`
+  (direct copy) instead of wrapping it in `resolveInvoiceDesign`. `brand: Brand` here is always an
+  already-migrated, trusted object at both of its call sites (the just-backfilled `brands` array
+  inside `migrateToV2` itself, and `useBrands()`-sourced state in `invoice-form.tsx`) — the same
+  trust level `accentColor` already gets with no resolver. Doc comment updated to say so.
+- `src/components/invoices/invoice-form.tsx` — `EMPTY_SNAPSHOT` (shown before a brand is chosen on
+  a new invoice) gained `invoiceDesign: DEFAULT_INVOICE_DESIGN` (imported from
+  `@/lib/invoice-design`) — it's a genuine, if unsaved, `BrandSnapshot` and now must have one.
+- `src/components/brands/brand-form.tsx` — no change needed; it already builds `invoiceDesign` from
+  local state seeded with `brand?.invoiceDesign ?? DEFAULT_INVOICE_DESIGN`, which still
+  type-checks (`brand` itself is optional, so the chain already produces `InvoiceDesign |
+  undefined` before the `??`).
+- `src/app/invoices/[id]/pdf-download-button.tsx` — no change needed; it never reads
+  `invoiceDesign` itself, only passes `snapshot` through to `InvoicePDF`.
+- `src/components/invoices/designs/props.ts` — no change needed; it references `BrandSnapshot` by
+  type, doesn't construct one.
+
+**`resolveInvoiceDesign` call sites kept, and why:** only the two inside `migrateToV2` in
+`migrate.ts` — the brand backfill (`brands.map(...)`, reading off `brandsPartition.kept as unknown
+as Brand[]`) and the invoice-snapshot backfill (reading off `invoice.brandSnapshot` from `unknown
+as Invoice[]`). Both read values cast from genuinely unvalidated stored JSON, where the type is a
+promise the data itself hasn't necessarily kept — exactly the boundary `resolveInvoiceDesign`
+exists for. `import-export.tsx` / `import-validation.ts` were named in the task brief as a second
+boundary to check, but on inspection neither actually calls `resolveInvoiceDesign` today:
+`isValidBrandRecord` in `import-validation.ts` doesn't check `invoiceDesign` at all (consistent
+with how it already treats `accentColor`/`followup` — not required for a record to pass import
+validation), and an imported brand is written via `saveBrand` as-is, then backfilled by
+`forceMigration()` immediately after — i.e. it already routes through the exact same
+`migrateToV2` boundary I kept the resolver in, just one hop further away. Nothing to add there.
+
+**Test fixtures (added `invoiceDesign: "modern"` to an object literal explicitly typed `Brand` or
+containing a `brandSnapshot: {...}` explicitly typed as part of an `Invoice`-returning helper):**
+`components/invoices/invoice-preview.test.tsx` (base `snapshot()` helper), `lib/migrate.test.ts`
+(`fullBrand`), `lib/storage.test.ts` (`fullBrand`), `components/invoices/invoice-form.test.tsx`
+(`brand()` and the `invoice()` helper's `brandSnapshot`), `components/brands/brand-form.test.tsx`
+(`brand()`), `components/invoices/import-export.test.tsx` (`brand()` and `invoice()`'s
+`brandSnapshot`), `app/invoices/[id]/page.test.tsx` and `followups-hidden.test.tsx` (`brand()` and
+`invoice()`'s `brandSnapshot` in both), `components/clients/client-form.test.tsx` (`invoice()`'s
+`brandSnapshot`), `components/dashboard/invoice-data-table.test.tsx` (`inv()`'s `brandSnapshot`).
+`components/invoices/designs/classic-invoice-preview.test.tsx` needed no change — its `snapshot()`
+helper already set `invoiceDesign: "classic"` explicitly. Fixtures that build a `Brand`/`Invoice`
+via `as Brand` / `{} as Invoice["brandSnapshot"]` casts (`lib/numbering.test.ts`,
+`lib/followup-queue.test.ts`, `lib/templates.test.ts`, `lib/reports.test.ts`,
+`lib/invoice-table.test.ts`, `lib/dashboard.test.ts`) needed no change — a cast bypasses the
+missing-property check regardless of which fields are required, and none of that logic reads
+`invoiceDesign`.
+
+**Fixtures that deliberately omit the field, kept as-is:** `lib/migrate.test.ts`'s `v1Brand` and
+`v1Invoice` (untyped object literals fed to `migrateToV2({ brands: unknown[], ... })`, never
+annotated `Brand`/`Invoice`) — these exist specifically to be v1-shaped, and the type system
+never forced a choice here since they're not typed as `Brand` to begin with.
+`invoice-preview.test.tsx`'s "renders the modern design when the snapshot carries no
+invoiceDesign" test still calls `renderPreview({ invoiceDesign: undefined })` unchanged — no cast
+needed, since `overrides: Partial<BrandSnapshot>` still permits an explicit `undefined` for an
+optional key without `exactOptionalPropertyTypes` (which this project doesn't enable), and the
+project's actual runtime behaviour (dispatcher falls back to modern for anything but `"classic"`)
+still matches what the test asserts.
+
+**One judgement call worth flagging:** `migrate.test.ts` had a test named "defaults to modern when
+the brand has no invoiceDesign set", asserting `snapshotFromBrand(fullBrand).invoiceDesign ===
+"modern"` where `fullBrand: Brand` simply omitted the field. Once `Brand.invoiceDesign` is
+required, that premise — a validly-typed `Brand` missing the field — can no longer be constructed
+without a cast, and `snapshotFromBrand` no longer defaults anything itself (see above: it now
+copies `brand.invoiceDesign` straight through). Rather than casting around the type to preserve
+the original wording, I gave `fullBrand` an explicit `invoiceDesign: "modern"` and renamed the
+test to "carries the brand's invoiceDesign onto the snapshot unchanged", with a comment pointing
+at the "migrateToV2 — brands" tests as the ones that now actually exercise the raw-JSON-missing-
+field/defaulting path. The behaviour those two tests together cover is identical to before; only
+which function does the defaulting — and therefore which test's premise applies — changed.
+
+### Runtime behaviour
+
+None changed. I checked specifically for it per the task's stop-and-report instruction: the only
+places I removed a `resolveInvoiceDesign` call (`invoice-preview.tsx`, `invoice-pdf.tsx`,
+`snapshotFromBrand`) all still degrade to modern for anything other than `"classic"`, including a
+literal `undefined`, so an object that somehow still lacks the field at runtime (contrary to what
+the type now promises) renders exactly as it did before this change. Nothing here needed to
+change how the app behaves to satisfy the compiler — only the two genuinely-unvalidated-JSON call
+sites in `migrate.ts` still lean on that defaulting, and both were already there before this task.
+
+### Verification
+
+```
+npm test         → 34 files, 429 tests passed (0 failed)
+npx tsc --noEmit → 0 errors
+npm run lint     → 0 problems
+npm run build    → succeeded, all 14 routes generated
+```

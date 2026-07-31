@@ -31,12 +31,16 @@ export interface Brand {
   accentColor: string;
   followup: FollowupConfig;
   /**
-   * Undefined on any brand written before this field existed. Never read
-   * directly — go through `resolveInvoiceDesign` (`@/lib/invoice-design`),
-   * which treats undefined the same as `"modern"`, so every call site gets
-   * the same default instead of re-deciding it.
+   * Required here the same way `accentColor`/`followup` are: every `Brand`
+   * actually in memory has one. A brand written before this field existed
+   * has it backfilled by `migrateToV2` (`@/lib/migrate`) before anything
+   * else ever reads it — the same boundary that backfills `accentColor` and
+   * `followup`. Raw, not-yet-migrated JSON is a different story: there the
+   * type is a promise, not a fact, which is exactly why `migrateToV2` itself
+   * still reads this field through `resolveInvoiceDesign`
+   * (`@/lib/invoice-design`) rather than trusting it.
    */
-  invoiceDesign?: InvoiceDesign;
+  invoiceDesign: InvoiceDesign;
 }
 
 export interface Client {
@@ -144,11 +148,15 @@ export interface BrandSnapshot {
   /**
    * The design this invoice was rendered with at creation time, frozen the
    * same way every other brand detail is — changing a brand's design later
-   * must never change how an already-issued invoice looks. Undefined on any
-   * snapshot written before this field existed; resolve with
-   * `resolveInvoiceDesign` (`@/lib/invoice-design`), never a bare `?? "modern"`.
+   * must never change how an already-issued invoice looks. Required here for
+   * the same reason as `Brand.invoiceDesign` above: every snapshot actually
+   * in memory has one, backfilled by `migrateToV2` (`@/lib/migrate`) for any
+   * snapshot written before this field existed. A snapshot read straight off
+   * unvalidated stored/imported JSON is not covered by that guarantee —
+   * `migrateToV2` reads it through `resolveInvoiceDesign`
+   * (`@/lib/invoice-design`), never a bare `?? "modern"`.
    */
-  invoiceDesign?: InvoiceDesign;
+  invoiceDesign: InvoiceDesign;
 }
 
 /** MOCK: no payment integration exists. Persisted locally only. */
