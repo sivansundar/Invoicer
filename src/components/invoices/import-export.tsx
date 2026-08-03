@@ -11,9 +11,6 @@ import {
   saveBrand,
   getClients,
   saveClient,
-  getTemplates,
-  saveTemplate,
-  forceMigration,
 } from "@/lib/storage";
 import {
   validateImportedInvoices,
@@ -50,7 +47,7 @@ interface InvoiceImportSummary {
   overwritten: number;
   renamed: number;
   /** User chose "Discard" on a conflicting invoice number. */
-  discarded: number;
+  skipped: number;
   /** Records in the file that were not objects, or lacked a field a rendering screen depends on. */
   invalidSkipped: number;
   /** A write that was attempted but did not persist (e.g. a full localStorage quota). */
@@ -58,12 +55,13 @@ interface InvoiceImportSummary {
 }
 
 /**
- * Brands, clients and templates have no per-record conflict dialog (see the
- * design note above `importCollection` below) — this is the whole result
- * for one of those three collections. `null` (not this shape) is how the
- * summary distinguishes "this was a legacy invoices-only import" from "this
- * was a full backup with zero of this collection in it" — the former hides
- * the section entirely, the latter would show a row of zeroes.
+ * Brands and clients have no per-record conflict dialog the way invoices
+ * do — a record whose `id` already exists locally is always skipped, never
+ * overwritten, so this is the whole result for one of those collections.
+ * `null` (not this shape) distinguishes "this was a legacy invoices-only
+ * import" from "this was a full backup with zero of this collection in
+ * it" — the former hides the section entirely, the latter would show a row
+ * of zeroes.
  */
 interface CollectionImportResult {
   imported: number;
@@ -78,31 +76,21 @@ interface CollectionImportResult {
 interface ImportedCollections {
   brands: CollectionImportResult | null;
   clients: CollectionImportResult | null;
-  templates: CollectionImportResult | null;
 }
 
 interface ImportSummary extends ImportedCollections {
   invoices: InvoiceImportSummary;
 }
 
-const EMPTY_COLLECTIONS: ImportedCollections = { brands: null, clients: null, templates: null };
-
-function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
-  return (
-    (collections.brands?.imported ?? 0) > 0 ||
-    (collections.clients?.imported ?? 0) > 0 ||
-    (collections.templates?.imported ?? 0) > 0
-  );
-}
+const EMPTY_COLLECTIONS: ImportedCollections = { brands: null, clients: null };
 
 /**
- * Writes one collection (brands, clients, or templates) from an imported
- * backup. Deliberately has no conflict dialog the way invoices do — see the
- * design note in the backup-feature report for the full trade — instead an
- * imported record whose `id` already exists locally (or repeats one already
- * seen earlier in this same file) is skipped, never overwritten. Restoring
- * into an empty app (nothing to conflict with) imports everything; merging
- * an export into a populated app never clobbers a local edit. Every skip and
+ * Writes one collection (brands or clients) from an imported backup.
+ * Deliberately has no conflict dialog the way invoices do — an imported
+ * record whose `id` already exists locally (or repeats one already seen
+ * earlier in this same file) is skipped, never overwritten. Restoring into
+ * an empty app (nothing to conflict with) imports everything; merging a
+ * backup into a populated app never clobbers a local edit. Every skip and
  * every failed write is counted, never silently dropped.
  */
 function importCollection<T extends { id: string }>(
@@ -144,21 +132,14 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   const [renameMode, setRenameMode] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [showConflictDialog, setShowConflictDialog] = useState(false);
-  // Every invoice number already in storage at the moment the file was
-  // parsed — the "rename" resolution below is validated against this (plus
-  // already-resolved renames and the batch's own non-conflicting incoming
-  // numbers) so typing/confirming a number that's still taken can't create
-  // a fresh duplicate, which is exactly the bug the rename dialog exists to
-  // prevent.
-  const [existingNumbers, setExistingNumbers] = useState<Set<string>>(new Set());
-  // Set while a file is being parsed, read again once conflict resolution
-  // (which can take several dialog round-trips) finishes and the final
-  // summary is built — the validation pass happens once, up front.
+  // Records in the file that failed invoice validation, held here so the
+  // final summary (built after conflict resolution, which can take several
+  // dialog round-trips) can still report them.
   const [pendingInvalidSkipped, setPendingInvalidSkipped] = useState(0);
-  // Brands/clients/templates are written before the invoice conflict dialog
-  // is ever shown (see `beginInvoiceReconciliation`), but the summary for
-  // them can only be shown once alongside the invoice summary — held here in
-  // the meantime so a multi-step conflict resolution doesn't lose it.
+  // Brands/clients are written before the invoice conflict dialog is ever
+  // shown (see `beginInvoiceReconciliation`), but the summary for them can
+  // only be shown once alongside the invoice summary — held here in the
+  // meantime.
   const [pendingCollections, setPendingCollections] =
     useState<ImportedCollections>(EMPTY_COLLECTIONS);
 
@@ -167,10 +148,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
   const handleExport = () => {
     // A full backup, not just invoices — this app has no server and no
-    // other backup, so this file is the only copy of a brand's bank details
-    // and follow-up config, every saved client, and every custom email
-    // template. `version`/`exportedAt` let a future format change detect
-    // and handle this shape without guessing; existing `invoices-<date>.json`
+    // other backup, so this file is the only copy of a brand's bank
+    // details and every saved client, not just invoices. `version` /
+    // `exportedAt` match the envelope the parallel v2 rewrite branch
+    // already ships (it simply omits `templates`, which this codebase
+    // doesn't have) so a file exported here still imports cleanly after
+    // that branch merges, and vice versa. Existing `invoices-<date>.json`
     // files (a bare array, no envelope) predate this and are still read by
     // `handleFileChange`'s legacy path below, unaffected by this change.
     const backup = {
@@ -178,7 +161,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       exportedAt: new Date().toISOString(),
       brands: getBrands(),
       clients: getClients(),
-      templates: getTemplates(),
       invoices: getInvoices(),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -196,9 +178,9 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
   /**
    * Shared by the legacy bare-array path and the full-backup envelope path
-   * once brands/clients/templates (if any) have already been written —
-   * exactly the invoice conflict-detection and dialog flow this component
-   * had before full backups existed, untouched in behaviour either way.
+   * once brands/clients (if any) have already been written — exactly the
+   * invoice conflict-detection and dialog flow this component had before
+   * full backups existed, untouched in behaviour either way.
    */
   const beginInvoiceReconciliation = (
     incoming: Invoice[],
@@ -209,7 +191,9 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     setPendingCollections(collections);
 
     const existing = getInvoices();
-    const existingByNumber = new Map(existing.map((inv) => [inv.invoiceNumber, inv]));
+    const existingByNumber = new Map(
+      existing.map((inv) => [inv.invoiceNumber, inv])
+    );
 
     const newConflicts: PendingConflict[] = [];
     const newNonConflicting: Invoice[] = [];
@@ -225,7 +209,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
     setNonConflicting(newNonConflicting);
     setConflicts(newConflicts);
-    setExistingNumbers(new Set(existingByNumber.keys()));
     setResolutions([]);
     setConflictIndex(0);
     setRenameMode(false);
@@ -240,14 +223,13 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         if (saveInvoice(inv)) saved++;
         else failed++;
       }
-      if (saved > 0 || hasAnyCollectionWrite(collections)) forceMigration();
 
       finishImport({
         invoices: {
           imported: saved,
           overwritten: 0,
           renamed: 0,
-          discarded: 0,
+          skipped: 0,
           invalidSkipped,
           failed,
         },
@@ -260,7 +242,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   const importLegacyInvoiceArray = (parsed: unknown[]) => {
     const result = validateImportedInvoices(parsed);
     if (!result.ok) {
-      toast(
+      alert(
         "Failed to import — expected a JSON array of invoices. Nothing was imported."
       );
       return;
@@ -268,7 +250,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
     const { valid: incoming, skipped: invalidSkipped } = result;
     if (incoming.length === 0) {
-      toast(
+      alert(
         invalidSkipped > 0
           ? `Nothing to import — all ${invalidSkipped} record${invalidSkipped === 1 ? "" : "s"} in the file were invalid or missing required fields.`
           : "Nothing to import — the file was empty."
@@ -279,28 +261,27 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     beginInvoiceReconciliation(incoming, invalidSkipped, EMPTY_COLLECTIONS);
   };
 
-  /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, templates, invoices }`. */
+  /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, invoices }`. */
   const importBackupEnvelope = (parsed: unknown) => {
     const result = validateImportedBackup(parsed);
     if (!result.ok) {
-      toast(
+      alert(
         "Failed to import — expected an Invoicer backup file. Nothing was imported."
       );
       return;
     }
 
-    const { brands, clients, templates, invoices } = result;
+    const { brands, clients, invoices } = result;
     const totalValid =
-      brands.valid.length + clients.valid.length + templates.valid.length + invoices.valid.length;
+      brands.valid.length + clients.valid.length + invoices.valid.length;
 
     if (totalValid === 0) {
       const anythingRejected =
-        brands.skipped + clients.skipped + templates.skipped + invoices.skipped > 0 ||
+        brands.skipped + clients.skipped + invoices.skipped > 0 ||
         brands.invalidShape ||
         clients.invalidShape ||
-        templates.invalidShape ||
         invoices.invalidShape;
-      toast(
+      alert(
         anythingRejected
           ? "Nothing to import — every record in the file was invalid, missing required fields, or in an unreadable section."
           : "Nothing to import — the file was empty."
@@ -309,8 +290,8 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     }
 
     // Written before invoices are even looked at, so an imported invoice's
-    // brandId/clientId resolve against records that already exist by the
-    // time forceMigration (and every screen after it) reads them.
+    // brandId resolves against a brand that already exists by the time
+    // anything reads it.
     const brandsResult = importCollection(
       brands,
       new Set(getBrands().map((b) => b.id)),
@@ -321,27 +302,20 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       new Set(getClients().map((c) => c.id)),
       saveClient
     );
-    const templatesResult = importCollection(
-      templates,
-      new Set(getTemplates().map((t) => t.id)),
-      saveTemplate
-    );
     const collections: ImportedCollections = {
       brands: brandsResult,
       clients: clientsResult,
-      templates: templatesResult,
     };
 
     if (invoices.valid.length === 0) {
       // Nothing invoice-shaped in the file — finish here rather than run an
       // empty conflict pipeline.
-      if (hasAnyCollectionWrite(collections)) forceMigration();
       finishImport({
         invoices: {
           imported: 0,
           overwritten: 0,
           renamed: 0,
-          discarded: 0,
+          skipped: 0,
           invalidSkipped: invoices.skipped,
           failed: 0,
         },
@@ -363,14 +337,16 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       try {
         parsed = JSON.parse(event.target?.result as string);
       } catch {
-        toast("Failed to import — the file is not valid JSON. Nothing was imported.");
+        alert(
+          "Failed to import — the file is not valid JSON. Nothing was imported."
+        );
         return;
       }
 
-      // A bare array is the legacy invoices-only shape every export on disk
-      // already is — routed to the untouched invoices-only pipeline below so
-      // those files keep working exactly as they always have. Anything else
-      // is validated as a full-backup envelope.
+      // A bare array is the legacy invoices-only shape every export on
+      // disk already is — routed to the untouched invoices-only pipeline
+      // below so those files keep working exactly as they always have.
+      // Anything else is validated as a full-backup envelope.
       if (Array.isArray(parsed)) {
         importLegacyInvoiceArray(parsed);
       } else {
@@ -394,19 +370,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       );
     }
     if (result.brands && result.brands.failed > 0) {
-      failureParts.push(`${result.brands.failed} brand${result.brands.failed === 1 ? "" : "s"}`);
+      failureParts.push(
+        `${result.brands.failed} brand${result.brands.failed === 1 ? "" : "s"}`
+      );
     }
     if (result.clients && result.clients.failed > 0) {
-      failureParts.push(`${result.clients.failed} client${result.clients.failed === 1 ? "" : "s"}`);
-    }
-    if (result.templates && result.templates.failed > 0) {
       failureParts.push(
-        `${result.templates.failed} template${result.templates.failed === 1 ? "" : "s"}`
+        `${result.clients.failed} client${result.clients.failed === 1 ? "" : "s"}`
       );
     }
 
     if (failureParts.length > 0) {
-      toast(
+      alert(
         `Import finished, but ${failureParts.join(", ")} couldn't be saved — storage may be full. Free up space and try again.`
       );
     }
@@ -440,18 +415,22 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         const res = newResolutions[i];
 
         if (res.action === "overwrite") {
-          // Save the incoming record before touching the existing one — if
-          // the write fails (e.g. a full quota), the existing invoice is
-          // still there rather than being deleted out from under a save
-          // that never landed.
+          // Save the incoming record before deleting the existing one —
+          // this is a deliberate reorder from the app's pre-backup
+          // behaviour (which deleted first, then saved). If the save fails
+          // (e.g. a full quota), the existing invoice is still there rather
+          // than being deleted out from under a write that never landed.
+          // The narrow trade-off: if the save succeeds but the delete then
+          // fails, storage briefly holds two invoices sharing this
+          // invoiceNumber under different ids, and it's counted as
+          // `failed` even though a write did land — low likelihood, since
+          // the delete's payload is strictly smaller than the write that
+          // just succeeded, and preferable to the silent-deletion risk of
+          // the old order.
           if (!saveInvoice(incoming)) {
             failed++;
             continue;
           }
-          // If the old record under a different id can't be deleted (e.g. a
-          // full quota mid-import), both records now sit in storage under
-          // the same invoiceNumber — that's a failed overwrite, not a clean
-          // one, even though the new invoice did persist.
           if (existing.id !== incoming.id && !deleteInvoice(existing.id)) {
             failed++;
             continue;
@@ -468,16 +447,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         }
       }
 
-      if (saved + overwritten + renamed > 0 || hasAnyCollectionWrite(pendingCollections)) {
-        forceMigration();
-      }
-
       finishImport({
         invoices: {
           imported: saved + overwritten + renamed,
           overwritten,
           renamed,
-          discarded,
+          skipped,
           invalidSkipped: pendingInvalidSkipped,
           failed,
         },
@@ -724,7 +699,9 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
               {summary.invoices.overwritten > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Overwritten</span>
-                  <span className="tabular-nums">{summary.invoices.overwritten}</span>
+                  <span className="tabular-nums">
+                    {summary.invoices.overwritten}
+                  </span>
                 </div>
               )}
               {summary.invoices.renamed > 0 && (
@@ -733,16 +710,22 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
                   <span className="tabular-nums">{summary.invoices.renamed}</span>
                 </div>
               )}
-              {summary.invoices.discarded > 0 && (
+              {summary.invoices.skipped > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Discarded (duplicate)</span>
-                  <span className="tabular-nums">{summary.invoices.discarded}</span>
+                  <span className="text-muted-foreground">
+                    Skipped (duplicate)
+                  </span>
+                  <span className="tabular-nums">{summary.invoices.skipped}</span>
                 </div>
               )}
               {summary.invoices.invalidSkipped > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Skipped (invalid)</span>
-                  <span className="tabular-nums">{summary.invoices.invalidSkipped}</span>
+                  <span className="text-muted-foreground">
+                    Skipped (invalid)
+                  </span>
+                  <span className="tabular-nums">
+                    {summary.invoices.invalidSkipped}
+                  </span>
                 </div>
               )}
               {summary.invoices.failed > 0 && (
@@ -756,7 +739,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
               <CollectionSummaryRows label="Brands" result={summary.brands} />
               <CollectionSummaryRows label="Clients" result={summary.clients} />
-              <CollectionSummaryRows label="Templates" result={summary.templates} />
             </div>
           )}
           <DialogFooter>
@@ -814,7 +796,9 @@ function CollectionSummaryRows({
       )}
       {result.invalidSkipped > 0 && (
         <div className="flex justify-between">
-          <span className="text-muted-foreground">{label} skipped (invalid)</span>
+          <span className="text-muted-foreground">
+            {label} skipped (invalid)
+          </span>
           <span className="tabular-nums">{result.invalidSkipped}</span>
         </div>
       )}

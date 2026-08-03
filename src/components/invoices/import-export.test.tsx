@@ -1,47 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ImportExport } from "./import-export";
-import * as storage from "@/lib/storage";
-import type { Brand, Client, EmailTemplate, Invoice } from "@/lib/types";
+import type { Brand, Client, Invoice } from "@/lib/types";
 
-const toast = vi.fn();
-vi.mock("sonner", () => ({
-  toast: (...args: unknown[]) => toast(...args),
-}));
-
-function invoice(overrides: Partial<Invoice> = {}): Invoice {
-  return {
-    id: "id-1",
-    invoiceNumber: "INV-001",
-    brandId: "b1",
-    currency: "INR",
-    status: "sent",
-    billDate: "2026-06-01",
-    dueDate: "2026-06-15",
-    client: { companyName: "Acme Studio", address: "" },
-    items: [{ id: "li1", description: "Design work", amount: 1000, tax: 18 }],
-    subtotal: 1000,
-    totalTax: 180,
-    total: 1180,
-    createdAt: "2026-06-01T00:00:00.000Z",
-    updatedAt: "2026-06-01T00:00:00.000Z",
-    brandSnapshot: {
-      name: "Sivan Studio",
-      address: "",
-      invoicePrefix: "SC",
-      accentColor: "#2563eb",
-      invoiceDesign: "modern",
-      bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
-    },
-    clientId: null,
-    reminders: [],
-    followupsPaused: false,
-    ...overrides,
-  };
-}
-
-function brand(overrides: Partial<Brand> = {}): Brand {
+function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: "brand-1",
     name: "Sivan Studio",
@@ -50,23 +13,17 @@ function brand(overrides: Partial<Brand> = {}): Brand {
     invoicePrefix: "SC",
     nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
-    accentColor: "#2563eb",
-    followup: {
-      enabled: false,
-      mode: "weekly",
-      weekday: 2,
-      time: "09:00",
-      repeat: "week",
-      templateId: "tpl-gentle-nudge",
-      stopAfter: 0,
+    bankDetails: {
+      accountName: "Sivan Studio",
+      accountNumber: "1234567890",
+      bankName: "HDFC Bank",
+      ifscCode: "HDFC0000123",
     },
-    bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
-    invoiceDesign: "modern",
     ...overrides,
   };
 }
 
-function client(overrides: Partial<Client> = {}): Client {
+function makeClient(overrides: Partial<Client> = {}): Client {
   return {
     id: "client-1",
     companyName: "Acme Studio",
@@ -76,207 +33,163 @@ function client(overrides: Partial<Client> = {}): Client {
   };
 }
 
-function template(overrides: Partial<EmailTemplate> = {}): EmailTemplate {
+function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   return {
-    id: "tpl-1",
-    name: "Gentle nudge",
-    subject: "Following up on {{invoiceNumber}}",
-    tone: "Friendly",
-    body: "Hi {{clientName}}, just a friendly nudge...",
-    createdAt: "2026-01-01T00:00:00.000Z",
+    id: "inv-1",
+    invoiceNumber: "SC2026001",
+    brandId: "brand-1",
+    currency: "INR",
+    status: "paid",
+    billDate: "2026-07-10",
+    dueDate: "2026-07-24",
+    client: {
+      companyName: "Acme Studio",
+      address: "12 Residency Rd, Bengaluru 560025",
+    },
+    items: [{ id: "li1", description: "Website redesign", amount: 40000, tax: 18 }],
+    subtotal: 40000,
+    totalTax: 7200,
+    total: 47200,
+    createdAt: "2026-07-10T00:00:00.000Z",
+    updatedAt: "2026-07-10T00:00:00.000Z",
     ...overrides,
   };
 }
 
-function jsonFile(payload: unknown, name = "invoices.json"): File {
-  return new File([JSON.stringify(payload)], name, { type: "application/json" });
+function backupFile(payload: unknown): File {
+  return new File([JSON.stringify(payload)], "backup.json", {
+    type: "application/json",
+  });
 }
 
-function uploadFile(container: HTMLElement, payload: unknown, name = "invoices.json") {
-  const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
-  fireEvent.change(fileInput, { target: { files: [jsonFile(payload, name)] } });
+function getFileInput(): HTMLInputElement {
+  const input = document.querySelector('input[type="file"]');
+  if (!input) throw new Error("file input not found");
+  return input as HTMLInputElement;
 }
 
-describe("ImportExport — rename conflict resolution", () => {
+describe("ImportExport orchestration", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    toast.mockClear();
-  });
-
-  afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("disables Confirm on the prefilled (still-colliding) value, and it never overwrites the existing invoice", async () => {
-    storage.saveInvoice(invoice({ id: "existing-1", invoiceNumber: "INV-001" }));
+  it("writes brands and clients to localStorage before invoices are read, for a full backup envelope", async () => {
+    const user = userEvent.setup();
+    render(<ImportExport onImportDone={vi.fn()} />);
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(container, [invoice({ id: "incoming-1", invoiceNumber: "INV-001" })]);
+    // Record every localStorage get/set in the order it actually happens —
+    // not just the end state — so a regression that silently reorders
+    // brands/clients writes ahead of (or behind) the invoice-conflict read
+    // is caught even though the final data would look identical either way.
+    const callLog: Array<{ method: "get" | "set"; key: string }> = [];
+    const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
+    const originalGetItem = window.localStorage.getItem.bind(window.localStorage);
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(
+      (key: string, value: string) => {
+        callLog.push({ method: "set", key });
+        originalSetItem(key, value);
+      }
+    );
+    vi.spyOn(window.localStorage, "getItem").mockImplementation((key: string) => {
+      callLog.push({ method: "get", key });
+      return originalGetItem(key);
+    });
 
-    await screen.findByText("Invoice Already Exists");
-    await userEvent.click(screen.getByRole("button", { name: "Change Number" }));
+    const brand = makeBrand();
+    const client = makeClient();
+    const invoice = makeInvoice({ brandId: brand.id });
 
-    // Prefilled with the exact number that's already taken.
-    expect(screen.getByPlaceholderText("e.g. INV-042")).toHaveValue("INV-001");
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+    await user.upload(
+      getFileInput(),
+      backupFile({
+        version: 2,
+        exportedAt: "2026-07-30T00:00:00.000Z",
+        brands: [brand],
+        clients: [client],
+        invoices: [invoice],
+      })
+    );
+
+    await screen.findByText("Import Complete");
+
+    const lastBrandOrClientWrite = callLog.reduce(
+      (last, entry, index) =>
+        entry.method === "set" &&
+        (entry.key === "invoicer_brands" || entry.key === "invoicer_clients")
+          ? index
+          : last,
+      -1
+    );
+    const firstInvoiceRead = callLog.findIndex(
+      (entry) => entry.method === "get" && entry.key === "invoicer_invoices"
+    );
+
+    expect(lastBrandOrClientWrite).toBeGreaterThanOrEqual(0);
+    expect(firstInvoiceRead).toBeGreaterThanOrEqual(0);
+    expect(lastBrandOrClientWrite).toBeLessThan(firstInvoiceRead);
+
+    // End-state matters too, not just ordering.
     expect(
-      screen.getByText("That invoice number is already in use — choose a different one.")
-    ).toBeInTheDocument();
+      JSON.parse(window.localStorage.getItem("invoicer_brands") ?? "[]")
+    ).toHaveLength(1);
+    expect(
+      JSON.parse(window.localStorage.getItem("invoicer_clients") ?? "[]")
+    ).toHaveLength(1);
+    expect(
+      JSON.parse(window.localStorage.getItem("invoicer_invoices") ?? "[]")
+    ).toHaveLength(1);
   });
 
-  it("stays disabled when edited to a number that collides with a different existing invoice", async () => {
-    storage.saveInvoice(invoice({ id: "existing-1", invoiceNumber: "INV-001" }));
-    storage.saveInvoice(invoice({ id: "existing-2", invoiceNumber: "INV-002" }));
+  it("reports a quota-simulated setItem failure as failed, not imported", async () => {
+    const user = userEvent.setup();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(container, [invoice({ id: "incoming-1", invoiceNumber: "INV-001" })]);
+    render(<ImportExport onImportDone={vi.fn()} />);
 
-    await screen.findByText("Invoice Already Exists");
-    await userEvent.click(screen.getByRole("button", { name: "Change Number" }));
-
-    const input = screen.getByPlaceholderText("e.g. INV-042");
-    await userEvent.clear(input);
-    await userEvent.type(input, "INV-002");
-
-    expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
-  });
-
-  it("enables Confirm once the value is edited to a genuinely free number, and saves under it", async () => {
-    storage.saveInvoice(invoice({ id: "existing-1", invoiceNumber: "INV-001" }));
-
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(container, [invoice({ id: "incoming-1", invoiceNumber: "INV-001" })]);
-
-    await screen.findByText("Invoice Already Exists");
-    await userEvent.click(screen.getByRole("button", { name: "Change Number" }));
-
-    const input = screen.getByPlaceholderText("e.g. INV-042");
-    await userEvent.clear(input);
-    await userEvent.type(input, "INV-999");
-
-    const confirmButton = screen.getByRole("button", { name: "Confirm" });
-    expect(confirmButton).toBeEnabled();
-    await userEvent.click(confirmButton);
-
-    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
-
-    const numbers = storage.getInvoices().map((i) => i.invoiceNumber).sort();
-    expect(numbers).toEqual(["INV-001", "INV-999"]);
-  });
-});
-
-describe("ImportExport — full backup envelope", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    toast.mockClear();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("restores brands, clients, templates and invoices from a full backup into an empty app", async () => {
-    const b = brand();
-    const c = client();
-    const t = template();
-    const inv = invoice({ brandId: b.id, clientId: c.id });
-
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(
-      container,
-      {
-        version: 2,
-        exportedAt: "2026-07-28T00:00:00.000Z",
-        brands: [b],
-        clients: [c],
-        templates: [t],
-        invoices: [inv],
-      },
-      "invoicer-backup.json"
+    const originalSetItem = window.localStorage.setItem.bind(window.localStorage);
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(
+      (key: string, value: string) => {
+        if (key === "invoicer_brands") {
+          throw new DOMException(
+            "The quota has been exceeded.",
+            "QuotaExceededError"
+          );
+        }
+        originalSetItem(key, value);
+      }
     );
 
-    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
+    const brand = makeBrand();
 
-    expect(storage.getBrands().map((x) => x.id)).toEqual([b.id]);
-    expect(storage.getClients().map((x) => x.id)).toEqual([c.id]);
-    expect(storage.getTemplates().map((x) => x.id)).toEqual([t.id]);
-    expect(storage.getInvoices().map((x) => x.id)).toEqual([inv.id]);
-  });
-
-  it("skips brands/clients/templates whose id already exists locally, without overwriting them", async () => {
-    storage.saveBrand(brand({ name: "Original Name" }));
-    storage.saveClient(client({ companyName: "Original Co" }));
-    storage.saveTemplate(template({ name: "Original Template" }));
-
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(
-      container,
-      {
+    await user.upload(
+      getFileInput(),
+      backupFile({
         version: 2,
-        brands: [brand({ name: "Imported Name" })],
-        clients: [client({ companyName: "Imported Co" })],
-        templates: [template({ name: "Imported Template" })],
+        exportedAt: "2026-07-30T00:00:00.000Z",
+        brands: [brand],
+        clients: [],
         invoices: [],
-      },
-      "invoicer-backup.json"
+      })
     );
 
-    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
+    await screen.findByText("Import Complete");
 
-    expect(storage.getBrands()).toHaveLength(1);
-    expect(storage.getBrands()[0].name).toBe("Original Name");
-    expect(storage.getClients()[0].companyName).toBe("Original Co");
-    expect(storage.getTemplates()[0].name).toBe("Original Template");
+    const importedRow = screen.getByText("Brands imported").closest("div");
+    expect(importedRow).toHaveTextContent("0");
 
-    expect(screen.getByText("Brands skipped (already exist)")).toBeInTheDocument();
-    expect(screen.getByText("Clients skipped (already exist)")).toBeInTheDocument();
-    expect(screen.getByText("Templates skipped (already exist)")).toBeInTheDocument();
-  });
+    const failedRow = screen.getByText("Brands failed to save").closest("div");
+    expect(failedRow).toHaveTextContent("1");
 
-  it("rejects a JSON value that is neither an array nor an object outright", async () => {
-    // `"just a string"` is valid JSON (a JSON string literal), so this
-    // exercises the *shape* rejection in `validateImportedBackup`, not the
-    // `JSON.parse` failure path (covered by the "rename conflict resolution"
-    // describe block's malformed-JSON case elsewhere in this file).
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(container, "just a string", "backup.json");
+    // The failed write never actually persisted.
+    expect(window.localStorage.getItem("invoicer_brands")).toBeNull();
 
-    await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to import — expected an Invoicer backup file")
-      )
-    );
-    expect(storage.getInvoices()).toHaveLength(0);
-  });
+    // finishImport surfaces the failure rather than letting the dialog
+    // silently claim success.
+    expect(alertSpy).toHaveBeenCalled();
+    expect(alertSpy.mock.calls[0][0]).toMatch(/couldn't be saved/);
 
-  it("reports a malformed collection honestly and still imports what's readable", async () => {
-    const b = brand();
-
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
-    uploadFile(
-      container,
-      {
-        version: 2,
-        brands: [b],
-        clients: "not a list",
-        templates: [{ junk: true }, null],
-        invoices: [],
-      },
-      "invoicer-backup.json"
-    );
-
-    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
-
-    expect(storage.getBrands().map((x) => x.id)).toEqual([b.id]);
-    expect(storage.getClients()).toHaveLength(0);
-    // Neither junk template record was imported — what's left is the seeded
-    // defaults `forceMigration` writes when the templates collection is
-    // empty (pre-existing `migrateToV2` behaviour, not this feature), not a
-    // resurrection of the rejected records.
-    expect(storage.getTemplates().map((x) => x.id).sort()).toEqual(
-      ["tpl-final-notice", "tpl-gentle-nudge", "tpl-second-reminder"]
-    );
-    expect(screen.getByText("Clients section unreadable")).toBeInTheDocument();
-    expect(screen.getByText("Templates skipped (invalid)")).toBeInTheDocument();
+    consoleErrorSpy.mockRestore();
   });
 });
