@@ -151,20 +151,43 @@ export function getClientsSnapshot(): Client[] {
   return getSnapshot<Client>(CLIENTS_KEY);
 }
 
-// Returns whether the write actually persisted. `localStorage.setItem` can
-// throw (most commonly `QuotaExceededError`) and a full-backup restore is
-// the largest write this app ever makes — the likeliest place to hit that
-// limit. Callers that need to report an honest result (the importer) check
-// this; existing callers that ignore the return value behave exactly as
-// before.
-function setItem<T>(key: string, data: T[]): boolean {
+export function getInvoicesSnapshot(): Invoice[] {
+  return getSnapshot<Invoice>(INVOICES_KEY);
+}
+
+export function getTemplatesSnapshot(): EmailTemplate[] {
+  return getSnapshot<EmailTemplate>(TEMPLATES_KEY);
+}
+
+// Plan state is a single object, not a collection, so it gets its own
+// one-slot cache rather than sharing `snapshots` — same requirement though:
+// `JSON.parse` (inside `readPlan`) returns a fresh object every call, and
+// wiring that directly into `useSyncExternalStore` would infinite-loop
+// exactly like an uncached array would.
+const EMPTY_PLAN: PlanState = { tier: "free", renewsOn: null };
+let planSnapshot: PlanState | null = null;
+
+function readPlan(): PlanState {
+  if (typeof window === "undefined") return EMPTY_PLAN;
+  const raw = localStorage.getItem(PLAN_KEY);
+  if (!raw) return EMPTY_PLAN;
   try {
-    localStorage.setItem(key, JSON.stringify(data));
-    return true;
-  } catch (err) {
-    console.error(`Failed to persist ${key} to localStorage`, err);
-    return false;
+    return JSON.parse(raw) as PlanState;
+  } catch {
+    return EMPTY_PLAN;
   }
+}
+
+export function getPlanSnapshot(): PlanState {
+  if (planSnapshot === null) {
+    planSnapshot = readPlan();
+  }
+  return planSnapshot;
+}
+
+function invalidatePlan(): void {
+  planSnapshot = null;
+  notify();
 }
 
 // Brands

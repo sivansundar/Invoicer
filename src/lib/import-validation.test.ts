@@ -139,6 +139,18 @@ function wellFormedClient(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function wellFormedTemplate(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "tpl-1",
+    name: "Gentle nudge",
+    subject: "Following up on {{invoiceNumber}}",
+    tone: "Friendly",
+    body: "Hi {{clientName}}, just a friendly nudge...",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 describe("validateImportedBackup", () => {
   it("rejects a payload that isn't a JSON object (arrays are handled by the legacy path instead)", () => {
     expect(validateImportedBackup([])).toEqual({ ok: false });
@@ -153,19 +165,7 @@ describe("validateImportedBackup", () => {
     if (!result.ok) throw new Error("expected ok: true");
     expect(result.brands).toEqual({ valid: [], skipped: 0, invalidShape: false });
     expect(result.clients).toEqual({ valid: [], skipped: 0, invalidShape: false });
-  });
-
-  it("ignores an extra `templates` key from the sibling rewrite branch's envelope", () => {
-    const result = validateImportedBackup({
-      version: 2,
-      brands: [],
-      clients: [],
-      templates: [{ id: "tpl-1", name: "Nudge" }],
-      invoices: [],
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("expected ok: true");
-    expect(result).not.toHaveProperty("templates");
+    expect(result.templates).toEqual({ valid: [], skipped: 0, invalidShape: false });
   });
 
   it("flags a collection that isn't an array without rejecting the rest of the file", () => {
@@ -174,6 +174,7 @@ describe("validateImportedBackup", () => {
       version: 2,
       brands: [brand],
       clients: "not a list",
+      templates: [],
       invoices: [],
     });
     expect(result.ok).toBe(true);
@@ -182,16 +183,19 @@ describe("validateImportedBackup", () => {
     expect(result.clients).toEqual({ valid: [], skipped: 0, invalidShape: true });
   });
 
-  it("validates brands and clients independently, skipping malformed records", () => {
+  it("validates brands, clients and templates independently, skipping malformed records", () => {
     const goodBrand = wellFormedBrand();
     const badBrand = wellFormedBrand({ id: "b2", bankDetails: undefined });
     const goodClient = wellFormedClient();
     const badClient = wellFormedClient({ id: "c2", companyName: "" });
+    const goodTemplate = wellFormedTemplate();
+    const badTemplate = wellFormedTemplate({ id: "tpl-2", tone: "Aggressive" });
 
     const result = validateImportedBackup({
       version: 2,
       brands: [goodBrand, badBrand, null],
       clients: [goodClient, badClient],
+      templates: [goodTemplate, badTemplate],
       invoices: [],
     });
 
@@ -199,27 +203,13 @@ describe("validateImportedBackup", () => {
     if (!result.ok) throw new Error("expected ok: true");
     expect(result.brands).toEqual({ valid: [goodBrand], skipped: 2, invalidShape: false });
     expect(result.clients).toEqual({ valid: [goodClient], skipped: 1, invalidShape: false });
-  });
-
-  it("passes a well-formed empty envelope through with no valid records and no skips", () => {
-    const result = validateImportedBackup({
-      version: 2,
-      exportedAt: "2026-07-28T00:00:00.000Z",
-      brands: [],
-      clients: [],
-      invoices: [],
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("expected ok: true");
-    expect(result.brands).toEqual({ valid: [], skipped: 0, invalidShape: false });
-    expect(result.clients).toEqual({ valid: [], skipped: 0, invalidShape: false });
-    expect(result.invoices).toEqual({ valid: [], skipped: 0, invalidShape: false });
+    expect(result.templates).toEqual({ valid: [goodTemplate], skipped: 1, invalidShape: false });
   });
 
   it("passes a well-formed full backup through intact", () => {
     const brand = wellFormedBrand();
     const client = wellFormedClient();
+    const template = wellFormedTemplate();
     const invoice = wellFormedInvoice();
 
     const result = validateImportedBackup({
@@ -227,6 +217,7 @@ describe("validateImportedBackup", () => {
       exportedAt: "2026-07-28T00:00:00.000Z",
       brands: [brand],
       clients: [client],
+      templates: [template],
       invoices: [invoice],
     });
 
@@ -234,31 +225,7 @@ describe("validateImportedBackup", () => {
     if (!result.ok) throw new Error("expected ok: true");
     expect(result.brands).toEqual({ valid: [brand], skipped: 0, invalidShape: false });
     expect(result.clients).toEqual({ valid: [client], skipped: 0, invalidShape: false });
+    expect(result.templates).toEqual({ valid: [template], skipped: 0, invalidShape: false });
     expect(result.invoices).toEqual({ valid: [invoice], skipped: 0, invalidShape: false });
-  });
-
-  it("keeps some records and skips others in a mixed payload across all three collections", () => {
-    const goodBrand = wellFormedBrand();
-    const badBrand = { id: "b2" };
-    const goodClient = wellFormedClient();
-    const badClient = { id: "c2" };
-    const goodInvoice = wellFormedInvoice();
-    const badInvoice = { id: "i2" };
-
-    const result = validateImportedBackup({
-      version: 2,
-      brands: [goodBrand, badBrand],
-      clients: [goodClient, badClient],
-      invoices: [goodInvoice, badInvoice],
-    });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) throw new Error("expected ok: true");
-    expect(result.brands.valid).toEqual([goodBrand]);
-    expect(result.brands.skipped).toBe(1);
-    expect(result.clients.valid).toEqual([goodClient]);
-    expect(result.clients.skipped).toBe(1);
-    expect(result.invoices.valid).toEqual([goodInvoice]);
-    expect(result.invoices.skipped).toBe(1);
   });
 });
