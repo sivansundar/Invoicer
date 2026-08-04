@@ -3,23 +3,24 @@
 import { pdf } from "@react-pdf/renderer";
 import { Button } from "@/components/ui/button";
 import { InvoicePDF } from "@/components/invoices/invoice-pdf";
-import { Invoice, Brand } from "@/lib/types";
+import { Invoice, BrandSnapshot } from "@/lib/types";
 import { Download } from "lucide-react";
 import { useState } from "react";
 
 interface PDFDownloadButtonProps {
   invoice: Invoice;
-  brand: Brand;
+  /** Brand details frozen at invoice-creation time — always `invoice.brandSnapshot`. */
+  snapshot: BrandSnapshot;
 }
 
-export function PDFDownloadButton({ invoice, brand }: PDFDownloadButtonProps) {
+export function PDFDownloadButton({ invoice, snapshot }: PDFDownloadButtonProps) {
   const [generating, setGenerating] = useState(false);
 
   const handleDownload = async () => {
     setGenerating(true);
     try {
       const blob = await pdf(
-        <InvoicePDF invoice={invoice} brand={brand} />
+        <InvoicePDF invoice={invoice} snapshot={snapshot} />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -36,13 +37,14 @@ export function PDFDownloadButton({ invoice, brand }: PDFDownloadButtonProps) {
 
   return (
     <Button
+      variant="outline"
       size="sm"
-      className="text-xs gap-1.5"
+      className="gap-1.5"
       onClick={handleDownload}
       disabled={generating}
     >
-      <Download className="h-3.5 w-3.5" />
-      {generating ? "Generating..." : "Download PDF"}
+      <Download className="size-3.5" />
+      {generating ? "Generating…" : "Download PDF"}
     </Button>
   );
 }

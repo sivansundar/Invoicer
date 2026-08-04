@@ -22,15 +22,6 @@ export function formatCurrency(n: number, currency: Currency, minDecimals?: numb
   }).format(n)
 }
 
-export function formatCurrencyLabel(n: number, currency: Currency) {
-  const config = CURRENCY_CONFIG[currency]
-  const num = new Intl.NumberFormat(config.locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n)
-  return `${config.symbol}${num}`
-}
-
 export function getCurrencySymbol(currency: Currency): string {
   return CURRENCY_CONFIG[currency].symbol
 }

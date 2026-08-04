@@ -1,0 +1,631 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SCHEMA_VERSION, forceMigration, migrateToV2, runMigration, snapshotFromBrand } from "./migrate";
+import { DEFAULT_TEMPLATE_ID, SEED_TEMPLATES } from "./seed";
+import { BRAND_PALETTE } from "./palette";
+import type { Brand } from "./types";
+
+const toast = vi.fn();
+vi.mock("sonner", () => ({
+  toast: (...args: unknown[]) => toast(...args),
+}));
+
+const v1Brand = {
+  id: "b1",
+  name: "Sivan Studio",
+  address: "44, 100 Feet Rd, Indiranagar, Bengaluru 560038",
+  email: "billing@sivan.studio",
+  gstNumber: "29ABCDE1234F1Z5",
+  invoicePrefix: "SC",
+  nextInvoiceNumber: 15,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  bankDetails: {
+    accountName: "Sivan Studio",
+    accountNumber: "50100234914210",
+    bankName: "HDFC Bank",
+    ifscCode: "HDFC0001234",
+    branch: "Indiranagar",
+    upiId: "sivan@okhdfc",
+  },
+};
+
+const v1Client = {
+  id: "c1",
+  companyName: "Acme Studio",
+  name: "Priya Nair",
+  address: "12 Residency Rd, Bengaluru 560025",
+  email: "accounts@acmestudio.in",
+  createdAt: "2026-01-01T00:00:00.000Z",
+};
+
+const v1Invoice = {
+  id: "i1",
+  invoiceNumber: "SC2026001",
+  brandId: "b1",
+  currency: "INR",
+  status: "paid",
+  billDate: "2026-07-10",
+  dueDate: "2026-07-24",
+  client: {
+    companyName: "Acme Studio",
+    name: "Priya Nair",
+    address: "12 Residency Rd, Bengaluru 560025",
+  },
+  items: [{ id: "li1", description: "Website redesign", amount: 40000, tax: 18 }],
+  subtotal: 40000,
+  totalTax: 7200,
+  total: 47200,
+  createdAt: "2026-07-10T00:00:00.000Z",
+  updatedAt: "2026-07-10T00:00:00.000Z",
+};
+
+function migrate(overrides: Partial<Parameters<typeof migrateToV2>[0]> = {}) {
+  return migrateToV2({
+    brands: [v1Brand],
+    clients: [v1Client],
+    invoices: [v1Invoice],
+    templates: [],
+    ...overrides,
+  });
+}
+
+describe("migrateToV2 — brands", () => {
+  it("assigns an accent colour from the palette", () => {
+    expect(migrate().brands[0].accentColor).toBe(BRAND_PALETTE[0]);
+  });
+
+  it("gives every brand a default follow-up config", () => {
+    const followup = migrate().brands[0].followup;
+    expect(followup.enabled).toBe(true);
+    expect(followup.mode).toBe("weekly");
+    expect(followup.templateId).toBe(DEFAULT_TEMPLATE_ID);
+  });
+
+  it("preserves every existing brand field", () => {
+    const brand = migrate().brands[0];
+    expect(brand.name).toBe("Sivan Studio");
+    expect(brand.invoicePrefix).toBe("SC");
+    expect(brand.bankDetails.ifscCode).toBe("HDFC0001234");
+  });
+
+  it("does not overwrite an accent colour that is already set", () => {
+    const result = migrateToV2({
+      brands: [{ ...v1Brand, accentColor: "#059669" }],
+      clients: [],
+      invoices: [],
+      templates: [],
+    });
+    expect(result.brands[0].accentColor).toBe("#059669");
+  });
+
+  it("does not overwrite an accent colour that is an empty string", () => {
+    // "" is falsy but not nullish — this is the one field where ?? and ||
+    // genuinely diverge. || would incorrectly replace it with a palette colour.
+    const result = migrateToV2({
+      brands: [{ ...v1Brand, accentColor: "" }],
+      clients: [],
+      invoices: [],
+      templates: [],
+    });
+    expect(result.brands[0].accentColor).toBe("");
+  });
+
+  it("backfills a legacy brand's invoiceDesign to modern — how it actually renders today", () => {
+    expect(migrate().brands[0].invoiceDesign).toBe("modern");
+  });
+
+  it("does not overwrite a brand's invoiceDesign that is already set", () => {
+    const result = migrateToV2({
+      brands: [{ ...v1Brand, invoiceDesign: "classic" }],
+      clients: [],
+      invoices: [],
+      templates: [],
+    });
+    expect(result.brands[0].invoiceDesign).toBe("classic");
+  });
+});
+
+describe("migrateToV2 — invoices", () => {
+  it("never rewrites an existing invoice number", () => {
+    expect(migrate().invoices[0].invoiceNumber).toBe("SC2026001");
+  });
+
+  it("preserves the embedded client snapshot", () => {
+    expect(migrate().invoices[0].client.companyName).toBe("Acme Studio");
+  });
+
+  it("back-references the matching client by company name", () => {
+    expect(migrate().invoices[0].clientId).toBe("c1");
+  });
+
+  it("matches company names case- and whitespace-insensitively", () => {
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [{ ...v1Client, companyName: "  acme studio " }],
+      invoices: [v1Invoice],
+      templates: [],
+    });
+    expect(result.invoices[0].clientId).toBe("c1");
+  });
+
+  it("sets clientId to null when no client record matches", () => {
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [],
+      invoices: [v1Invoice],
+      templates: [],
+    });
+    expect(result.invoices[0].clientId).toBeNull();
+  });
+
+  it("snapshots the brand onto the invoice", () => {
+    const snapshot = migrate().invoices[0].brandSnapshot;
+    expect(snapshot.name).toBe("Sivan Studio");
+    expect(snapshot.invoicePrefix).toBe("SC");
+    expect(snapshot.bankDetails.accountNumber).toBe("50100234914210");
+  });
+
+  it("synthesises a snapshot when the brand no longer exists", () => {
+    const result = migrateToV2({
+      brands: [],
+      clients: [v1Client],
+      invoices: [v1Invoice],
+      templates: [],
+    });
+    const snapshot = result.invoices[0].brandSnapshot;
+    expect(snapshot.name).toBe("Unknown brand");
+    expect(snapshot.invoicePrefix).toBe("SC");
+    expect(snapshot.accentColor).toBe(BRAND_PALETTE[0]);
+    expect(snapshot.bankDetails).toEqual({
+      accountName: "",
+      accountNumber: "",
+      bankName: "",
+      ifscCode: "",
+    });
+  });
+
+  it("initialises the follow-up fields", () => {
+    const invoice = migrate().invoices[0];
+    expect(invoice.reminders).toEqual([]);
+    expect(invoice.followupsPaused).toBe(false);
+  });
+
+  it("preserves totals exactly", () => {
+    const invoice = migrate().invoices[0];
+    expect(invoice.subtotal).toBe(40000);
+    expect(invoice.totalTax).toBe(7200);
+    expect(invoice.total).toBe(47200);
+  });
+
+  it("backfills invoiceDesign to modern on a freshly-synthesised snapshot", () => {
+    const snapshot = migrate().invoices[0].brandSnapshot;
+    expect(snapshot.invoiceDesign).toBe("modern");
+  });
+
+  it("backfills invoiceDesign to modern on an existing snapshot that predates the field, without touching its other fields", () => {
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [v1Client],
+      invoices: [
+        {
+          ...v1Invoice,
+          brandSnapshot: {
+            name: "Sivan Studio",
+            address: "44, 100 Feet Rd",
+            invoicePrefix: "SC",
+            accentColor: "#059669",
+            bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+          },
+        },
+      ],
+      templates: [],
+    });
+    const snapshot = result.invoices[0].brandSnapshot;
+    expect(snapshot.invoiceDesign).toBe("modern");
+    expect(snapshot.accentColor).toBe("#059669");
+    expect(snapshot.address).toBe("44, 100 Feet Rd");
+  });
+
+  it("never rewrites an existing snapshot's invoiceDesign to something else", () => {
+    const classicSnapshot = { ...migrate().invoices[0].brandSnapshot, invoiceDesign: "classic" as const };
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [v1Client],
+      invoices: [{ ...v1Invoice, brandSnapshot: classicSnapshot }],
+      templates: [],
+    });
+    expect(result.invoices[0].brandSnapshot.invoiceDesign).toBe("classic");
+  });
+});
+
+describe("snapshotFromBrand — invoiceDesign", () => {
+  const fullBrand: Brand = {
+    id: "b1",
+    name: "Sivan Studio",
+    address: "44, 100 Feet Rd",
+    email: "billing@sivan.studio",
+    invoicePrefix: "SC",
+    nextInvoiceNumber: 1,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    accentColor: "#2563eb",
+    followup: {
+      enabled: false,
+      mode: "weekly",
+      weekday: 1,
+      time: "09:00",
+      repeat: "week",
+      templateId: "",
+      stopAfter: 0,
+    },
+    bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+    invoiceDesign: "modern",
+  };
+
+  it("carries the brand's invoiceDesign onto the snapshot unchanged", () => {
+    // `snapshotFromBrand` takes an already-migrated, typed `Brand` — where
+    // `invoiceDesign` is required — so it copies the field straight across
+    // rather than defaulting it itself; defaulting an old, not-yet-migrated
+    // brand happens at the actual raw-JSON boundary, exercised by
+    // "migrateToV2 — brands" above, not here.
+    expect(snapshotFromBrand(fullBrand).invoiceDesign).toBe("modern");
+  });
+
+  it("carries an explicit classic design onto the snapshot", () => {
+    expect(snapshotFromBrand({ ...fullBrand, invoiceDesign: "classic" }).invoiceDesign).toBe(
+      "classic"
+    );
+  });
+
+  it("freezes the design at snapshot time — changing the brand's design afterwards does not affect the snapshot already taken", () => {
+    const brand: Brand = { ...fullBrand, invoiceDesign: "classic" };
+    const snapshot = snapshotFromBrand(brand);
+
+    // Simulate editing the brand later, exactly like brand-form.tsx would.
+    const updatedBrand: Brand = { ...brand, invoiceDesign: "modern" };
+
+    expect(snapshot.invoiceDesign).toBe("classic");
+    expect(updatedBrand.invoiceDesign).toBe("modern");
+    expect(snapshotFromBrand(updatedBrand).invoiceDesign).toBe("modern");
+  });
+});
+
+describe("migrateToV2 — templates", () => {
+  it("seeds the three default templates when none exist", () => {
+    expect(migrate().templates).toHaveLength(SEED_TEMPLATES.length);
+  });
+
+  it("leaves existing templates untouched", () => {
+    const existing = [{ ...SEED_TEMPLATES[0], name: "My nudge" }];
+    const result = migrateToV2({
+      brands: [],
+      clients: [],
+      invoices: [],
+      templates: existing,
+    });
+    expect(result.templates).toHaveLength(1);
+    expect(result.templates[0].name).toBe("My nudge");
+  });
+});
+
+describe("migrateToV2 — malformed elements", () => {
+  it("drops unsalvageable elements without aborting the migration", () => {
+    const result = migrateToV2({
+      brands: [null],
+      clients: [v1Client, null],
+      invoices: [v1Invoice, "garbage"],
+      templates: [],
+    });
+
+    expect(result.brands).toHaveLength(0);
+    expect(result.clients).toHaveLength(1);
+    expect(result.clients[0].id).toBe("c1");
+    expect(result.invoices).toHaveLength(1);
+    expect(result.invoices[0].invoiceNumber).toBe("SC2026001");
+    expect(result.invoices[0].brandSnapshot).toBeDefined();
+  });
+
+  it("returns the dropped elements verbatim, keyed by collection", () => {
+    const result = migrateToV2({
+      brands: [null],
+      clients: [v1Client, null],
+      invoices: [v1Invoice, "garbage"],
+      templates: [],
+    });
+
+    expect(result.dropped.brands).toEqual([null]);
+    expect(result.dropped.clients).toEqual([null]);
+    expect(result.dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("reports empty dropped arrays when everything is well-formed", () => {
+    const result = migrate();
+
+    expect(result.dropped).toEqual({ brands: [], clients: [], invoices: [] });
+  });
+});
+
+describe("migrateToV2 — idempotence", () => {
+  it("produces an identical result when run on its own output", () => {
+    const once = migrate();
+    const twice = migrateToV2(once);
+    expect(twice).toEqual(once);
+  });
+});
+
+describe("runMigration", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    localStorage.clear();
+    toast.mockClear();
+    // The quarantine path calls console.warn by design — stub it so the test
+    // run stays pristine while still letting tests assert on it if needed.
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it("writes the schema version and upgraded records", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_clients", JSON.stringify([v1Client]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+    runMigration();
+
+    expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
+    const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+    expect(invoices[0].clientId).toBe("c1");
+    expect(invoices[0].invoiceNumber).toBe("SC2026001");
+  });
+
+  it("forceMigration re-runs even when the version key is current", () => {
+    localStorage.setItem("invoicer_schema_version", String(SCHEMA_VERSION));
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+    forceMigration();
+    const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+    expect(invoices[0].brandSnapshot).toBeDefined();
+  });
+
+  it("does nothing on a second run", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+    runMigration();
+    const after = localStorage.getItem("invoicer_invoices");
+    runMigration();
+    expect(localStorage.getItem("invoicer_invoices")).toBe(after);
+  });
+
+  it("seeds templates on an empty install", () => {
+    runMigration();
+    const templates = JSON.parse(localStorage.getItem("invoicer_templates")!);
+    expect(templates).toHaveLength(SEED_TEMPLATES.length);
+  });
+
+  it("quarantines raw dropped values when something could not be migrated", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.version).toBe(1);
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage"]);
+    expect(typeof quarantine.batches[0].migratedAt).toBe("string");
+  });
+
+  it("quarantines the raw string instead of silently writing [] over unparseable JSON in a whole key", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", "{not valid json at all");
+
+    runMigration();
+
+    // The key itself moves forward as an empty collection...
+    expect(JSON.parse(localStorage.getItem("invoicer_invoices")!)).toEqual([]);
+
+    // ...but the raw string that used to be there is preserved, not lost.
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.invoices).toEqual([
+      { wholeKeyCorruption: true, raw: "{not valid json at all" },
+    ]);
+  });
+
+  it("quarantines the raw string when a key holds valid JSON that isn't an array", () => {
+    const rawObject = JSON.stringify({ not: "an array" });
+    localStorage.setItem("invoicer_invoices", rawObject);
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches[0].dropped.invoices).toEqual([
+      { wholeKeyCorruption: true, raw: rawObject },
+    ]);
+  });
+
+  it("combines a whole-key corruption with element-level rejects in the same batch", () => {
+    localStorage.setItem("invoicer_brands", "not json either");
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.brands).toEqual([
+      { wholeKeyCorruption: true, raw: "not json either" },
+    ]);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("does not write a quarantine key when nothing was dropped", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+    runMigration();
+
+    expect(localStorage.getItem("invoicer_migration_quarantine_v2")).toBeNull();
+  });
+
+  it("appends a new batch onto a pre-existing quarantine key rather than overwriting it", () => {
+    const earlierStore = {
+      version: 1,
+      batches: [
+        {
+          migratedAt: "2026-01-01T00:00:00.000Z",
+          dropped: { brands: ["earlier"], clients: [], invoices: [] },
+        },
+      ],
+    };
+    localStorage.setItem("invoicer_migration_quarantine_v2", JSON.stringify(earlierStore));
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(2);
+    expect(quarantine.batches[0]).toEqual(earlierStore.batches[0]);
+    expect(quarantine.batches[1].dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("records two successive drop-producing runs as two separate batches", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage-1"]));
+    runMigration();
+
+    // Simulate a second, later boot with its own fresh corruption to migrate.
+    localStorage.removeItem("invoicer_schema_version");
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage-2"]));
+    runMigration();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(2);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage-1"]);
+    expect(quarantine.batches[1].dropped.invoices).toEqual(["garbage-2"]);
+  });
+
+  it("starts a fresh quarantine structure when the existing value is corrupt, without throwing", () => {
+    localStorage.setItem("invoicer_migration_quarantine_v2", "{not valid json");
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    expect(() => runMigration()).not.toThrow();
+
+    const quarantine = JSON.parse(
+      localStorage.getItem("invoicer_migration_quarantine_v2")!,
+    );
+    expect(quarantine.batches).toHaveLength(1);
+    expect(quarantine.batches[0].dropped.invoices).toEqual(["garbage"]);
+  });
+
+  it("does not throw out of runMigration when writing the quarantine key fails", () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+    localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice, "garbage"]));
+
+    const originalSetItem = localStorage.setItem.bind(localStorage);
+    const setItemSpy = vi
+      .spyOn(localStorage, "setItem")
+      .mockImplementation((key: string, value: string) => {
+        if (key === "invoicer_migration_quarantine_v2") {
+          throw new Error("QuotaExceededError");
+        }
+        originalSetItem(key, value);
+      });
+
+    expect(() => runMigration()).not.toThrow();
+
+    // The primary migration must still have gone through even though the
+    // quarantine write failed.
+    expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
+    const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+    expect(invoices).toHaveLength(1);
+    expect(invoices[0].invoiceNumber).toBe("SC2026001");
+
+    setItemSpy.mockRestore();
+  });
+
+  describe("quota guard on the primary migration write", () => {
+    // Simulates a full quota being hit partway through the collection
+    // writes — e.g. a legacy user whose pre-downsampling brand logo is
+    // duplicated onto every invoice's brandSnapshot by snapshotFromBrand.
+    // Only the targeted key fails; every other localStorage.setItem call
+    // (including ones migrate.ts itself doesn't own, like this test's own
+    // seeding) passes through untouched.
+    function throwQuotaFor(key: string) {
+      const originalSetItem = localStorage.setItem.bind(localStorage);
+      return vi.spyOn(localStorage, "setItem").mockImplementation((k: string, v: string) => {
+        if (k === key) {
+          throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+        }
+        originalSetItem(k, v);
+      });
+    }
+
+    it("leaves VERSION_KEY unset when a collection write fails, so migration retries on the next boot", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      const setItemSpy = throwQuotaFor("invoicer_invoices");
+      runMigration();
+      setItemSpy.mockRestore();
+
+      expect(localStorage.getItem("invoicer_schema_version")).toBeNull();
+
+      // Retrying on a later boot (schema version still unset) completes
+      // normally once the quota pressure is gone.
+      runMigration();
+      expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
+      const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
+      expect(invoices[0].invoiceNumber).toBe("SC2026001");
+    });
+
+    it("does not throw out of runMigration when a collection write fails", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      const setItemSpy = throwQuotaFor("invoicer_invoices");
+      expect(() => runMigration()).not.toThrow();
+      setItemSpy.mockRestore();
+    });
+
+    it("surfaces the failure to the user instead of failing silently", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      const setItemSpy = throwQuotaFor("invoicer_invoices");
+      runMigration();
+      setItemSpy.mockRestore();
+
+      expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
+    });
+
+    it("stops writing further collections once one has failed", () => {
+      localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
+      localStorage.setItem("invoicer_invoices", JSON.stringify([v1Invoice]));
+
+      // Brands is written before clients/invoices/templates in runMigration's
+      // own ordering, so failing it should pre-empt every write after it too.
+      const setItemSpy = throwQuotaFor("invoicer_brands");
+      runMigration();
+      setItemSpy.mockRestore();
+
+      expect(localStorage.getItem("invoicer_templates")).toBeNull();
+      expect(localStorage.getItem("invoicer_schema_version")).toBeNull();
+    });
+  });
+});

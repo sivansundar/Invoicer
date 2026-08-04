@@ -29,6 +29,10 @@ function makeInvoice(
     total: overrides.total ?? 100,
     createdAt: "",
     updatedAt: "",
+    brandSnapshot: {} as Invoice["brandSnapshot"],
+    clientId: null,
+    reminders: [],
+    followupsPaused: false,
     ...overrides,
   };
 }
@@ -123,6 +127,31 @@ describe("filterInvoices", () => {
       brandId: null,
     });
     expect(result.map((i) => i.invoiceNumber)).toEqual(["P"]);
+  });
+
+  it("matches the Overdue status filter against a sent invoice past its due date (effectiveStatus, not stored status)", () => {
+    // Nothing this app writes ever stores status "overdue" literally — a
+    // raw-status check here previously left the Overdue checkbox matching
+    // nothing, ever, regardless of what was actually late.
+    const today = new Date(2026, 6, 28);
+    const withDueDates = [
+      makeInvoice("2025-05-01", {
+        invoiceNumber: "LATE",
+        status: "sent",
+        dueDate: "2025-05-10",
+      }),
+      makeInvoice("2025-05-02", {
+        invoiceNumber: "NOT-YET-DUE",
+        status: "sent",
+        dueDate: "2026-12-01",
+      }),
+    ];
+    const result = filterInvoices(
+      withDueDates,
+      { startYear: 2025, fromMonth: 3, toMonth: 2, statuses: ["overdue"], brandId: null },
+      today
+    );
+    expect(result.map((i) => i.invoiceNumber)).toEqual(["LATE"]);
   });
 
   it("filters by brand when brandId is set", () => {

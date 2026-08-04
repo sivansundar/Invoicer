@@ -1,37 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { Brand } from "@/lib/types";
 import * as storage from "@/lib/storage";
 
+const EMPTY: Brand[] = [];
+
 export function useBrands() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+  const brands = useSyncExternalStore(storage.subscribe, storage.getBrandsSnapshot, () => EMPTY);
 
-  const refresh = useCallback(() => {
-    setBrands(storage.getBrands());
-    setLoading(false);
-  }, []);
+  const save = useCallback((brand: Brand) => storage.saveBrand(brand), []);
+  const remove = useCallback((id: string) => storage.deleteBrand(id), []);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const save = useCallback(
-    (brand: Brand) => {
-      storage.saveBrand(brand);
-      refresh();
-    },
-    [refresh]
-  );
-
-  const remove = useCallback(
-    (id: string) => {
-      storage.deleteBrand(id);
-      refresh();
-    },
-    [refresh]
-  );
-
-  return { brands, loading, save, remove, refresh };
+  return { brands, loading: false, save, remove, refresh: () => {} };
 }

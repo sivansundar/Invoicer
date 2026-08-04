@@ -3,52 +3,93 @@
 import Link from "next/link";
 import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
-import { ClientCard } from "@/components/clients/client-card";
 import { useClients } from "@/hooks/use-clients";
+import { useInvoices } from "@/hooks/use-invoices";
+import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
 import { Plus } from "lucide-react";
+import type { Client, Invoice } from "@/lib/types";
 
 export default function ClientsPage() {
-  const { clients, loading, remove } = useClients();
-
   return (
     <Shell>
-      <div className="flex items-center justify-between mb-8">
+      <ClientsPageContent />
+    </Shell>
+  );
+}
+
+function ClientsPageContent() {
+  const { clients } = useClients();
+  const { invoices } = useInvoices();
+
+  return (
+    <div className="p-6 max-w-[1000px] flex flex-col gap-5">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold">Clients</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Manage your client contacts for invoicing
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Clients</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Saved once, auto-filled on every invoice.
           </p>
         </div>
-        <Link href="/clients/create">
-          <Button size="sm" className="text-xs gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            New Client
-          </Button>
-        </Link>
+        <Button asChild className="gap-1.5">
+          <Link href="/clients/create">
+            <Plus className="size-4" />
+            New client
+          </Link>
+        </Button>
       </div>
 
-      {loading ? (
-        <p className="text-xs text-muted-foreground">Loading...</p>
-      ) : clients.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-sm text-muted-foreground">No clients yet</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Add a client to quickly fill in invoice details
-          </p>
-          <Link href="/clients/create">
-            <Button size="sm" className="text-xs mt-4 gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              Add Client
-            </Button>
-          </Link>
+      <div className="border rounded-[14px] bg-card overflow-hidden">
+        <div className="flex items-center h-10 px-4 border-b text-sm font-medium">
+          <div className="flex-[1.4]">Company</div>
+          <div className="flex-1">Contact</div>
+          <div className="flex-[1.3]">Email</div>
+          <div className="flex-[0.6] text-right">Invoices</div>
+          <div className="flex-1 text-right">Billed</div>
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {clients.map((client) => (
-            <ClientCard key={client.id} client={client} onDelete={remove} />
-          ))}
-        </div>
-      )}
-    </Shell>
+
+        {clients.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-sm font-medium">No clients yet</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Add one to fill it in automatically on every invoice.
+            </p>
+          </div>
+        ) : (
+          clients.map((client) => (
+            <ClientRow key={client.id} client={client} invoices={invoices} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface ClientRowProps {
+  client: Client;
+  invoices: Invoice[];
+}
+
+function ClientRow({ client, invoices }: ClientRowProps) {
+  const clientInvoices = invoices.filter((invoice) => invoice.clientId === client.id);
+  const billed =
+    clientInvoices.length === 0
+      ? "—"
+      : formatCurrencyGroups(groupTotalsByCurrency(clientInvoices));
+
+  return (
+    <Link
+      href={`/clients/${client.id}/edit`}
+      className="flex items-center px-4 py-3 border-b text-sm cursor-pointer hover:bg-muted last:border-b-0"
+    >
+      <div className="flex-[1.4] font-medium truncate pr-2">{client.companyName}</div>
+      <div className="flex-1 truncate pr-2">{client.name || "—"}</div>
+      <div className="flex-[1.3] text-[13px] text-muted-foreground truncate pr-2">
+        {client.email || "—"}
+      </div>
+      <div className="flex-[0.6] text-right tabular-nums text-muted-foreground">
+        {clientInvoices.length}
+      </div>
+      <div className="flex-1 text-right font-medium tabular-nums">{billed}</div>
+    </Link>
   );
 }

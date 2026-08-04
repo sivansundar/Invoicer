@@ -7,6 +7,14 @@ export interface BankDetails {
   upiId?: string;
 }
 
+/**
+ * Which of the two predefined invoice layouts a brand's invoices render as.
+ * Unrelated to `EmailTemplate` / `useTemplates()` (the follow-up email
+ * copy) — this governs the invoice document itself, on screen and in the
+ * PDF, so it's named `InvoiceDesign` rather than overloading "template".
+ */
+export type InvoiceDesign = "modern" | "classic";
+
 export interface Brand {
   id: string;
   name: string;
@@ -20,6 +28,19 @@ export interface Brand {
   invoicePrefix: string;
   nextInvoiceNumber: number;
   createdAt: string;
+  accentColor: string;
+  followup: FollowupConfig;
+  /**
+   * Required here the same way `accentColor`/`followup` are: every `Brand`
+   * actually in memory has one. A brand written before this field existed
+   * has it backfilled by `migrateToV2` (`@/lib/migrate`) before anything
+   * else ever reads it — the same boundary that backfills `accentColor` and
+   * `followup`. Raw, not-yet-migrated JSON is a different story: there the
+   * type is a promise, not a fact, which is exactly why `migrateToV2` itself
+   * still reads this field through `resolveInvoiceDesign`
+   * (`@/lib/invoice-design`) rather than trusting it.
+   */
+  invoiceDesign: InvoiceDesign;
 }
 
 export interface Client {
@@ -68,4 +89,78 @@ export interface Invoice {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  brandSnapshot: BrandSnapshot;
+  /** Back-reference to a saved client. Null when no client record matches. */
+  clientId: string | null;
+  /** ISO "yyyy-MM-dd" dates on which a reminder was recorded. MOCK: nothing is sent. */
+  reminders: string[];
+  followupsPaused: boolean;
+  /**
+   * "yyyy-MM-dd" date payment actually arrived, as distinct from `billDate`.
+   * Set to today when the invoice is marked paid; editable afterwards from
+   * the invoice detail screen because you mark an invoice paid when you
+   * *notice*, not when the money landed. Undefined for invoices paid before
+   * this field existed — never backfilled, since the real date is unknown —
+   * and cleared whenever `status` moves off `"paid"`.
+   */
+  paidOn?: string;
+}
+
+export type EmailTone = "Friendly" | "Direct" | "Firm";
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  tone: EmailTone;
+  body: string;
+  createdAt: string;
+}
+
+export interface FollowupConfig {
+  enabled: boolean;
+  mode: "weekly" | "custom";
+  /** 0 = Sunday … 6 = Saturday. Only meaningful when mode is "custom". */
+  weekday: number;
+  /** "HH:mm", 24-hour. */
+  time: string;
+  repeat: "week" | "month";
+  templateId: string;
+  /** 0 means "never stop". */
+  stopAfter: number;
+}
+
+/**
+ * Brand details frozen at invoice-creation time. Editing a brand must never
+ * change an invoice that was already issued.
+ */
+export interface BrandSnapshot {
+  name: string;
+  address: string;
+  email?: string;
+  phone?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  logo?: string;
+  invoicePrefix: string;
+  accentColor: string;
+  bankDetails: BankDetails;
+  /**
+   * The design this invoice was rendered with at creation time, frozen the
+   * same way every other brand detail is — changing a brand's design later
+   * must never change how an already-issued invoice looks. Required here for
+   * the same reason as `Brand.invoiceDesign` above: every snapshot actually
+   * in memory has one, backfilled by `migrateToV2` (`@/lib/migrate`) for any
+   * snapshot written before this field existed. A snapshot read straight off
+   * unvalidated stored/imported JSON is not covered by that guarantee —
+   * `migrateToV2` reads it through `resolveInvoiceDesign`
+   * (`@/lib/invoice-design`), never a bare `?? "modern"`.
+   */
+  invoiceDesign: InvoiceDesign;
+}
+
+/** MOCK: no payment integration exists. Persisted locally only. */
+export interface PlanState {
+  tier: "free" | "pro";
+  renewsOn: string | null;
 }
