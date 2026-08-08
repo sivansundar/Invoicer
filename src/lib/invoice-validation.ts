@@ -11,7 +11,6 @@ export const INVOICE_FIELD_ORDER = [
   "brand",
   "client",
   "companyName",
-  "contactName",
   "address",
   "billDate",
   "dueDate",
@@ -23,8 +22,6 @@ export type InvoiceField = (typeof INVOICE_FIELD_ORDER)[number];
 
 export interface InvoiceValidationClient {
   companyName: string;
-  /** Contact person. Optional on a saved `Client` record, but mandatory here. */
-  name?: string;
   address: string;
 }
 
@@ -53,7 +50,7 @@ export interface InvoiceValidationResult {
  * on an existing one. Deliberately the same rule set for both: an invoice
  * that would be rejected as incomplete on creation is no less incomplete
  * because it happens to already have an id. An older invoice missing, say,
- * a contact name isn't blocked forever by this — the field is highlighted
+ * a billing address isn't blocked forever by this — the field is highlighted
  * and filled in right there, the same inline-completion path a newly
  * selected saved client with a gap already uses.
  *
@@ -74,13 +71,17 @@ export function validateInvoiceForSave(input: InvoiceValidationInput): InvoiceVa
   if (!input.brandId) missing.add("brand");
   if (!input.clientSelected) missing.add("client");
 
-  // Company name, contact name and address only have somewhere to be typed
-  // once a client (saved or manual) has actually been chosen — flagging them
-  // while "Billed to" itself is still empty would point at fields the form
-  // isn't even showing yet.
+  // Company name and address only have somewhere to be typed once a client
+  // (saved or manual) has actually been chosen — flagging them while
+  // "Billed to" itself is still empty would point at fields the form isn't
+  // even showing yet.
+  //
+  // Contact name is deliberately absent: an invoice is addressed to a
+  // company, and plenty of clients are billed without ever naming a person.
+  // The form still nudges for one when it's missing (see the saved-client
+  // gaps panel in `invoice-form.tsx`) — a nudge, not a gate.
   if (input.clientSelected) {
     if (!input.client.companyName.trim()) missing.add("companyName");
-    if (!input.client.name?.trim()) missing.add("contactName");
     if (!input.client.address.trim()) missing.add("address");
   }
 
@@ -104,7 +105,6 @@ const FIELD_MESSAGE: Record<InvoiceField, string> = {
   brand: "Select a brand first",
   client: "Who's this invoice for? Choose a client or enter one manually",
   companyName: "Who are we billing? Add a company name",
-  contactName: "This client needs a contact name to continue",
   address: "This client needs a billing address to continue",
   billDate: "Add a bill date first",
   dueDate: "Add a due date first",

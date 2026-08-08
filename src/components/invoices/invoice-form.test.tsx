@@ -236,9 +236,10 @@ describe("InvoiceForm", () => {
     await user.click(await screen.findByRole("option", { name: "Enter manually…" }));
 
     await user.type(screen.getByPlaceholderText("Acme Corp"), "One-off Client Ltd");
-    // Contact name and address are mandatory for "Create invoice" too, same
-    // as company name — manual entry is not a way around that.
-    await user.type(screen.getByPlaceholderText("Priya Nair"), "Jordan Lee");
+    // Address is mandatory for "Create invoice" too, same as company name —
+    // manual entry is not a way around that. Contact name is not, but it's
+    // typed here anyway so the round-trip below covers a populated one.
+    await user.type(screen.getByPlaceholderText("Optional — e.g. Priya Nair"), "Jordan Lee");
     const addressField = document.getElementById("field-address")!.querySelector("textarea")!;
     await user.type(addressField, "1 High St");
     const gstField = screen.getByText("GST Number").parentElement!.querySelector("input")!;
@@ -378,9 +379,12 @@ describe("InvoiceForm", () => {
       await user.click(screen.getAllByRole("combobox")[1]);
       await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
 
-      // The gap is surfaced right on the page — an editable field, not a
-      // dead-end toast.
-      const contactField = document.getElementById("field-contact-name")!.querySelector("input")!;
+      // The gap is nudged right on the page — an editable field, not a
+      // dead-end toast — and the copy says so without demanding anything.
+      expect(
+        screen.getByText(/Acme Studio has no contact name saved/)
+      ).toBeInTheDocument();
+      const contactField = screen.getByPlaceholderText("Optional — e.g. Priya Nair");
       await user.type(contactField, "Priya Nair");
 
       fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
@@ -400,6 +404,38 @@ describe("InvoiceForm", () => {
       // This invoice's snapshot gained a contact name — the saved client
       // record itself must not have been silently rewritten.
       expect(storage.getClients().find((c) => c.id === "c1")?.name).toBeUndefined();
+    });
+
+    it("creates the invoice with the contact-name nudge left unanswered", async () => {
+      // The nudge is a nudge: a client with no contact name gets the panel
+      // and the field, but ignoring both must still produce an invoice.
+      storage.saveBrand(brand());
+      storage.saveClient(client({ name: undefined }));
+
+      const user = userEvent.setup();
+      render(<InvoiceForm />);
+
+      await user.click(screen.getAllByRole("combobox")[0]);
+      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+      await user.click(screen.getAllByRole("combobox")[1]);
+      await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+      expect(screen.getByPlaceholderText("Optional — e.g. Priya Nair")).toBeInTheDocument();
+
+      fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+        target: { value: "2026-07-20" },
+      });
+      const descriptionInput = screen.getByPlaceholderText("What did you do?");
+      await user.type(descriptionInput, "Website redesign");
+      const row = descriptionInput.parentElement as HTMLElement;
+      await user.type(row.querySelectorAll("input")[1], "5000");
+
+      await user.click(screen.getByRole("button", { name: "Create invoice" }));
+
+      expect(push).toHaveBeenCalledWith("/");
+      const saved = storage.getInvoices()[0];
+      expect(saved.client.companyName).toBe("Acme Studio");
+      expect(saved.client.name).toBeUndefined();
     });
 
     it('"Save as draft" still saves an otherwise-empty invoice — only a brand is required', async () => {
@@ -450,10 +486,10 @@ describe("InvoiceForm", () => {
     });
 
     describe("editing", () => {
-      it('"Save changes" is blocked when the linked client has no contact name, and can be completed inline', async () => {
+      it('"Save changes" is never blocked by a missing contact name, but still offers the field', async () => {
         storage.saveBrand(brand());
-        // No `name` at all — an older client record, or one saved before
-        // contact name became mandatory for an invoice.
+        // No `name` at all — an older client record, or simply one billed
+        // without ever naming a person.
         storage.saveClient(client({ name: undefined }));
         const existing = invoice({ status: "sent" });
         storage.saveInvoice(existing);
@@ -461,16 +497,11 @@ describe("InvoiceForm", () => {
         const user = userEvent.setup();
         render(<InvoiceForm existingInvoice={existing} />);
 
-        await user.click(screen.getByRole("button", { name: "Save changes" }));
+        // The nudge is on screen from the start — an editable field, no
+        // asterisk, no error.
+        const contactField = screen.getByPlaceholderText("Optional — e.g. Priya Nair");
+        expect(contactField).not.toHaveAttribute("aria-invalid", "true");
 
-        // Blocked, not silently re-saved with the gap still there.
-        expect(toast).toHaveBeenCalledWith("This client needs a contact name to continue");
-        expect(push).not.toHaveBeenCalled();
-        const contactField = document.getElementById("field-contact-name")!.querySelector("input")!;
-        expect(contactField).toHaveAttribute("aria-invalid", "true");
-
-        // The same inline-completion field the create path uses — not a
-        // dead end.
         await user.type(contactField, "Priya Nair");
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -481,6 +512,24 @@ describe("InvoiceForm", () => {
         // This invoice's own snapshot gained the contact name — the saved
         // client record itself must not have been silently rewritten.
         expect(storage.getClients().find((c) => c.id === "c1")?.name).toBeUndefined();
+      });
+
+      it('"Save changes" goes through with the contact name left blank', async () => {
+        storage.saveBrand(brand());
+        storage.saveClient(client({ name: undefined }));
+        const existing = invoice({ status: "sent" });
+        storage.saveInvoice(existing);
+
+        const user = userEvent.setup();
+        render(<InvoiceForm existingInvoice={existing} />);
+
+        await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+        expect(toast).not.toHaveBeenCalledWith(
+          expect.stringContaining("contact name")
+        );
+        expect(push).toHaveBeenCalledWith("/");
+        expect(storage.getInvoices().find((i) => i.id === "i1")?.status).toBe("sent");
       });
 
       it('"Save changes" persists an edit when the invoice is already complete', async () => {

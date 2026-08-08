@@ -58,7 +58,6 @@ const FIELD_DOM_ID: Record<InvoiceField, string> = {
   brand: "field-brand",
   client: "field-client",
   companyName: "field-company-name",
-  contactName: "field-contact-name",
   address: "field-address",
   billDate: "field-bill-date",
   dueDate: "field-due-date",
@@ -122,10 +121,11 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const [errors, setErrors] = useState<Partial<Record<InvoiceField, boolean>>>({});
 
   // A saved client's own record is read-only from here — `client` below is
-  // always this invoice's own snapshot. When that client is missing a
-  // mandatory field (most commonly no contact name, which the client form
-  // itself marks Optional), this holds just the gaps the user fills in for
-  // *this invoice*, so the saved record is never touched. Reset whenever
+  // always this invoice's own snapshot. When that client is missing a field
+  // the invoice wants (a mandatory one, or the optional contact name the
+  // client form also marks Optional), this holds just the gaps the user
+  // fills in for *this invoice*, so the saved record is never touched.
+  // Reset whenever
   // "Billed to" changes, so a patch typed for one client can't leak onto
   // the next one selected.
   const [clientPatch, setClientPatch] = useState<Partial<InvoiceClient>>({});
@@ -143,9 +143,9 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const isManualClient = selectValue === MANUAL_CLIENT_VALUE;
   const selectedClient = isManualClient ? undefined : clients.find((c) => c.id === selectValue);
 
-  // Which of the selected saved client's mandatory fields it doesn't
+  // Which of the selected saved client's invoice-relevant fields it doesn't
   // actually have — surfaced inline (below) for completion rather than
-  // leaving "contact name required" with no field to type it into.
+  // leaving "company name required" with no field to type it into.
   const savedClientGaps = selectedClient
     ? {
         companyName: !selectedClient.companyName.trim(),
@@ -153,9 +153,14 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         address: !selectedClient.address.trim(),
       }
     : { companyName: false, contactName: false, address: false };
-  const hasSavedClientGaps =
-    !!selectedClient &&
-    (savedClientGaps.companyName || savedClientGaps.contactName || savedClientGaps.address);
+  // Contact name is in the panel but not in this pair: a missing one is a
+  // nudge, not a blocker (`validateInvoiceForSave` doesn't check it), so it
+  // opens the panel and offers the field without ever failing a save. The
+  // split exists only to pick the panel's wording — "fill these in" reads as
+  // a demand, which is wrong when the sole gap is one you may leave empty.
+  const hasRequiredSavedClientGaps =
+    !!selectedClient && (savedClientGaps.companyName || savedClientGaps.address);
+  const hasSavedClientGaps = hasRequiredSavedClientGaps || savedClientGaps.contactName;
 
   // Copies the whole saved client record into the embedded snapshot — the
   // two fields (`clientId` and `client`) coexist by design: `clientId` is
@@ -193,7 +198,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const handleSave = (asDraft: boolean) => {
     // Same mandatory-field gate for the primary save action whether this is
     // a brand-new invoice ("Create invoice") or an existing one ("Save
-    // changes") — an invoice missing, say, a contact name is exactly as
+    // changes") — an invoice missing, say, a billing address is exactly as
     // incomplete either way. Only "Save as draft" skips this; a draft is
     // explicitly a work in progress. This check never looks at `isEdit`.
     if (!asDraft) {
@@ -202,7 +207,6 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         clientSelected: selectValue !== "",
         client: {
           companyName: previewClient.companyName,
-          name: previewClient.name,
           address: previewClient.address,
         },
         billDate,
@@ -379,7 +383,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 onValueChange={(v) => {
                   setSelectValue(v);
                   setClientPatch({});
-                  clearErrors(["client", "companyName", "contactName", "address"]);
+                  clearErrors(["client", "companyName", "address"]);
                 }}
               >
                 <SelectTrigger
@@ -432,27 +436,20 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                     </p>
                   )}
                 </div>
-                <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.contactName}>
-                  <Label className="text-xs text-muted-foreground">
-                    Contact name
-                    <Required />
-                  </Label>
+                {/* No `<Required />`: an invoice is addressed to a company,
+                    so a contact name is a nicety, not a gate. The
+                    "Optional" placeholder is the same marker the client form
+                    uses on this very field. */}
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Contact name</Label>
                   <Input
                     value={manualClient.name ?? ""}
-                    onChange={(e) => {
-                      setManualClient((prev) => ({ ...prev, name: e.target.value }));
-                      clearErrors(["contactName"]);
-                    }}
-                    placeholder="Priya Nair"
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Optional — e.g. Priya Nair"
                     className="text-sm"
-                    aria-invalid={!!errors.contactName}
-                    aria-describedby={errors.contactName ? "contact-name-error" : undefined}
                   />
-                  {errors.contactName && (
-                    <p id="contact-name-error" className="text-xs text-destructive">
-                      Required
-                    </p>
-                  )}
                 </div>
               </div>
               <div className="flex gap-3 flex-wrap">
@@ -510,9 +507,19 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           {hasSavedClientGaps && (
             <div className="border rounded-xl bg-card p-3 flex flex-col gap-3">
               <p className="text-xs text-muted-foreground">
-                {selectedClient!.companyName || "This client"}&rsquo;s saved record is missing a
-                few details — fill them in for this invoice. The saved client itself won&rsquo;t
-                change.
+                {hasRequiredSavedClientGaps ? (
+                  <>
+                    {selectedClient!.companyName || "This client"}&rsquo;s saved record is missing
+                    a few details — fill them in for this invoice. The saved client itself
+                    won&rsquo;t change.
+                  </>
+                ) : (
+                  <>
+                    {selectedClient!.companyName || "This client"} has no contact name saved. Add
+                    one to address this invoice to a person — or leave it blank. Either way the
+                    saved client itself won&rsquo;t change.
+                  </>
+                )}
               </p>
               <div className="flex gap-3 flex-wrap">
                 {savedClientGaps.companyName && (
@@ -540,27 +547,16 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   </div>
                 )}
                 {savedClientGaps.contactName && (
-                  <div className="flex-[1_1_200px] space-y-1.5" id={FIELD_DOM_ID.contactName}>
-                    <Label className="text-xs text-muted-foreground">
-                      Contact name
-                      <Required />
-                    </Label>
+                  <div className="flex-[1_1_200px] space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Contact name</Label>
                     <Input
                       value={clientPatch.name ?? ""}
-                      onChange={(e) => {
-                        setClientPatch((prev) => ({ ...prev, name: e.target.value }));
-                        clearErrors(["contactName"]);
-                      }}
-                      placeholder="Priya Nair"
+                      onChange={(e) =>
+                        setClientPatch((prev) => ({ ...prev, name: e.target.value }))
+                      }
+                      placeholder="Optional — e.g. Priya Nair"
                       className="text-sm"
-                      aria-invalid={!!errors.contactName}
-                      aria-describedby={errors.contactName ? "contact-name-error" : undefined}
                     />
-                    {errors.contactName && (
-                      <p id="contact-name-error" className="text-xs text-destructive">
-                        Required
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

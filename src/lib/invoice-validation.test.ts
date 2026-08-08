@@ -9,7 +9,7 @@ function validInput(overrides: Partial<InvoiceValidationInput> = {}): InvoiceVal
   return {
     brandId: "b1",
     clientSelected: true,
-    client: { companyName: "Acme Studio", name: "Priya Nair", address: "12 Residency Rd" },
+    client: { companyName: "Acme Studio", address: "12 Residency Rd" },
     billDate: "2026-07-01",
     dueDate: "2026-07-15",
     currency: "INR",
@@ -40,24 +40,23 @@ describe("validateInvoiceForSave", () => {
 
   it("flags a missing company name once a client is selected", () => {
     const result = validateInvoiceForSave(
-      validInput({ client: { companyName: "  ", name: "Priya Nair", address: "12 Residency Rd" } })
+      validInput({ client: { companyName: "  ", address: "12 Residency Rd" } })
     );
     expect(result).toEqual({ ok: false, fields: ["companyName"] });
   });
 
-  it("flags a saved client with no contact name — the dead-end case", () => {
+  it("never blocks on a missing contact name", () => {
     // A saved `Client` record can legitimately have no `name` (the client
-    // form marks it Optional). Selecting that client must still surface the
-    // gap rather than silently accepting an invoice with no contact.
-    const result = validateInvoiceForSave(
-      validInput({ client: { companyName: "Acme Studio", address: "12 Residency Rd" } })
-    );
-    expect(result).toEqual({ ok: false, fields: ["contactName"] });
+    // form marks it Optional), and an invoice is addressed to a company
+    // regardless. The form nudges for one inline; this gate must not fail
+    // the save over it — `InvoiceValidationClient` doesn't even carry the
+    // field, so there is nothing here to check.
+    expect(validateInvoiceForSave(validInput())).toEqual({ ok: true, fields: [] });
   });
 
   it("flags a missing address", () => {
     const result = validateInvoiceForSave(
-      validInput({ client: { companyName: "Acme Studio", name: "Priya Nair", address: "   " } })
+      validInput({ client: { companyName: "Acme Studio", address: "   " } })
     );
     expect(result).toEqual({ ok: false, fields: ["address"] });
   });
@@ -94,7 +93,7 @@ describe("validateInvoiceForSave", () => {
   it("accepts manual client entry with all three fields filled in", () => {
     const result = validateInvoiceForSave(
       validInput({
-        client: { companyName: "One-off Client Ltd", name: "Jordan Lee", address: "1 High St" },
+        client: { companyName: "One-off Client Ltd", address: "1 High St" },
       })
     );
     expect(result.ok).toBe(true);
@@ -105,10 +104,10 @@ describe("validateInvoiceForSave", () => {
       validInput({
         brandId: "",
         billDate: "",
-        client: { companyName: "Acme Studio", address: "12 Residency Rd" },
+        client: { companyName: "  ", address: "12 Residency Rd" },
       })
     );
-    expect(result).toEqual({ ok: false, fields: ["brand", "contactName", "billDate"] });
+    expect(result).toEqual({ ok: false, fields: ["brand", "companyName", "billDate"] });
   });
 
   it("reports every field missing on a completely empty invoice", () => {
@@ -132,9 +131,9 @@ describe("describeInvoiceValidationError", () => {
     expect(describeInvoiceValidationError(["lineItems"])).toBe("Add at least one line item first");
   });
 
-  it("uses the saved-client-friendly copy for a missing contact name", () => {
-    expect(describeInvoiceValidationError(["contactName"])).toBe(
-      "This client needs a contact name to continue"
+  it("uses the saved-client-friendly copy for a missing address", () => {
+    expect(describeInvoiceValidationError(["address"])).toBe(
+      "This client needs a billing address to continue"
     );
   });
 
