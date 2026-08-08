@@ -5,7 +5,7 @@ import { BrandForm } from "./brand-form";
 import { BrandFilterProvider } from "@/components/brand-filter/brand-filter-provider";
 import * as storage from "@/lib/storage";
 import { MAX_LOGO_SOURCE_BYTES } from "@/lib/brands";
-import type { Brand } from "@/lib/types";
+import type { Brand, Invoice } from "@/lib/types";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -210,5 +210,142 @@ describe("BrandForm — logo, phone, PAN", () => {
     // The typed name must still be on screen — nothing was actually saved,
     // so nothing should have been lost either.
     expect(screen.getByDisplayValue("Acme Studio")).toBeInTheDocument();
+  });
+});
+
+describe("BrandForm — invoice preview", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    storage.runMigration();
+    push.mockClear();
+    toast.mockClear();
+  });
+
+  // The two designs are told apart by a label only one of them renders:
+  // "Billed to" is Modern's client heading, "Description" is Classic's item
+  // table column header. Asserting on those rather than a test id keeps the
+  // check honest — it fails if the design stops rendering its own layout.
+  const MODERN_MARKER = "Billed to";
+  const CLASSIC_MARKER = "Description";
+
+  function seedInvoice(overrides: Partial<Invoice> = {}): Invoice {
+    const invoice: Invoice = {
+      id: "i1",
+      invoiceNumber: "SDC-2026-007",
+      brandId: "b1",
+      currency: "INR",
+      status: "sent",
+      billDate: "2026-05-01",
+      dueDate: "2026-05-15",
+      client: { companyName: "Harbourline Foods", address: "9 Dock Street" },
+      items: [{ id: "l1", description: "Retainer", amount: 50000, tax: 18 }],
+      subtotal: 50000,
+      totalTax: 9000,
+      total: 59000,
+      createdAt: "2026-05-01T00:00:00.000Z",
+      updatedAt: "2026-05-01T00:00:00.000Z",
+      brandSnapshot: {
+        name: "Whatever The Brand Was Called Then",
+        address: "An old address",
+        invoicePrefix: "SDC",
+        accentColor: "#2563eb",
+        bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+        invoiceDesign: "classic",
+      },
+      clientId: null,
+      reminders: [],
+      followupsPaused: false,
+      ...overrides,
+    };
+    storage.saveInvoice(invoice);
+    return invoice;
+  }
+
+  it("renders the brand's chosen design and swaps when the chooser changes", async () => {
+    const user = userEvent.setup();
+    renderForm(brand({ invoiceDesign: "modern" }));
+
+    expect(screen.getByText(MODERN_MARKER)).toBeInTheDocument();
+    expect(screen.queryByText(CLASSIC_MARKER)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Classic" }));
+
+    expect(screen.getByText(CLASSIC_MARKER)).toBeInTheDocument();
+    expect(screen.queryByText(MODERN_MARKER)).not.toBeInTheDocument();
+
+    // And back again — the swap is not one-way.
+    await user.click(screen.getByRole("radio", { name: "Modern" }));
+
+    expect(screen.getByText(MODERN_MARKER)).toBeInTheDocument();
+  });
+
+  it("starts on the saved brand's design, not the default", () => {
+    renderForm(brand({ invoiceDesign: "classic" }));
+
+    expect(screen.getByText(CLASSIC_MARKER)).toBeInTheDocument();
+  });
+
+  it("updates the previewed brand details as they are typed", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Acme Studio");
+
+    // Twice: once in the name field's own value, once in the preview header.
+    // `getByText` skips input values, so this is the preview's copy.
+    expect(screen.getByText("Acme Studio")).toBeInTheDocument();
+  });
+
+  it("derives the sample invoice number from the prefix being typed", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByPlaceholderText("auto"), "acme");
+
+    expect(screen.getByText("ACME-2026-001")).toBeInTheDocument();
+  });
+
+  it("previews sample contents for a brand that has never invoiced", () => {
+    renderForm(brand());
+
+    expect(screen.getByText(/Sample invoice/)).toBeInTheDocument();
+    expect(screen.getByText("Northwind Studio")).toBeInTheDocument();
+  });
+
+  it("previews the brand's latest invoice when it has one", () => {
+    seedInvoice();
+    renderForm(brand());
+
+    expect(screen.getByText("Harbourline Foods")).toBeInTheDocument();
+    // Twice over: the pane's subtitle names which invoice is being shown, and
+    // the document itself carries the number.
+    expect(screen.getByText(/Your latest invoice, SDC-2026-007/)).toBeInTheDocument();
+    expect(screen.getAllByText(/SDC-2026-007/).length).toBeGreaterThan(1);
+    // The sample data must be gone, not merged in alongside.
+    expect(screen.queryByText("Northwind Studio")).not.toBeInTheDocument();
+  });
+
+  it("previews the latest invoice's contents with the live brand, not its frozen snapshot", async () => {
+    // The whole point of previewing on the brand form: a real invoice supplies
+    // the body, but the brand half must be what you are editing right now —
+    // otherwise changing a design or an address would appear to do nothing.
+    seedInvoice();
+    const user = userEvent.setup();
+    renderForm(brand({ name: "Sundar Design Co", invoiceDesign: "modern" }));
+
+    expect(screen.queryByText("Whatever The Brand Was Called Then")).not.toBeInTheDocument();
+    // The stored snapshot says "classic"; the live brand says "modern".
+    expect(screen.getByText(MODERN_MARKER)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Classic" }));
+    expect(screen.getByText(CLASSIC_MARKER)).toBeInTheDocument();
+  });
+
+  it("ignores another brand's invoices", () => {
+    seedInvoice({ brandId: "someone-else" });
+    renderForm(brand());
+
+    expect(screen.getByText(/Sample invoice/)).toBeInTheDocument();
+    expect(screen.queryByText("Harbourline Foods")).not.toBeInTheDocument();
   });
 });

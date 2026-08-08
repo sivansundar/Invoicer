@@ -28,7 +28,11 @@ export function ModernInvoicePreview({
   const fields = paymentDetailFields(snapshot.bankDetails);
 
   return (
-    <div className="bg-card border rounded-[14px] shadow-lg p-8 max-w-[460px] box-border">
+    // `mx-auto` for the same reason `ClassicInvoicePreview` has it: every pane
+    // that hosts a preview is `flex-[1_1_508px]`, so it grows past this
+    // document's max width on a wide window. Without it the two designs sit
+    // differently in the identical pane — Modern pinned left, Classic centred.
+    <div className="bg-card border rounded-[14px] shadow-lg p-8 max-w-[460px] mx-auto box-border">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div className="flex items-start gap-3 min-w-0">
