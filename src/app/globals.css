@@ -48,6 +48,13 @@
 }
 
 :root {
+  /* Tells the UA which palette to paint browser-drawn form internals with —
+     the calendar-picker indicator inside `<input type="date">` (bill date,
+     due date, paid-on), the date picker popup itself, native `<select>`
+     option lists, and scrollbars. Without it those stay light-mode glyphs in
+     dark mode, i.e. a near-black calendar icon on a near-black field. Our own
+     Tailwind tokens can't reach any of them. */
+  color-scheme: light;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -83,6 +90,9 @@
 }
 
 .dark {
+  /* See the note on `:root` — this is what actually flips the date-input
+     calendar icon and the native option lists to their dark variants. */
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
