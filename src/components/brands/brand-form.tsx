@@ -17,6 +17,9 @@ import { nextInvoiceNumber } from "@/lib/storage";
 import { defaultFollowupConfig } from "@/lib/seed";
 import { BRAND_PALETTE } from "@/lib/palette";
 import { DEFAULT_INVOICE_DESIGN, INVOICE_DESIGN_OPTIONS } from "@/lib/invoice-design";
+import { InvoicePreview } from "@/components/invoices/invoice-preview";
+import { brandPreviewBody, latestInvoiceForBrand } from "@/lib/brand-preview";
+import { snapshotFromBrand } from "@/lib/migrate";
 import {
   brandDeleteGuard,
   derivePrefix,
@@ -71,6 +74,53 @@ export function BrandForm({ brand }: BrandFormProps) {
 
   const brandInvoices = isEdit ? invoices.filter((invoice) => invoice.brandId === brand.id) : [];
 
+  // Everything the form would save right now, minus the id — built here
+  // rather than inside `handleSubmit` so the preview and the save path can
+  // never disagree about what a field does. Adding a brand field to one
+  // therefore adds it to the other by construction.
+  //
+  // Deliberately not memoized: the dependency array would have to list every
+  // field above, and a field added later but forgotten there would silently
+  // freeze the preview. Rebuilding this plain object each render costs
+  // nothing next to the render it feeds.
+  const draftBrand: Omit<Brand, "id"> = {
+    name: name.trim(),
+    address,
+    email,
+    phone: phone || undefined,
+    gstNumber: gstNumber || undefined,
+    panNumber: panNumber || undefined,
+    logo: logo || undefined,
+    invoicePrefix: effectivePrefix,
+    // Dead state (see `nextInvoiceNumber` — the live calculation from
+    // `@/lib/storage` is the only source of truth ever read). Carried
+    // forward on edit purely to satisfy the `Brand` shape until Task 22
+    // removes the field.
+    nextInvoiceNumber: brand?.nextInvoiceNumber ?? 1,
+    accentColor,
+    followup: brand?.followup ?? defaultFollowupConfig(),
+    invoiceDesign,
+    bankDetails: {
+      accountName,
+      accountNumber,
+      bankName,
+      ifscCode,
+      branch: branch || undefined,
+      upiId: upiId || undefined,
+    },
+    createdAt: brand?.createdAt ?? new Date().toISOString(),
+  };
+
+  // The brand half of the preview is the live form; the invoice half is the
+  // brand's own latest invoice, or placeholder contents when it has none
+  // (always the case on the create form, where `brand` is undefined).
+  // `snapshotFromBrand` is the same function the invoice form uses to freeze a
+  // brand onto a real invoice, so what's previewed here is what a client
+  // would actually receive.
+  const previewSnapshot = snapshotFromBrand({ ...draftBrand, id: brand?.id ?? "" });
+  const latestInvoice = latestInvoiceForBrand(invoices, brand?.id);
+  const previewBody = brandPreviewBody(latestInvoice, effectivePrefix);
+
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Always clear the input's value, success or failure — otherwise picking
@@ -114,34 +164,10 @@ export function BrandForm({ brand }: BrandFormProps) {
 
     const savedPrefix = effectivePrefix;
 
-    const record: Brand = {
-      id: brand?.id ?? crypto.randomUUID(),
-      name: trimmedName,
-      address,
-      email,
-      phone: phone || undefined,
-      gstNumber: gstNumber || undefined,
-      panNumber: panNumber || undefined,
-      logo: logo || undefined,
-      invoicePrefix: savedPrefix,
-      // Dead state (see `nextInvoiceNumber` — the live calculation from
-      // `@/lib/storage` is the only source of truth ever read). Carried
-      // forward on edit purely to satisfy the `Brand` shape until Task 22
-      // removes the field.
-      nextInvoiceNumber: brand?.nextInvoiceNumber ?? 1,
-      accentColor,
-      followup: brand?.followup ?? defaultFollowupConfig(),
-      invoiceDesign,
-      bankDetails: {
-        accountName,
-        accountNumber,
-        bankName,
-        ifscCode,
-        branch: branch || undefined,
-        upiId: upiId || undefined,
-      },
-      createdAt: brand?.createdAt ?? new Date().toISOString(),
-    };
+    // `draftBrand` already holds every field exactly as the preview rendered
+    // it — only the id is decided here, at the moment a brand first becomes
+    // real.
+    const record: Brand = { ...draftBrand, id: brand?.id ?? crypto.randomUUID() };
 
     // `save` (from `useBrands`) passes through `storage.saveBrand`'s own
     // return value — `false` means the write didn't actually persist (e.g.
@@ -176,287 +202,308 @@ export function BrandForm({ brand }: BrandFormProps) {
   };
 
   return (
-    <div className="p-6 max-w-[660px]">
-      <Link
-        href="/brands"
-        className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
-      >
-        <ChevronLeft className="size-3.5" />
-        Brands
-      </Link>
-      <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
-        {isEdit ? `Edit ${brand.name}` : "New brand"}
-      </h1>
-      <p className="text-sm text-muted-foreground mt-1">
-        {isEdit
-          ? "Changes apply to invoices you create from here on — past invoices keep their original details."
-          : "Set it up once — every invoice from this brand fills itself in."}
-      </p>
+    <div className="flex flex-wrap items-stretch flex-1 min-h-0">
+      {/* Left pane: the form */}
+      <div className="flex-[1_1_460px] min-w-0 p-6 max-w-[660px]">
+        <Link
+          href="/brands"
+          className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
+        >
+          <ChevronLeft className="size-3.5" />
+          Brands
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+          {isEdit ? `Edit ${brand.name}` : "New brand"}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isEdit
+            ? "Changes apply to invoices you create from here on — past invoices keep their original details."
+            : "Set it up once — every invoice from this brand fills itself in."}
+        </p>
 
-      <form
-        onSubmit={handleSubmit}
-        className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-5 mt-6"
-      >
-        <div className="flex gap-3 flex-wrap items-start">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Logo</Label>
-            {logo ? (
-              <div className="relative w-fit">
-                <img
-                  src={logo}
-                  alt={`${name || "Brand"} logo`}
-                  className="size-9 rounded-lg object-contain border"
-                />
+        <form
+          onSubmit={handleSubmit}
+          className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-5 mt-6"
+        >
+          <div className="flex gap-3 flex-wrap items-start">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Logo</Label>
+              {logo ? (
+                <div className="relative w-fit">
+                  <img
+                    src={logo}
+                    alt={`${name || "Brand"} logo`}
+                    className="size-9 rounded-lg object-contain border"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    aria-label="Remove logo"
+                    className="absolute -top-1.5 -right-1.5 size-4 rounded-full border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                  >
+                    <X className="size-2.5" />
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={handleRemoveLogo}
-                  aria-label="Remove logo"
-                  className="absolute -top-1.5 -right-1.5 size-4 rounded-full border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={logoProcessing}
+                  aria-label="Upload logo"
+                  className="size-9 rounded-lg border border-dashed flex items-center justify-center text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors disabled:opacity-50"
                 >
-                  <X className="size-2.5" />
+                  <Upload className="size-3.5" />
                 </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={logoProcessing}
-                aria-label="Upload logo"
-                className="size-9 rounded-lg border border-dashed flex items-center justify-center text-muted-foreground hover:border-foreground/40 hover:text-foreground transition-colors disabled:opacity-50"
-              >
-                <Upload className="size-3.5" />
-              </button>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleLogoChange}
-              className="hidden"
-            />
-          </div>
-          <div className="flex-[2_1_220px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Brand name</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Sundar Design Co"
-              className="text-sm"
-            />
-          </div>
-          <div className="flex-[1_1_110px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Prefix</Label>
-            <Input
-              value={prefix}
-              onChange={(e) => setPrefix(e.target.value.toUpperCase())}
-              placeholder="auto"
-              className="text-sm uppercase"
-            />
-          </div>
-        </div>
-
-        <div className="bg-muted border rounded-lg px-3 py-2.5 text-[13px] text-muted-foreground">
-          {hint}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Accent colour</Label>
-          <div className="flex gap-2">
-            {BRAND_PALETTE.map((color) => (
-              <button
-                key={color}
-                type="button"
-                aria-label={`Accent colour ${color}`}
-                aria-pressed={accentColor === color}
-                onClick={() => setAccentColor(color)}
-                className="size-6 rounded-full"
-                style={{
-                  backgroundColor: color,
-                  boxShadow: accentColor === color ? "0 0 0 2px var(--foreground)" : undefined,
-                }}
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                className="hidden"
               />
-            ))}
+            </div>
+            <div className="flex-[2_1_220px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Brand name</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Sundar Design Co"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex-[1_1_110px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Prefix</Label>
+              <Input
+                value={prefix}
+                onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+                placeholder="auto"
+                className="text-sm uppercase"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Invoice design</Label>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            spacing={1}
-            value={invoiceDesign}
-            onValueChange={(value) => {
-              if (value) setInvoiceDesign(value as InvoiceDesign);
-            }}
-            className="grid grid-cols-2 gap-2 w-full"
-          >
-            {INVOICE_DESIGN_OPTIONS.map((option) => (
-              <ToggleGroupItem
-                key={option.value}
-                value={option.value}
-                aria-label={option.label}
-                className="h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-lg px-3 py-2.5 text-left data-[state=on]:border-foreground data-[state=on]:bg-accent"
-              >
-                <span className="text-[13px] font-medium">{option.label}</span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {option.description}
-                </span>
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
+          <div className="bg-muted border rounded-lg px-3 py-2.5 text-[13px] text-muted-foreground">
+            {hint}
+          </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Address</Label>
-          <Textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Street, city, PIN"
-            rows={3}
-            className="text-sm"
-          />
-        </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Accent colour</Label>
+            <div className="flex gap-2">
+              {BRAND_PALETTE.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={`Accent colour ${color}`}
+                  aria-pressed={accentColor === color}
+                  onClick={() => setAccentColor(color)}
+                  className="size-6 rounded-full"
+                  style={{
+                    backgroundColor: color,
+                    boxShadow: accentColor === color ? "0 0 0 2px var(--foreground)" : undefined,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
 
-        <div className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Email</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="billing@yourbrand.in"
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Invoice design</Label>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              spacing={1}
+              value={invoiceDesign}
+              onValueChange={(value) => {
+                if (value) setInvoiceDesign(value as InvoiceDesign);
+              }}
+              className="grid grid-cols-2 gap-2 w-full"
+            >
+              {INVOICE_DESIGN_OPTIONS.map((option) => (
+                <ToggleGroupItem
+                  key={option.value}
+                  value={option.value}
+                  aria-label={option.label}
+                  className="h-auto w-full flex-col items-start justify-start gap-0.5 whitespace-normal rounded-lg px-3 py-2.5 text-left data-[state=on]:border-foreground data-[state=on]:bg-accent"
+                >
+                  <span className="text-[13px] font-medium">{option.label}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {option.description}
+                  </span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Address</Label>
+            <Textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Street, city, PIN"
+              rows={3}
               className="text-sm"
             />
           </div>
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Phone</Label>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Optional"
-              className="text-sm"
-            />
-          </div>
-        </div>
 
-        <div className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">GST number</Label>
-            <Input
-              value={gstNumber}
-              onChange={(e) => setGstNumber(e.target.value)}
-              placeholder="Optional"
-              className="text-sm"
-            />
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="billing@yourbrand.in"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Phone</Label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Optional"
+                className="text-sm"
+              />
+            </div>
           </div>
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">PAN number</Label>
-            <Input
-              value={panNumber}
-              onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-              placeholder="Optional"
-              className="text-sm uppercase"
-            />
-          </div>
-        </div>
 
-        <div className="border-t pt-5 flex flex-col gap-4">
-          <div>
-            <h2 className="text-sm font-semibold">Getting paid</h2>
-            <p className="text-[13px] text-muted-foreground mt-0.5">
-              Printed at the bottom of every invoice.
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">GST number</Label>
+              <Input
+                value={gstNumber}
+                onChange={(e) => setGstNumber(e.target.value)}
+                placeholder="Optional"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">PAN number</Label>
+              <Input
+                value={panNumber}
+                onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                placeholder="Optional"
+                className="text-sm uppercase"
+              />
+            </div>
+          </div>
+
+          <div className="border-t pt-5 flex flex-col gap-4">
+            <div>
+              <h2 className="text-sm font-semibold">Getting paid</h2>
+              <p className="text-[13px] text-muted-foreground mt-0.5">
+                Printed at the bottom of every invoice.
+              </p>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Account name</Label>
+                <Input
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  placeholder="As on the account"
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Bank</Label>
+                <Input
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="e.g. HDFC Bank"
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Branch</Label>
+                <Input
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  placeholder="e.g. Indiranagar"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Account number</Label>
+                <Input
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">IFSC</Label>
+                <Input
+                  value={ifscCode}
+                  onChange={(e) => setIfscCode(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">UPI ID</Label>
+                <Input
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="you@okbank"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={() => router.push("/brands")}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm">
+              {isEdit ? "Save changes" : "Create brand"}
+            </Button>
+          </div>
+        </form>
+
+        {isEdit && (
+          <div className="flex items-center gap-3 mt-4">
+            <span className="text-[13px] text-muted-foreground">
+              {invoiceUsageLabel(brandInvoices.length)}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                "ml-auto",
+                "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
+              )}
+              onClick={handleDelete}
+            >
+              Delete brand
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Right pane: how this brand's invoices actually look. Sticky because
+          the form runs well past a screen height — the bank details at the
+          bottom are printed on the very document shown here, so it has to
+          still be visible by the time you reach them. */}
+      <div className="flex-[1_1_508px] min-w-[508px] bg-muted border-l p-6">
+        <div className="sticky top-6">
+          <div className="mb-4">
+            <p className="text-sm font-medium">Invoice preview</p>
+            <p className="text-[13px] text-muted-foreground">
+              {latestInvoice
+                ? `Your latest invoice, ${latestInvoice.invoiceNumber}, in this design`
+                : "Sample invoice — updates as you type"}
             </p>
           </div>
-
-          <div className="flex gap-3 flex-wrap">
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Account name</Label>
-              <Input
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder="As on the account"
-                className="text-sm"
-              />
-            </div>
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Bank</Label>
-              <Input
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="e.g. HDFC Bank"
-                className="text-sm"
-              />
-            </div>
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Branch</Label>
-              <Input
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
-                placeholder="e.g. Indiranagar"
-                className="text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 flex-wrap">
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Account number</Label>
-              <Input
-                value={accountNumber}
-                onChange={(e) => setAccountNumber(e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">IFSC</Label>
-              <Input
-                value={ifscCode}
-                onChange={(e) => setIfscCode(e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label className="text-xs text-muted-foreground">UPI ID</Label>
-              <Input
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value)}
-                placeholder="you@okbank"
-                className="text-sm"
-              />
-            </div>
-          </div>
+          <InvoicePreview snapshot={previewSnapshot} {...previewBody} />
         </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={() => router.push("/brands")}>
-            Cancel
-          </Button>
-          <Button type="submit" size="sm">
-            {isEdit ? "Save changes" : "Create brand"}
-          </Button>
-        </div>
-      </form>
-
-      {isEdit && (
-        <div className="flex items-center gap-3 mt-4">
-          <span className="text-[13px] text-muted-foreground">
-            {invoiceUsageLabel(brandInvoices.length)}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn(
-              "ml-auto",
-              "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
-            )}
-            onClick={handleDelete}
-          >
-            Delete brand
-          </Button>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
