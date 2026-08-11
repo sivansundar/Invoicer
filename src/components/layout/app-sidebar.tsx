@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { BrandSwitcher } from "./brand-switcher";
 import { PlanCard } from "./plan-card";
+import { UserMenu } from "./user-menu";
 import { FEATURES } from "@/lib/features";
 
 const ALL_NAV_ITEMS = [
@@ -37,9 +38,6 @@ const ALL_NAV_ITEMS = [
 ];
 
 const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.flag || FEATURES[item.flag]);
-
-// The current user is a static local record — there is no auth in this build.
-const LOCAL_USER = { name: "Sivan", email: "hello@sivansundar.com" };
 
 function isNavItemActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") {
@@ -97,15 +95,7 @@ export function AppSidebar() {
 
       <SidebarFooter>
         {FEATURES.billing && <PlanCard />}
-        <div className="flex items-center gap-2 p-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-accent text-xs font-medium">
-            {LOCAL_USER.name.charAt(0)}
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-medium">{LOCAL_USER.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{LOCAL_USER.email}</span>
-          </span>
-        </div>
+        <UserMenu />
       </SidebarFooter>
     </Sidebar>
   );
