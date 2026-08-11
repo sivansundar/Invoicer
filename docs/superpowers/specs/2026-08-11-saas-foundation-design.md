@@ -136,13 +136,24 @@ Three, per `@supabase/ssr`:
 |---|---|
 | Browser components | `createBrowserClient` |
 | Server components / route handlers | `createServerClient` with the cookie store |
-| `middleware.ts` | `createServerClient` for session refresh |
+| `proxy.ts` | `createServerClient` for session refresh |
+
+**Next.js 16 renamed `middleware.ts` to `proxy.ts`** (exported function `proxy`, Node.js
+runtime). `middleware.ts` still works but is deprecated and warns. This project is on
+16.1.6, so use `proxy.ts`. Supabase's own docs now use "Proxy" for this file.
 
 Rules, non-negotiable:
 
-- Authorization always uses `supabase.auth.getUser()`, which revalidates against the auth
-  server. **Never `getSession()`** — it reads an unverified cookie.
-- In middleware, nothing runs between `createServerClient` and `getUser()`.
+- **Never `getSession()` in server code** — it reads an unverified cookie.
+- Routine authorization uses **`supabase.auth.getClaims()`**, which verifies the JWT locally
+  against the JWKS endpoint when asymmetric signing keys are enabled — no network round trip
+  per request. This is Supabase's current recommendation for the proxy.
+- Use `supabase.auth.getUser()` where freshness beats latency: it always calls the auth
+  server, so it is what detects a banned, deleted, or signed-out user immediately. Required
+  before destructive account operations.
+- **Enable asymmetric JWT signing keys (ES256)** on the project so `getClaims()` verifies
+  locally. With the default HS256 it still works but is less efficient.
+- In the proxy, nothing runs between `createServerClient` and the claims check.
 - Cookies are handled with `getAll` / `setAll`, never the deprecated single-cookie API.
 - Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Publishable keys,
   not the legacy `anon` key. **The `service_role` key is not used in this phase and must never
