@@ -1172,7 +1172,42 @@ $$;
 
 revoke execute on function private.is_org_member(uuid)
   from public, anon, authenticated, service_role;
+
+-- Then grant it back to `authenticated` alone.
+--
+-- This is NOT redundant with the revoke above, and the revoke on its own is a
+-- bug. RLS policy expressions are evaluated with the *querying* role's
+-- privileges, not the table owner's. `security definer` governs what happens
+-- INSIDE the function body once it is called; it does not waive the EXECUTE
+-- check needed to call it. Without this grant every policy below fails closed
+-- with `permission denied for function is_org_member` — verified directly
+-- against this database:
+--
+--   set role authenticated;
+--   select count(*) from public.brands;
+--   -- ERROR:  permission denied for function is_org_member
+--
+-- Granting it to `authenticated` is safe on two independent grounds:
+--   1. `private` is absent from config.toml's
+--      `schemas = ["public", "graphql_public"]`, so PostgREST cannot route to
+--      it at all — /rpc answers PGRST202 or PGRST106 whichever schema header
+--      is sent.
+--   2. Even if it were reachable, the function checks `auth.uid()` internally
+--      and answers only "is the CALLING user a member of org X" — a question
+--      the caller already knows the answer to. No other tenant's data is
+--      exposed.
+--
+-- `anon`, `public` and `service_role` stay revoked. `service_role` bypasses
+-- RLS entirely and never evaluates these policies.
+grant execute on function private.is_org_member(uuid) to authenticated;
 ```
+
+> **Correction to a widely-copied pattern.** Supabase's own RLS-performance guidance shows
+> `revoke execute … from PUBLIC, anon, authenticated, service_role` followed by using the helper
+> in a policy, on the stated basis that policy expressions evaluate with the owner's privileges.
+> That basis is wrong, and following it verbatim yields policies that fail closed for every
+> user. The revoke is still correct — it is the missing re-grant to `authenticated` that breaks
+> it. Do not "simplify" this pair back to a lone revoke.
 
 - [ ] **Step 5: Write the org and membership policies**
 
