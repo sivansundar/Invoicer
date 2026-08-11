@@ -9,6 +9,26 @@ function isPublic(pathname: string): boolean {
 }
 
 /**
+ * Redirects to `url` while carrying over any cookies `setAll` already wrote
+ * onto `base`.
+ *
+ * `NextResponse.redirect()` builds a brand-new response, so returning it
+ * directly drops a session cookie refreshed (or cleared) during the claims
+ * check on exactly the requests that redirect. Supabase rotates refresh
+ * tokens on use: the browser keeps sending the now-invalidated old one, so a
+ * dropped refresh here corrupts the *next* refresh attempt, not just this
+ * one. Same failure mode the module comment below warns about, one branch
+ * lower than it looks.
+ */
+function redirectWithCookies(url: URL, base: NextResponse): NextResponse {
+  const response = NextResponse.redirect(url);
+  for (const cookie of base.cookies.getAll()) {
+    response.cookies.set(cookie);
+  }
+  return response;
+}
+
+/**
  * Refreshes the auth cookies on every request and redirects anonymous
  * visitors away from app routes.
  *
@@ -18,7 +38,8 @@ function isPublic(pathname: string): boolean {
  *    await in between can let a stale token through.
  * 2. The returned response MUST be the one the cookie handler mutated. Build
  *    a fresh `NextResponse` and you drop the refreshed cookies, which logs
- *    the user out at random once the old token expires.
+ *    the user out at random once the old token expires. This applies to the
+ *    redirect branches too — see `redirectWithCookies` above.
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
@@ -46,8 +67,19 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   // getClaims() verifies the JWT locally against the JWKS endpoint rather
   // than calling the auth server on every request. Never getSession() here.
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims ?? null;
+  //
+  // Deliberately fail closed: a thrown error (e.g. a JWKS fetch failure)
+  // is treated as "no claims" rather than left to propagate, which would
+  // 500 every route the matcher covers. Failing closed is the correct
+  // default for an auth gate, and it cannot loop — `/login` is public. Do
+  // not "fix" this into fail-open.
+  let claims: Record<string, unknown> | null = null;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    claims = data?.claims ?? null;
+  } catch {
+    claims = null;
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -55,14 +87,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    return redirectWithCookies(url, supabaseResponse);
   }
 
   if (claims && (pathname === "/login" || pathname === "/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";
-    return NextResponse.redirect(url);
+    return redirectWithCookies(url, supabaseResponse);
   }
 
   return supabaseResponse;
