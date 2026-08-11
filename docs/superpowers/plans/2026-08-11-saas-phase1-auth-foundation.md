@@ -1436,7 +1436,11 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Write the anon lockdown test**
 
-`anon` is currently locked out by the *absence* of a grant. Absence is invisible: nothing fails if a later migration adds one by accident, and `grant all on all tables in schema public to anon` is a plausible thing for someone to paste while debugging. This test makes the absence explicit and load-bearing.
+This test pins the **outcome**: a signed-out visitor retrieves no rows and writes no rows, today and on every future run.
+
+Be precise about what it does *not* prove. From an anon REST client's vantage point, "no grant exists" and "a grant exists but RLS denies every row" are **observationally identical** — both yield an empty result on select and an error on insert, under the same SQLSTATE. Since all 22 policies target `to authenticated`, Postgres falls through to implicit default-deny for `anon`, so adding `grant all on all tables in schema public to anon` tomorrow would **not** fail this test. No client-side test can distinguish those two states; that requires reading the catalogue, which anon cannot do.
+
+That is acceptable, because the outcome is the security property and RLS enforces it independently of the grant layer. This test would still fail loudly on a real leak — a future `to anon` policy with `using (true)`, or `force row level security` being dropped. Step 1b adds the mechanism-level check separately.
 
 `src/test/integration/anon.test.ts`:
 
@@ -1462,28 +1466,188 @@ const TABLES = [
   "email_templates",
 ] as const;
 
+/**
+ * One schema-valid row per table. These would satisfy every not-null and
+ * check constraint if a permitted caller sent them, so a rejection is
+ * attributable to permissions rather than to a malformed payload.
+ * The uuids are deliberately random and reference nothing.
+ */
+const VALID_ROWS: Record<(typeof TABLES)[number], Record<string, unknown>> = {
+  orgs: { name: "Anon Org" },
+  org_members: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    user_id: "00000000-0000-4000-8000-000000000002",
+    role: "owner",
+  },
+  brands: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    name: "Anon Brand",
+    invoice_prefix: "AN",
+    accent_color: "#2563eb",
+  },
+  clients: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    company_name: "Anon Client",
+  },
+  invoices: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    brand_id: "00000000-0000-4000-8000-000000000003",
+    invoice_number: "AN-2026-001",
+    currency: "INR",
+    bill_date: "2026-08-11",
+    due_date: "2026-09-10",
+    client_snapshot: {},
+    brand_snapshot: {},
+  },
+  invoice_items: {
+    invoice_id: "00000000-0000-4000-8000-000000000004",
+    position: 0,
+    description: "Anon line",
+    amount: "1.00",
+    tax: "0",
+  },
+  email_templates: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    name: "Anon template",
+    subject: "Hello",
+    tone: "Friendly",
+    body: "Body",
+  },
+};
+
 describe("an anonymous visitor can reach no data at all", () => {
   for (const table of TABLES) {
     it(`${table}: select returns no rows to anon`, async () => {
-      const { data, error } = await anon.from(table).select("*").limit(1);
-      // Either a hard permission error, or an empty result — never a row.
-      // Both are acceptable outcomes; a row is not.
-      expect(error ?? { code: "none" }).toBeTruthy();
+      const { data } = await anon.from(table).select("*").limit(1);
+      // A hard permission error and an empty result are both acceptable.
+      // What must never happen is a row coming back. `error` is deliberately
+      // not asserted on: any assertion covering "error OR empty" is
+      // vacuously true, and the row check alone already says what matters.
       expect(data ?? []).toEqual([]);
     });
 
     it(`${table}: insert is rejected for anon`, async () => {
-      const { error } = await anon.from(table).insert({});
+      // A *valid* payload, so the rejection is attributable to permissions
+      // rather than to a not-null violation. `insert({})` would be rejected
+      // by every table's constraints even for a fully authorized caller,
+      // which would prove nothing about anon.
+      const { error } = await anon.from(table).insert(VALID_ROWS[table]);
       expect(error).not.toBeNull();
     });
   }
 });
 ```
 
-- [ ] **Step 2: Run it**
+- [ ] **Step 1b: Pin the grant layer itself**
+
+Step 1 pins the outcome. This pins the mechanism, closing the blind spot named above: it reads the catalogue directly, so it *can* tell "no grant" from "grant plus default-deny".
+
+Why bother, when a stray `anon` grant leaks nothing on its own? Because it stops being harmless the moment any future policy targets `anon` — a public "pay this invoice" link is a plausible Phase 2 feature. A grant added today and a `to anon` policy added next quarter are individually defensible and jointly a leak. This test catches the drift while it is still inert.
+
+The catalogue is not reachable through PostgREST, so this connects to Postgres directly.
+
+```bash
+npm install --save-dev --save-exact pg @types/pg
+```
+
+Add the connection string to `.env.test.local` (gitignored) — take the value from `supabase status -o env`'s `DB_URL`:
+
+```bash
+SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres
+```
+
+Add the same key with a placeholder to the committed `.env.local.example`.
+
+`src/test/integration/anon-grants.test.ts`:
+
+```ts
+import { Client } from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+const DB_URL = process.env.SUPABASE_DB_URL;
+
+if (!DB_URL) {
+  throw new Error(
+    "anon-grants.test.ts needs SUPABASE_DB_URL in .env.test.local. " +
+      "Take it from `supabase status -o env`'s DB_URL."
+  );
+}
+
+const APP_TABLES = [
+  "orgs",
+  "org_members",
+  "brands",
+  "clients",
+  "invoices",
+  "invoice_items",
+  "email_templates",
+];
+
+const db = new Client({ connectionString: DB_URL });
+
+beforeAll(async () => {
+  await db.connect();
+});
+
+afterAll(async () => {
+  await db.end();
+});
+
+describe("the anon role holds no privilege on any application table", () => {
+  it("has no data privileges granted", async () => {
+    const { rows } = await db.query(
+      `select table_name, privilege_type
+         from information_schema.role_table_grants
+        where grantee = 'anon'
+          and table_schema = 'public'
+          and table_name = any($1)
+          and privilege_type in ('SELECT','INSERT','UPDATE','DELETE')
+        order by table_name, privilege_type`,
+      [APP_TABLES]
+    );
+
+    // Postgres also records inert defaults (REFERENCES/TRIGGER/TRUNCATE/
+    // MAINTAIN) for anon. Those cannot read or write data, so the filter
+    // above deliberately ignores them — only the four data privileges matter.
+    expect(rows).toEqual([]);
+  });
+
+  it("has no column-level privileges granted", async () => {
+    // A column grant would not appear in role_table_grants, so a table-level
+    // check alone could be satisfied while `anon` still reads one column.
+    const { rows } = await db.query(
+      `select table_name, column_name, privilege_type
+         from information_schema.column_privileges
+        where grantee = 'anon'
+          and table_schema = 'public'
+          and table_name = any($1)
+          and privilege_type in ('SELECT','INSERT','UPDATE')
+        order by table_name, column_name`,
+      [APP_TABLES]
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it("has no policy targeting it", async () => {
+    // The grant only becomes a leak when paired with a policy that admits
+    // anon. Catch that half too.
+    const { rows } = await db.query(
+      `select tablename, policyname, roles
+         from pg_policies
+        where schemaname = 'public'
+          and 'anon' = any(roles)`
+    );
+    expect(rows).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run both tests**
 
 Run: `npm run test:integration -- anon`
-Expected: PASS, 14 tests. If any table returns a row to `anon`, that is a live data leak — stop and report it rather than adjusting the test.
+Expected: PASS — 14 tests from `anon.test.ts`, 3 from `anon-grants.test.ts`.
+
+If any table returns a row to `anon`, that is a live data leak — stop and report it rather than adjusting the test. If `anon-grants.test.ts` fails, a grant or policy has been added that should not exist; report it rather than deleting the assertion.
 
 - [ ] **Step 3: Run the advisors**
 
