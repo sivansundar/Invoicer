@@ -4,6 +4,12 @@
 # working directory name when running `supabase init`.
 project_id = "saas-phase1"
 
+# Ports below are deliberately offset to the 544xx block (CLI default is 543xx) so this
+# project's local stack can run side by side with other local Supabase projects on this
+# machine without a port collision. This is Invoicer's own stable port block — do not
+# "fix" these back to the CLI defaults. `.env.local.example` is kept in sync with the
+# `[api]` port below; if you change it, update that file too.
+
 [api]
 enabled = true
 # Port to use for the API URL.
