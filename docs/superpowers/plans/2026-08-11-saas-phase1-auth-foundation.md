@@ -80,8 +80,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 | `supabase/config.toml` | Local stack config; enables password auth for tests only |
 | `supabase/migrations/*_tenancy.sql` | `orgs`, `org_members`, signup trigger |
 | `supabase/migrations/*_domain_tables.sql` | `brands`, `clients`, `invoices`, `invoice_items`, `email_templates` |
-| `supabase/migrations/*_rls_policies.sql` | `private.is_org_member`, policies on all seven tables |
-| `supabase/migrations/*_data_api_grants.sql` | Explicit `grant`s to `anon`/`authenticated` |
+| `supabase/migrations/*_rls_policies.sql` | `private.is_org_member`, policies on all seven tables, explicit `grant`s to `anon`/`authenticated` |
+| `supabase/migrations/*_revoke_destructive_grants.sql` | Revokes TRUNCATE/REFERENCES/TRIGGER from `anon`/`authenticated`; `invoices.updated_at` maintenance trigger |
 
 **New — client factories:**
 
@@ -172,14 +172,14 @@ Create `.env.local.example` (committed):
 
 ```bash
 # Local: get real values from `supabase status -o env`
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54421
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=replace-me
 ```
 
 Create `.env.test.local` (NOT committed) with the values from Step 2:
 
 ```bash
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:54421
 SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase status>
 SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from supabase status>
 ```
@@ -1807,7 +1807,7 @@ it still returns correct claims, but falls back to calling the auth server — l
 reason to prefer it over `getUser()`.
 
 ```bash
-curl -s http://127.0.0.1:54321/auth/v1/.well-known/jwks.json
+curl -s http://127.0.0.1:54421/auth/v1/.well-known/jwks.json
 ```
 
 Expected: a JWKS document containing at least one key with `"alg": "ES256"`. If it comes back
@@ -2207,7 +2207,7 @@ npm run dev
 
 1. Visit `http://localhost:3000/brands` signed out → redirected to `/login?next=/brands`.
 2. Enter any email, submit → "Check your inbox".
-3. Open Inbucket, the local mail catcher, at `http://127.0.0.1:54324` and click the link.
+3. Open Inbucket, the local mail catcher, at `http://127.0.0.1:54424` and click the link.
 4. Expected: landed on `/brands`, signed in.
 5. Visit `/login` while signed in → redirected to `/dashboard`.
 
@@ -2402,7 +2402,7 @@ npm run test:integration
 npm run build
 ```
 
-Expected: types clean, zero lint problems, 458 unit tests passing, integration suite passing, build succeeds.
+Expected: types clean, zero lint problems, 472 unit tests passing, integration suite passing, build succeeds.
 
 - [ ] **Step 10: Commit**
 
@@ -2417,13 +2417,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Done when
 
-- [ ] `supabase db reset` replays all five migrations cleanly
+- [ ] `supabase db reset` replays all four migrations cleanly
 - [ ] `supabase db advisors --local` reports zero security findings
 - [ ] Integration suite proves cross-tenant isolation on all seven tables
 - [ ] Anonymous visitors cannot reach any `(app)` route
 - [ ] Magic-link sign-in works end to end against the local stack
 - [ ] The sidebar shows the real signed-in user and sign-out works
-- [ ] 458 unit tests passing, clean build, zero lint problems
+- [ ] 472 unit tests passing, clean build, zero lint problems
 
 ## Explicitly NOT in this plan
 

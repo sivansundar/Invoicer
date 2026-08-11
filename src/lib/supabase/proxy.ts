@@ -77,7 +77,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   try {
     const { data } = await supabase.auth.getClaims();
     claims = data?.claims ?? null;
-  } catch {
+  } catch (error) {
+    // Interim operational signal until Sentry wiring (Phase 3): without
+    // this, a JWKS outage silently logs out every visitor and nothing
+    // records why. Still fails closed — see the comment above.
+    console.warn("[proxy] getClaims() failed; treating request as anonymous", {
+      pathname: request.nextUrl.pathname,
+      error,
+    });
     claims = null;
   }
 
@@ -86,7 +93,7 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   if (!claims && !isPublic(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.searchParams.set("next", pathname + request.nextUrl.search);
     return redirectWithCookies(url, supabaseResponse);
   }
 

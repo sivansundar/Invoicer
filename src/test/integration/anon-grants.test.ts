@@ -38,14 +38,19 @@ describe("the anon role holds no privilege on any application table", () => {
         where grantee = 'anon'
           and table_schema = 'public'
           and table_name = any($1)
-          and privilege_type in ('SELECT','INSERT','UPDATE','DELETE')
+          and privilege_type in ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE')
         order by table_name, privilege_type`,
       [APP_TABLES]
     );
 
-    // Postgres also records inert defaults (REFERENCES/TRIGGER/TRUNCATE/
-    // MAINTAIN) for anon. Those cannot read or write data, so the filter
-    // above deliberately ignores them — only the four data privileges matter.
+    // TRUNCATE is included above deliberately: unlike SELECT/INSERT/UPDATE/
+    // DELETE, RLS has no policy concept for it, so a grant here is not a
+    // "the policy still gates it" situation — it is unconditional data
+    // destruction. `*_revoke_destructive_grants.sql` revokes it (along with
+    // REFERENCES/TRIGGER, which stay out of this list because they cannot
+    // read or write data, only attach an FK or a trigger). If that
+    // migration's revoke ever regresses, this assertion is the one that
+    // catches it.
     expect(rows).toEqual([]);
   });
 

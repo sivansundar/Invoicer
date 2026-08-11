@@ -94,7 +94,8 @@ create index email_templates_org_id_idx on public.email_templates (org_id);
 -- grants under `auto_expose_new_tables = false`, and `service_role`'s
 -- BYPASSRLS does not substitute for table privileges. Without this the
 -- integration tests in this task fail with `permission denied` before they
--- can assert anything. `anon`/`authenticated` grants stay in Task 5.
+-- can assert anything. `anon`/`authenticated` grants stay in
+-- `*_rls_policies.sql`.
 grant all on
   public.brands,
   public.clients,

@@ -1,5 +1,3 @@
-create extension if not exists pgcrypto;
-
 create schema if not exists private;
 
 create table public.orgs (
@@ -67,8 +65,8 @@ create trigger on_auth_user_created
 -- (SQLSTATE 42501).
 --
 -- Only `service_role` is granted here. The `anon`/`authenticated` exposure
--- surface is deliberately consolidated into one reviewable migration in
--- Task 5, so "who can reach this data" is decided in a single place rather
--- than scattered across every table migration.
+-- surface is deliberately consolidated into one reviewable migration,
+-- `*_rls_policies.sql`, so "who can reach this data" is decided in a single
+-- place rather than scattered across every table migration.
 grant usage on schema public to service_role;
 grant all on public.orgs, public.org_members to service_role;

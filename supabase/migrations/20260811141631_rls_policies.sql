@@ -210,15 +210,20 @@ create policy invoice_items_delete on public.invoice_items
 -- "grants" migration that a future reader of the policies would never think
 -- to open. (CLI 2.113+ ships `auto_expose_new_tables = false`: a new table
 -- in `public` carries no role grants until one is written explicitly — see
--- the `service_role` grants in the Task 2/3 migrations for the same
--- mechanism on the admin side.)
+-- the `service_role` grants in the `*_tenancy.sql` / `*_domain_tables.sql`
+-- migrations for the same mechanism on the admin side.)
 --
--- These grants mirror the policies above exactly: full CRUD on the five
--- domain tables, which all have insert/update/delete policies; select-only
--- on `orgs` and `org_members`, which are written solely by the signup
--- trigger and have no write policies at all. Do not widen the latter two to
--- CRUD for symmetry's sake — that would grant table-level access the
--- policies were deliberately never written to allow.
+-- These grants are intended to mirror the policies above: full CRUD on the
+-- five domain tables, which all have insert/update/delete policies;
+-- select-only on `orgs` and `org_members`, which are written solely by the
+-- signup trigger and have no write policies at all. Do not widen the latter
+-- two to CRUD for symmetry's sake — that would grant table-level access the
+-- policies were deliberately never written to allow. Note that granting any
+-- of SELECT/INSERT/UPDATE/DELETE here also carries TRUNCATE/REFERENCES/
+-- TRIGGER along as an unwritten side effect of Postgres's default ACLs (see
+-- `*_revoke_destructive_grants.sql`, which revokes those three outright —
+-- RLS has no policy concept for them, so they cannot be "mirrored" the way
+-- SELECT/INSERT/UPDATE/DELETE are here).
 grant usage on schema public to authenticated;
 
 grant select, insert, update, delete on
@@ -232,5 +237,5 @@ to authenticated;
 grant select on public.orgs, public.org_members to authenticated;
 
 -- `anon` is granted nothing at all, deliberately: every route that touches
--- data requires a session. Task 5 proves it with a test rather than trusting
--- the absence of a grant statement.
+-- data requires a session. `src/test/integration/anon-grants.test.ts` proves
+-- it with a test rather than trusting the absence of a grant statement.

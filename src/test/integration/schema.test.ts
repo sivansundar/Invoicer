@@ -84,6 +84,35 @@ describe("domain schema", () => {
     expect(second.error!.code).toBe("23505"); // unique_violation
   });
 
+  it("rejects a duplicate (number_year, number_seq) within one brand", async () => {
+    const { data: brand } = await insertBrand();
+    const base = {
+      org_id: user.orgId,
+      brand_id: brand!.id,
+      number_year: 2026,
+      number_seq: 11,
+      currency: "INR",
+      bill_date: "2026-08-11",
+      due_date: "2026-09-10",
+      client_snapshot: {},
+      brand_snapshot: {},
+    };
+
+    const first = await admin
+      .from("invoices")
+      .insert({ ...base, invoice_number: "AC-2026-011" });
+    expect(first.error).toBeNull();
+
+    // Different `invoice_number` (so invoices_number_unique cannot be what
+    // catches this), same (brand_id, number_year, number_seq) — the pair
+    // Phase 2's numbering RPC exists to keep from colliding.
+    const second = await admin
+      .from("invoices")
+      .insert({ ...base, invoice_number: "AC-2026-011-ALT" });
+    expect(second.error).not.toBeNull();
+    expect(second.error!.code).toBe("23505"); // unique_violation
+  });
+
   it("allows the same invoice number under a different brand", async () => {
     const a = await insertBrand({ invoice_prefix: "AA" });
     const b = await insertBrand({ invoice_prefix: "BB" });
