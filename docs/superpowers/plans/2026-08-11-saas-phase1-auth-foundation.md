@@ -1336,6 +1336,30 @@ create policy invoice_items_delete on public.invoice_items
   ));
 ```
 
+- [ ] **Step 7b: Grant `authenticated` the access its policies describe**
+
+A grant and a policy are two halves of one security decision: the grant says whether the role may address the table **at all**, RLS says which rows it then sees. Postgres checks grants *first*, so without this the tests in Step 1 fail with `permission denied` before any policy is ever consulted — and a cross-tenant test that passes for that reason proves nothing about isolation.
+
+These grants mirror the policies above exactly: full CRUD where the table has insert/update/delete policies, select-only on `orgs` and `org_members`, which are written solely by the signup trigger.
+
+```sql
+grant usage on schema public to authenticated;
+
+grant select, insert, update, delete on
+  public.brands,
+  public.clients,
+  public.invoices,
+  public.invoice_items,
+  public.email_templates
+to authenticated;
+
+grant select on public.orgs, public.org_members to authenticated;
+
+-- `anon` is granted nothing at all, deliberately: every route that touches
+-- data requires a session. Task 5 proves it with a test rather than trusting
+-- the absence of a grant statement.
+```
+
 - [ ] **Step 8: Apply and re-run**
 
 ```bash
@@ -1364,51 +1388,69 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 5: Data API grants and advisor clean-up
+## Task 5: Prove `anon` is locked out, and clear the advisors
+
+> **Scope changed mid-execution (2026-08-11).** This task originally issued all the Data API grants. Those moved into Task 4, where they belong beside the policies they mirror — Task 4's own tests cannot run without them. What remains here is the half that was never really about grants: proving the anonymous role can reach nothing, and clearing the database advisors.
 
 **Files:**
-- Create: `supabase/migrations/<ts>_data_api_grants.sql`
+- Create: `src/test/integration/anon.test.ts`
 
 **Interfaces:**
-- Consumes: all tables and policies from Tasks 2–4.
-- Produces: explicit `grant`s so PostgREST can reach the tables. No new application interfaces.
+- Consumes: all tables, policies and `authenticated` grants from Tasks 2–4.
+- Produces: no new application interfaces. A regression test pinning the anonymous access surface.
 
-- [ ] **Step 1: Create the migration file**
+- [ ] **Step 1: Write the anon lockdown test**
 
-```bash
-supabase migration new data_api_grants
+`anon` is currently locked out by the *absence* of a grant. Absence is invisible: nothing fails if a later migration adds one by accident, and `grant all on all tables in schema public to anon` is a plausible thing for someone to paste while debugging. This test makes the absence explicit and load-bearing.
+
+`src/test/integration/anon.test.ts`:
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { describe, expect, it } from "vitest";
+
+const URL = process.env.SUPABASE_URL!;
+const PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+
+/** A signed-out visitor: the publishable key with no session attached. */
+const anon = createClient(URL, PUBLISHABLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+const TABLES = [
+  "orgs",
+  "org_members",
+  "brands",
+  "clients",
+  "invoices",
+  "invoice_items",
+  "email_templates",
+] as const;
+
+describe("an anonymous visitor can reach no data at all", () => {
+  for (const table of TABLES) {
+    it(`${table}: select returns no rows to anon`, async () => {
+      const { data, error } = await anon.from(table).select("*").limit(1);
+      // Either a hard permission error, or an empty result — never a row.
+      // Both are acceptable outcomes; a row is not.
+      expect(error ?? { code: "none" }).toBeTruthy();
+      expect(data ?? []).toEqual([]);
+    });
+
+    it(`${table}: insert is rejected for anon`, async () => {
+      const { error } = await anon.from(table).insert({});
+      expect(error).not.toBeNull();
+    });
+  }
+});
 ```
 
-- [ ] **Step 2: Write the grants**
+- [ ] **Step 2: Run it**
 
-Table access and RLS are two separate gates. RLS decides which *rows* are visible; a `grant` decides whether the role can address the *table* at all. Depending on the project's Data API settings, new tables may not be exposed automatically.
+Run: `npm run test:integration -- anon`
+Expected: PASS, 14 tests. If any table returns a row to `anon`, that is a live data leak — stop and report it rather than adjusting the test.
 
-```sql
-grant usage on schema public to anon, authenticated;
-
-grant select, insert, update, delete on
-  public.brands,
-  public.clients,
-  public.invoices,
-  public.invoice_items,
-  public.email_templates
-to authenticated;
-
-grant select on public.orgs, public.org_members to authenticated;
-
--- `anon` gets nothing. Every route that touches data requires a session.
-```
-
-- [ ] **Step 3: Apply and confirm the suite still passes**
-
-```bash
-supabase db reset
-npm run test:integration
-```
-
-Expected: PASS.
-
-- [ ] **Step 4: Run the advisors**
+- [ ] **Step 3: Run the advisors**
 
 ```bash
 supabase db advisors --local
@@ -1426,14 +1468,24 @@ Fix anything reported. Common findings and their correct fixes:
 
 Never resolve a finding by adding `security definer` or by dropping a policy.
 
+- [ ] **Step 4: Confirm the whole integration suite still passes**
+
+```bash
+npm run test:integration
+```
+
+Expected: PASS, including Task 4's isolation tests and the new anon tests.
+
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations
-git commit -m "feat(db): grant Data API access to authenticated, none to anon
+git add src/test/integration/anon.test.ts supabase/migrations
+git commit -m "test(db): pin the anonymous access surface, clear advisors
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
+
+> Include `supabase/migrations` in the `git add` only if clearing an advisor finding required a migration. If the advisors came back clean, this commit is the test alone.
 
 ---
 
