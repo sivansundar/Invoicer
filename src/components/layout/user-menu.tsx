@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useSession } from "./session-provider";
 
 export function initialFor(email: string | undefined): string {
   const trimmed = email?.trim() ?? "";
@@ -14,20 +14,10 @@ export function initialFor(email: string | undefined): string {
 
 export function UserMenu() {
   const router = useRouter();
-  const [email, setEmail] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let active = true;
-
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) setEmail(data.user?.email ?? undefined);
-    });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Supabase auth yields no display name here, only an email — the avatar
+  // initial and footer text are both derived from it; there's no separate
+  // "name" concept to carry over from the old LOCAL_USER record.
+  const { email } = useSession();
 
   async function handleSignOut() {
     const supabase = createClient();

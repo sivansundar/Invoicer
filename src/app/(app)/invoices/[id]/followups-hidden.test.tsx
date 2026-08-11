@@ -18,19 +18,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("sonner", () => ({ toast: vi.fn() }));
 
-// The page renders <Shell>, which renders <UserMenu>, which calls
-// createClient() on mount — the real client requires Supabase env vars that
-// aren't set in the unit test environment. Mock it out; these tests aren't
-// exercising auth.
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    auth: {
-      getUser: () => Promise.resolve({ data: { user: null } }),
-      signOut: () => Promise.resolve({ error: null }),
-    },
-  }),
-}));
-
 function brand(overrides: Partial<Brand> = {}): Brand {
   return {
     id: "b1",

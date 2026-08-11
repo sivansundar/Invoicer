@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { SessionProvider } from "@/components/layout/session-provider";
 
 /**
  * Defence in depth behind proxy.ts. The proxy already redirects anonymous
@@ -16,5 +17,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (error || !data.user) redirect("/login");
 
-  return <>{children}</>;
+  // Threaded through context (rather than re-fetched client-side by
+  // UserMenu) because pages under (app)/ each wrap themselves in <Shell>
+  // instead of sharing it via this layout — Shell/AppSidebar/UserMenu
+  // unmount and remount on every in-app navigation, and a client-side
+  // getUser() call on every mount would both flash a loading placeholder
+  // and duplicate the auth check this layout already just made.
+  return <SessionProvider email={data.user.email}>{children}</SessionProvider>;
 }
