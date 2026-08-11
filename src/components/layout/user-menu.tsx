@@ -16,7 +16,7 @@ export function UserMenu() {
   const router = useRouter();
   // Supabase auth yields no display name here, only an email — the avatar
   // initial and footer text are both derived from it; there's no separate
-  // "name" concept to carry over from the old LOCAL_USER record.
+  // display-name field to show instead.
   const { email } = useSession();
 
   async function handleSignOut() {
