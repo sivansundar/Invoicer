@@ -14,38 +14,51 @@ moving data to Postgres is Phase 2. See
 
 ## Do this first in Phase 2
 
-### 1. Fold `org_id` into the invoice unique constraints, with a same-org FK check
+### 1. ~~Fold `org_id` into the invoice unique constraints, with a same-org FK check~~ — fixed
 
-Both unique constraints key on `brand_id` alone:
+**Status: fixed**, in migration `20260811183756_same_org_invoice_refs.sql`, by composite
+foreign keys — not the same-org check trigger originally recommended below.
 
-```sql
-constraint invoices_number_unique unique (brand_id, invoice_number)
-constraint invoices_seq_unique    unique (brand_id, number_year, number_seq)
-```
+The gap: both unique constraints keyed on `brand_id` alone, and **foreign-key checks bypass
+RLS** — nothing stopped a tenant setting `invoices.brand_id` (or `client_id`) to a UUID
+belonging to another org. Because the unique keys omitted `org_id`, that tenant could insert
+rows under *their own* `org_id` carrying the victim's `brand_id` and squat `(brand_id,
+number_year, number_seq)` — making the victim's `create_invoice` RPC collide with `23505` or
+silently skip numbers. That was cross-tenant **write interference**, not merely an incoherent
+record.
 
-**Foreign-key checks bypass RLS.** Nothing stops a tenant setting `invoices.brand_id` (or
-`client_id`) to a UUID belonging to another org. Because the unique keys omit `org_id`, that
-tenant can insert rows under *their own* `org_id` carrying the victim's `brand_id` and squat
-`(brand_id, number_year, number_seq)` — making the victim's `create_invoice` RPC collide with
-`23505` or silently skip numbers.
+The fix, in order:
+- `public.brands` and `public.clients` each got a `unique (org_id, id)` constraint, so
+  `(org_id, id)` can be an FK target.
+- `invoices_brand_id_fkey` and `invoices_client_id_fkey` were dropped and re-added as composite
+  FKs: `foreign key (org_id, brand_id) references brands (org_id, id)` (still `on delete
+  restrict`) and `foreign key (org_id, client_id) references clients (org_id, id) on delete set
+  null (client_id)`.
+- `invoices_number_unique` and `invoices_seq_unique` now include `org_id`:
+  `unique (org_id, brand_id, invoice_number)` and `unique (org_id, brand_id, number_year,
+  number_seq)`.
+- `invoices_brand_id_idx` / `invoices_client_id_idx` were replaced with composite
+  `invoices_org_brand_idx` / `invoices_org_client_idx` to index the new composite FKs (Postgres
+  does not index the referencing side of an FK automatically).
 
-That is cross-tenant **write interference**, not merely an incoherent record.
-
-Not reachable today: it needs a guessed v4 UUID, and no application code writes to Postgres yet.
-But brand UUIDs leak the moment a public "pay this invoice" link ships — which the design
-contemplates as the strongest Pro feature.
-
-**Fix both halves together**, or the squatting vector stays open:
-- `unique (org_id, brand_id, invoice_number)` and `unique (org_id, brand_id, number_year, number_seq)`
-- a `before insert or update` trigger asserting the referenced brand and client belong to the
-  same org as the row
+**Why a composite FK instead of a trigger:** a same-org check trigger runs application logic
+that has to be trusted to fire on every insert/update and could be disabled, dropped, or
+bypassed by any code path with elevated privileges. A composite FK is enforced by the FK
+machinery itself — it cannot be bypassed, needs no elevated privileges, and has no RLS
+interaction, since the FK check runs against the referenced table's raw rows regardless of RLS
+either way. This was workable because the referenced table (`brands`/`clients`) already carries
+`org_id`, so `(org_id, id)` composes into a real unique key; and because this database is
+PostgreSQL 17.6, `on delete set null (column_list)` (PG15+) is available, which is essential
+here — without it, `on delete set null` on a composite FK nulls *every* referencing column,
+including `org_id`, which is `not null`, so deleting a client would error instead of detaching
+its invoices.
 
 ### 2. The numbering RPC depends on the constraint above
 
 `src/lib/numbering.ts` currently picks the next number with a client-side `max()` scan, which
 issues duplicate invoice numbers across two tabs or two devices. The design moves allocation
-into a transactional `create_invoice` RPC with the unique constraint as its hard backstop. Do
-item 1 first — the backstop must be correct before anything relies on it.
+into a transactional `create_invoice` RPC with the unique constraint as its hard backstop. Item
+1 above is now fixed — the backstop is correct — so this can proceed.
 
 ---
 
