@@ -54,7 +54,7 @@ function BrandsPageContent() {
 
   const handleViewInvoices = (brandId: string) => {
     setBrandId(brandId);
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (

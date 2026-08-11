@@ -127,7 +127,7 @@ describe("InvoiceForm", () => {
 
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-        expect(push).toHaveBeenCalledWith("/");
+        expect(push).toHaveBeenCalledWith("/dashboard");
         const saved = storage.getInvoices().find((i) => i.id === "i1");
         expect(saved?.status).toBe(status);
       });
@@ -198,7 +198,7 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
-    expect(push).toHaveBeenCalledWith("/");
+    expect(push).toHaveBeenCalledWith("/dashboard");
     const saved = storage.getInvoices()[0];
     expect(saved.status).toBe("sent");
   });
@@ -215,7 +215,7 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
-    expect(push).toHaveBeenCalledWith("/");
+    expect(push).toHaveBeenCalledWith("/dashboard");
     const saved = storage.getInvoices()[0];
     expect(saved.status).toBe("draft");
   });
@@ -397,7 +397,7 @@ describe("InvoiceForm", () => {
 
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
-      expect(push).toHaveBeenCalledWith("/");
+      expect(push).toHaveBeenCalledWith("/dashboard");
       const saved = storage.getInvoices()[0];
       expect(saved.clientId).toBe("c1");
       expect(saved.client.name).toBe("Priya Nair");
@@ -432,7 +432,7 @@ describe("InvoiceForm", () => {
 
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
-      expect(push).toHaveBeenCalledWith("/");
+      expect(push).toHaveBeenCalledWith("/dashboard");
       const saved = storage.getInvoices()[0];
       expect(saved.client.companyName).toBe("Acme Studio");
       expect(saved.client.name).toBeUndefined();
@@ -451,7 +451,7 @@ describe("InvoiceForm", () => {
       // invoice" checks apply here.
       await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
-      expect(push).toHaveBeenCalledWith("/");
+      expect(push).toHaveBeenCalledWith("/dashboard");
       const saved = storage.getInvoices()[0];
       expect(saved.status).toBe("draft");
       expect(saved.dueDate).toBe("");
@@ -481,7 +481,7 @@ describe("InvoiceForm", () => {
 
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
-      expect(push).toHaveBeenCalledWith("/");
+      expect(push).toHaveBeenCalledWith("/dashboard");
       expect(storage.getInvoices()).toHaveLength(1);
     });
 
@@ -505,7 +505,7 @@ describe("InvoiceForm", () => {
         await user.type(contactField, "Priya Nair");
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-        expect(push).toHaveBeenCalledWith("/");
+        expect(push).toHaveBeenCalledWith("/dashboard");
         const saved = storage.getInvoices().find((i) => i.id === "i1");
         expect(saved?.status).toBe("sent");
         expect(saved?.client.name).toBe("Priya Nair");
@@ -528,7 +528,7 @@ describe("InvoiceForm", () => {
         expect(toast).not.toHaveBeenCalledWith(
           expect.stringContaining("contact name")
         );
-        expect(push).toHaveBeenCalledWith("/");
+        expect(push).toHaveBeenCalledWith("/dashboard");
         expect(storage.getInvoices().find((i) => i.id === "i1")?.status).toBe("sent");
       });
 
@@ -547,7 +547,7 @@ describe("InvoiceForm", () => {
 
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-        expect(push).toHaveBeenCalledWith("/");
+        expect(push).toHaveBeenCalledWith("/dashboard");
         const saved = storage.getInvoices().find((i) => i.id === "i1");
         expect(saved?.notes).toBe("Updated notes");
       });
@@ -571,7 +571,7 @@ describe("InvoiceForm", () => {
 
         await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
-        expect(push).toHaveBeenCalledWith("/");
+        expect(push).toHaveBeenCalledWith("/dashboard");
         const saved = storage.getInvoices().find((i) => i.id === "i1");
         expect(saved?.status).toBe("draft");
         expect(saved?.dueDate).toBe("");

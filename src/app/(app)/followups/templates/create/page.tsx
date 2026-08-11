@@ -11,7 +11,7 @@ export default function CreateTemplatePage() {
 
   // See app/followups/page.tsx for why this redirects rather than 404s.
   useEffect(() => {
-    if (!FEATURES.followups) router.replace("/");
+    if (!FEATURES.followups) router.replace("/dashboard");
   }, [router]);
 
   if (!FEATURES.followups) return null;

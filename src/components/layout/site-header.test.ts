@@ -3,7 +3,7 @@ import { getCrumb, showNewInvoiceAction } from "./site-header";
 
 // Every row of the design handoff's breadcrumb table (task-10-brief.md).
 const CRUMB_CASES: Array<[path: string, crumb: string]> = [
-  ["/", "Dashboard"],
+  ["/dashboard", "Dashboard"],
   ["/invoices/create", "New invoice"],
   ["/invoices/abc123", "Invoice"],
   ["/invoices/abc123/edit", "Edit invoice"],
@@ -43,7 +43,7 @@ describe("getCrumb", () => {
 
 describe("showNewInvoiceAction", () => {
   it("shows the action on the dashboard", () => {
-    expect(showNewInvoiceAction("/")).toBe(true);
+    expect(showNewInvoiceAction("/dashboard")).toBe(true);
   });
 
   it("shows the action on an invoice detail route", () => {

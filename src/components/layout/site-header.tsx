@@ -13,7 +13,7 @@ const BRAND_DETAILS_RE = /^\/brands\/(create|[^/]+\/edit)$/;
 const CLIENT_DETAILS_RE = /^\/clients\/(create|[^/]+\/edit)$/;
 
 export function getCrumb(pathname: string): string {
-  if (pathname === "/") return "Dashboard";
+  if (pathname === "/dashboard") return "Dashboard";
   if (pathname === "/invoices/create") return "New invoice";
   if (INVOICE_EDIT_RE.test(pathname)) return "Edit invoice";
   if (INVOICE_DETAIL_RE.test(pathname)) return "Invoice";
@@ -31,7 +31,7 @@ export function getCrumb(pathname: string): string {
 
 export function showNewInvoiceAction(pathname: string): boolean {
   return (
-    pathname === "/" ||
+    pathname === "/dashboard" ||
     (INVOICE_DETAIL_RE.test(pathname) && pathname !== "/invoices/create")
   );
 }

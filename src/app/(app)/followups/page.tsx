@@ -28,7 +28,7 @@ export default function FollowupsPage() {
   // route itself is real, it's just switched off). Remove this guard once
   // FEATURES.followups is back on.
   useEffect(() => {
-    if (!FEATURES.followups) router.replace("/");
+    if (!FEATURES.followups) router.replace("/dashboard");
   }, [router]);
 
   if (!FEATURES.followups) return null;
