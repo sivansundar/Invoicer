@@ -586,6 +586,22 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function private.handle_new_user();
+
+-- Supabase CLI 2.113+ ships `auto_expose_new_tables = false` (matching the
+-- current cloud default; the flag itself is deprecated and removed
+-- 2026-10-30), so a new table in `public` carries NO role grants at all.
+--
+-- `service_role` bypasses RLS but that is orthogonal to table-level
+-- privileges — without this grant even the service-role admin client used by
+-- the integration tests gets `permission denied for table org_members`
+-- (SQLSTATE 42501).
+--
+-- Only `service_role` is granted here. The `anon`/`authenticated` exposure
+-- surface is deliberately consolidated into one reviewable migration in
+-- Task 5, so "who can reach this data" is decided in a single place rather
+-- than scattered across every table migration.
+grant usage on schema public to service_role;
+grant all on public.orgs, public.org_members to service_role;
 ```
 
 - [ ] **Step 5: Apply and re-run the test**
@@ -882,6 +898,19 @@ create table public.email_templates (
   created_at  timestamptz not null default now()
 );
 create index email_templates_org_id_idx on public.email_templates (org_id);
+
+-- Same reason as the tenancy migration: new `public` tables carry no role
+-- grants under `auto_expose_new_tables = false`, and `service_role`'s
+-- BYPASSRLS does not substitute for table privileges. Without this the
+-- integration tests in this task fail with `permission denied` before they
+-- can assert anything. `anon`/`authenticated` grants stay in Task 5.
+grant all on
+  public.brands,
+  public.clients,
+  public.invoices,
+  public.invoice_items,
+  public.email_templates
+to service_role;
 ```
 
 - [ ] **Step 5: Apply and re-run**
