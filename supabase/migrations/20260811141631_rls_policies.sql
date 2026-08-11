@@ -1,8 +1,14 @@
 /**
  * True when the calling user belongs to the given org.
  *
- * `security definer` so the membership lookup is not itself subject to the
- * org_members policy (which would recurse). The identity check on
+ * `security definer` does not insulate this from today's `org_members_select`
+ * policy — that policy is `user_id = (select auth.uid())`, does not call
+ * this function, and would admit exactly the rows this lookup needs anyway,
+ * so there is no recursion right now. The value is forward-looking: if a
+ * later `org_members` policy calls `is_org_member` (as every other table's
+ * policy does), evaluating this function under the caller's own row
+ * security would recurse into itself. `security definer` runs the lookup
+ * outside RLS, closing that off before it can happen. The identity check on
  * `auth.uid()` is INSIDE the body, so the function cannot be used to probe
  * an arbitrary org. `execute` is revoked from every client role, then
  * re-granted to `authenticated` only, below — see the comment there for why
