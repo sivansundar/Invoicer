@@ -43,6 +43,12 @@ Every task's requirements implicitly include this section.
 | Any view declares `with (security_invoker = true)` | views bypassing RLS by default |
 | `security definer` functions live in `private`, check `auth.uid()` internally, and have `execute` revoked from `public, anon, authenticated, service_role` | a public, unauthenticated RPC endpoint |
 
+**Policy repetition is deliberate (ruled 2026-08-11).** Task 4 writes the same four-policy block out once per table rather than generating it in a `do $$ … end $$` loop, and repeats the `exists(…)` subquery in each `invoice_items` policy. This is not an oversight and is not to be refactored:
+
+- Policies are named database objects, not functions. Each one is independently greppable and shows up in `\dp <table>` under a predictable name.
+- A `format()`-driven generator turns the security surface into dynamically built strings — harder to read under review, and one typo silently mis-applies to every table.
+- The moment one table needs a different predicate, a loop has to be unwound anyway.
+
 **Auth rules:**
 - **Never `getSession()` in server code** — it reads an unverified cookie.
 - Routine authorization uses `getClaims()` (verifies locally against JWKS). Use `getUser()` only where freshness beats latency — it always calls the auth server.
@@ -629,7 +635,7 @@ beforeAll(async () => {
 });
 
 describe("domain schema", () => {
-  it("stores money as exact decimal, not float", async () => {
+  it("round-trips a money value without precision loss", async () => {
     const { data: brand } = await insertBrand();
     const { data: invoice, error } = await admin
       .from("invoices")
@@ -644,14 +650,13 @@ describe("domain schema", () => {
         due_date: "2026-09-10",
         client_snapshot: { companyName: "Client Co" },
         brand_snapshot: { name: "Acme Studio" },
-        total: "0.10",
+        total: "12345678.91",
       })
       .select()
       .single();
 
     expect(error).toBeNull();
-    // 0.1 + 0.2 in float is 0.30000000000000004; numeric is exact.
-    expect(Number(invoice!.total)).toBe(0.1);
+    expect(Number(invoice!.total)).toBe(12345678.91);
   });
 
   it("rejects an unknown status", async () => {
@@ -877,7 +882,27 @@ npm run test:integration -- schema
 
 Expected: PASS, all six tests.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Verify the money column types against the catalogue**
+
+The round-trip test above cannot distinguish `numeric` from `double precision` —
+`Number("12345678.91")` is the same either way. The column type is what actually matters, so
+check it directly:
+
+```bash
+supabase db query "
+  select table_name, column_name, data_type, numeric_precision, numeric_scale
+  from information_schema.columns
+  where table_schema = 'public'
+    and column_name in ('subtotal','total_tax','total','amount','tax')
+  order by table_name, column_name;
+"
+```
+
+Expected: every row reports `data_type = numeric`. `subtotal`, `total_tax`, `total` and
+`amount` are precision 14 scale 2; `tax` is precision 5 scale 2. **Any row reporting
+`double precision` or `real` is a bug in the migration** — fix it before committing.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add supabase/migrations src/test/integration/schema.test.ts
