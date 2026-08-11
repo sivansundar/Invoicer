@@ -19,7 +19,8 @@ Every task's requirements implicitly include this section.
 **Verification for every task:** `npx tsc --noEmit` passes, `npm run lint` reports zero problems, `npm test` reports 455+ passing.
 
 **Next.js 16 file conventions:**
-- Request interception goes in **`proxy.ts` at the repo root, exporting `proxy`** — not `middleware.ts` exporting `middleware`. `middleware.ts` is deprecated in Next.js 16 and emits a warning. `proxy.ts` runs on the Node.js runtime.
+- Request interception goes in **`src/proxy.ts`, exporting `proxy`** — not `middleware.ts` exporting `middleware`. `middleware.ts` is deprecated in Next.js 16 and emits a warning. `proxy.ts` runs on the Node.js runtime.
+- **The path is `src/proxy.ts`, not the repo root.** This project uses a `src/` layout, and Next.js resolves the proxy relative to the app directory's parent (`appDir/..` → `src/`). A `proxy.ts` at the true repo root is **never detected**, and — this is what makes it dangerous — it fails *silently*: no error, no warning, no `ƒ Proxy (Middleware)` line in the build output. The auth guard simply does not run and every protected route returns 200. Verified empirically: root placement → `/brands` returns 200 signed out; `src/proxy.ts` → 307 redirect to `/login?next=%2Fbrands`.
 
 **Supabase CLI:** must be **≥ 2.81.3**. The machine currently has **2.62.5**, which is too old — `supabase db query` needs ≥ 2.79.0 and `supabase db advisors` needs ≥ 2.81.3. Task 1 upgrades it. Never invent a migration filename; always use `supabase migration new <name>`.
 
@@ -88,8 +89,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 |---|---|
 | `src/lib/supabase/client.ts` | Browser client (`createBrowserClient`) |
 | `src/lib/supabase/server.ts` | Server client bound to the Next.js cookie store |
-| `src/lib/supabase/proxy.ts` | Session-refresh helper used by root `proxy.ts` |
-| `proxy.ts` | Root request interceptor: refresh session, guard `(app)` routes |
+| `src/lib/supabase/proxy.ts` | Session-refresh helper used by `src/proxy.ts` |
+| `src/proxy.ts` | Request interceptor: refresh session, guard `(app)` routes. **`src/`, not the repo root** — see Global Constraints |
 
 **New — auth surface:**
 
@@ -1691,7 +1692,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ## Task 6: The proxy — session refresh and route guarding
 
 **Files:**
-- Create: `src/lib/supabase/proxy.ts`, `proxy.ts` (repo root)
+- Create: `src/lib/supabase/proxy.ts`, `src/proxy.ts` (**inside `src/`, not the repo root** — a root-level file is silently never detected under a `src/app` layout)
 
 **Interfaces:**
 - Consumes: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
@@ -1775,7 +1776,9 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
 - [ ] **Step 2: Write the root proxy**
 
-`proxy.ts` at the repo root — **not** `middleware.ts`. Next.js 16 deprecated that name; this file exports `proxy` and runs on the Node.js runtime.
+`src/proxy.ts` — **not** `middleware.ts` (Next.js 16 deprecated that name), and **not** the repo root. This project has a `src/app` layout, and Next.js looks for the proxy at `appDir/..`, i.e. `src/`. A root-level `proxy.ts` is never detected and fails silently: the build shows no `ƒ Proxy (Middleware)` line and every guarded route returns 200 to anonymous visitors.
+
+This file exports `proxy` and runs on the Node.js runtime.
 
 ```ts
 import type { NextRequest } from "next/server";
@@ -1817,7 +1820,9 @@ Run: `npx tsc --noEmit`
 Expected: no errors.
 
 Run: `npm run build`
-Expected: success, and **no deprecation warning about `middleware.ts`**. If one appears, the old file still exists — delete it.
+Expected: success, **no deprecation warning about `middleware.ts`** (if one appears, the old file still exists — delete it), **and a `ƒ Proxy (Middleware)` line in the route output**.
+
+That last one is not cosmetic: its absence is the only build-time signal that the proxy file is in the wrong place and the auth guard is inert. Do not proceed past this step without it.
 
 - [ ] **Step 5: Verify the redirect by hand**
 
@@ -1836,7 +1841,7 @@ Expected: 455 passed.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add proxy.ts src/lib/supabase/proxy.ts
+git add src/proxy.ts src/lib/supabase/proxy.ts
 git commit -m "feat(auth): proxy.ts session refresh and route guard
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
