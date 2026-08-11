@@ -185,11 +185,22 @@ SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from supabase status>
 
 Create `.env.local` (NOT committed) with the two `NEXT_PUBLIC_` values.
 
-Append to `.gitignore`:
+`.gitignore` already contains `.env*`, so both secret files are ignored with no change needed.
+But that same pattern also swallows `.env.local.example`, which **must** be committed. Add the
+negation directly under the existing `.env*` line:
 
 ```
-.env.local
-.env.test.local
+# env files (can opt-in for committing if needed)
+.env*
+!.env.local.example
+```
+
+Confirm it worked before moving on — a silently-ignored example file is the kind of thing
+nobody notices until a new machine has nothing to copy from:
+
+```bash
+git check-ignore -v .env.local .env.test.local   # both must report a match
+git check-ignore -v .env.local.example           # must report NO match (exit 1)
 ```
 
 - [ ] **Step 5: Enable password auth for local tests only**
