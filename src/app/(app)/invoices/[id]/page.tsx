@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Bell, Check, ChevronLeft } from "lucide-react";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
 import { StatusBadge } from "@/components/invoices/status-badge";
+import { InvoiceDetailSkeleton } from "@/components/ui/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +61,7 @@ function formatDate(value: string): string {
 export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { invoices, save, remove } = useInvoices();
+  const { invoices, save, remove, loading } = useInvoices();
   const { brands } = useBrands();
   const { templates } = useTemplates();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -68,6 +69,13 @@ export default function InvoiceDetailPage() {
   const id = params.id as string;
   const invoice = useMemo(() => invoices.find((i) => i.id === id) ?? null, [invoices, id]);
   const brand = useMemo(() => brands.find((b) => b.id === invoice?.brandId), [brands, invoice]);
+
+  // Before the not-found check: while the query is in flight there is no
+  // invoice to find, and "Invoice not found" on a document someone just sent
+  // is the most alarming thing this app could say.
+  if (loading) {
+    return <InvoiceDetailSkeleton />;
+  }
 
   if (!invoice) {
     return <p className="text-sm text-muted-foreground p-6">Invoice not found.</p>;

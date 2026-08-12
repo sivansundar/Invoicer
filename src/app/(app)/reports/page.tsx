@@ -1,6 +1,7 @@
 "use client";
 
 import { SummaryReportDialog } from "@/components/reports/summary-report-dialog";
+import { ReportsSkeleton } from "@/components/ui/page-skeletons";
 import { ImportExport } from "@/components/invoices/import-export";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
@@ -10,8 +11,13 @@ export default function ReportsPage() {
 }
 
 function ReportsPageContent() {
-  const { brands } = useBrands();
-  const { invoices } = useInvoices();
+  const { brands, loading: brandsLoading } = useBrands();
+  const { invoices, loading: invoicesLoading } = useInvoices();
+
+  // Both, not either: the summary dialog reads brands and invoices together,
+  // and rendering with one of them still empty produces a report that is
+  // silently missing rows.
+  if (brandsLoading || invoicesLoading) return <ReportsSkeleton />;
 
   return (
     <div className="p-6 max-w-[1000px] flex flex-col gap-5">

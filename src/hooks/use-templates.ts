@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmailTemplate } from "@/lib/types";
 import { queryKeys } from "@/lib/query-client";
+import { optimisticRemove, optimisticUpsert } from "./optimistic";
 import * as storage from "@/lib/storage";
 
 const EMPTY: EmailTemplate[] = [];
@@ -24,12 +25,12 @@ export function useTemplates() {
 
   const saveMutation = useMutation({
     mutationFn: storage.saveTemplate,
-    onSuccess: invalidate,
+    ...optimisticUpsert<EmailTemplate>(queryClient, queryKeys.templates),
   });
 
   const removeMutation = useMutation({
     mutationFn: storage.deleteTemplate,
-    onSuccess: invalidate,
+    ...optimisticRemove<EmailTemplate>(queryClient, queryKeys.templates),
   });
 
   const save = useCallback(

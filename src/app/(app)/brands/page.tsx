@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CardGridSkeleton } from "@/components/ui/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { ProDialog } from "@/components/layout/pro-dialog";
 import { useBrands } from "@/hooks/use-brands";
@@ -30,7 +31,7 @@ function ProPill() {
 }
 
 function BrandsPageContent() {
-  const { brands } = useBrands();
+  const { brands, loading } = useBrands();
   const { invoices } = useInvoices();
   const { isPro } = usePlan();
   const { setBrandId } = useBrandFilter();
@@ -51,6 +52,10 @@ function BrandsPageContent() {
     setBrandId(brandId);
     router.push("/dashboard");
   };
+
+  // Before the grid renders: with no brands loaded the only thing on screen
+  // is the dashed "Add another brand" tile, which reads as an empty account.
+  if (loading) return <CardGridSkeleton />;
 
   return (
     <div className="p-6 max-w-[1000px] flex flex-col gap-5">

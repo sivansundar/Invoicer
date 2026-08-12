@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Client } from "@/lib/types";
 import { queryKeys } from "@/lib/query-client";
+import { optimisticRemove, optimisticUpsert } from "./optimistic";
 import * as storage from "@/lib/storage";
 
 const EMPTY: Client[] = [];
@@ -24,12 +25,12 @@ export function useClients() {
 
   const saveMutation = useMutation({
     mutationFn: storage.saveClient,
-    onSuccess: invalidate,
+    ...optimisticUpsert<Client>(queryClient, queryKeys.clients),
   });
 
   const removeMutation = useMutation({
     mutationFn: storage.deleteClient,
-    onSuccess: invalidate,
+    ...optimisticRemove<Client>(queryClient, queryKeys.clients),
   });
 
   const save = useCallback((client: Client) => saveMutation.mutateAsync(client), [saveMutation]);

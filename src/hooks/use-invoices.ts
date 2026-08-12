@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Invoice } from "@/lib/types";
 import { queryKeys } from "@/lib/query-client";
+import { optimisticRemove, optimisticUpsert } from "./optimistic";
 import * as storage from "@/lib/storage";
 
 const EMPTY: Invoice[] = [];
@@ -35,17 +36,23 @@ export function useInvoices() {
     // parameter — silently turning a normal create into a preserve-number
     // one. The importer calls the seam directly and does not go through here.
     mutationFn: (invoice: Invoice) => storage.createInvoice(invoice),
+    // Deliberately not optimistic, unlike every other mutation here. The
+    // server allocates the invoice number, so an optimistic insert would put
+    // the form's provisional number into the list and then correct it a
+    // moment later — showing the user a number their invoice does not have.
+    // Creating also navigates away immediately, so there is no stale view to
+    // paper over.
     onSuccess: invalidate,
   });
 
   const saveMutation = useMutation({
     mutationFn: storage.saveInvoice,
-    onSuccess: invalidate,
+    ...optimisticUpsert<Invoice>(queryClient, queryKeys.invoices),
   });
 
   const removeMutation = useMutation({
     mutationFn: storage.deleteInvoice,
-    onSuccess: invalidate,
+    ...optimisticRemove<Invoice>(queryClient, queryKeys.invoices),
   });
 
   const create = useCallback(
