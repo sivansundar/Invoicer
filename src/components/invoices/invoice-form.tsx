@@ -88,7 +88,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const router = useRouter();
   const { brands } = useBrands();
   const { clients } = useClients();
-  const { invoices, save } = useInvoices();
+  const { invoices, create, save } = useInvoices();
   const isEdit = !!existingInvoice;
 
   const [brandId, setBrandId] = useState(existingInvoice?.brandId ?? "");
@@ -195,7 +195,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     ? snapshotFromBrand(brand)
     : EMPTY_SNAPSHOT;
 
-  const handleSave = (asDraft: boolean) => {
+  const handleSave = async (asDraft: boolean) => {
     // Same mandatory-field gate for the primary save action whether this is
     // a brand-new invoice ("Create invoice") or an existing one ("Save
     // changes") — an invoice missing, say, a billing address is exactly as
@@ -292,19 +292,28 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       paidOn,
     };
 
-    // `save` (from `useInvoices`) passes through `storage.saveInvoice`'s own
-    // return value — `false` means the write didn't actually persist (e.g. a
-    // full `localStorage` quota, which `storage.ts` has already toasted its
-    // own clear failure message for). Toasting success and navigating away
-    // regardless would tell the user this worked when it didn't, and take
-    // them off the one screen still holding what they typed.
-    const persisted = save(invoice);
-    if (!persisted) return;
+    // `create` and `save` reject when the write didn't persist. Toasting
+    // success and navigating away regardless would tell the user this worked
+    // when it didn't, and take them off the one screen still holding what
+    // they typed.
+    //
+    // The number the toast reports comes from what the server returned, not
+    // from `invoice.invoiceNumber` above. On create those can differ: the
+    // number shown while drafting is provisional, and if someone else in the
+    // org saved first, the server issues the next one instead. Reporting the
+    // provisional number would name a document that does not exist.
+    let saved: Invoice;
+    try {
+      saved = isEdit ? await save(invoice) : await create(invoice);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save this invoice — try again");
+      return;
+    }
 
     toast(
       asDraft
         ? "Draft saved — finish it anytime"
-        : `${invoice.invoiceNumber} sent to ${invoice.client.companyName}`
+        : `${saved.invoiceNumber} sent to ${saved.client.companyName}`
     );
     router.push("/dashboard");
   };
@@ -324,8 +333,25 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
             {isEdit ? "Edit invoice" : "New invoice"}
           </h1>
+          {/*
+            On a new invoice this number is provisional, not reserved: the
+            sequence is allocated by the server at save time, so if someone
+            else in the workspace saves first, this invoice takes the next
+            one. Saying "assigned automatically" for both cases would have
+            been a quiet lie on exactly the screen where the number matters.
+          */}
           <p className="text-sm text-muted-foreground mt-1">
-            Number <span className="font-mono">{previewNumber}</span> is assigned automatically.
+            {isEdit ? (
+              <>
+                Number <span className="font-mono">{previewNumber}</span>, issued when this
+                invoice was created.
+              </>
+            ) : (
+              <>
+                Number <span className="font-mono">{previewNumber}</span> is assigned on save. If
+                another invoice is created first, this one takes the next number.
+              </>
+            )}
           </p>
         </div>
 

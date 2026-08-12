@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { Invoice } from "@/lib/types";
 import {
   getInvoices,
+  createInvoice,
   saveInvoice,
-  deleteInvoice,
   getBrands,
   saveBrand,
   getClients,
@@ -191,8 +191,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       brands,
       clients,
       templates,
-      // Still synchronous — invoices have not moved off localStorage yet.
-      invoices: getInvoices(),
+      invoices: await getInvoices(),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json",
@@ -213,7 +212,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
    * exactly the invoice conflict-detection and dialog flow this component
    * had before full backups existed, untouched in behaviour either way.
    */
-  const beginInvoiceReconciliation = (
+  const beginInvoiceReconciliation = async (
     incoming: Invoice[],
     invalidSkipped: number,
     collections: ImportedCollections
@@ -221,7 +220,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     setPendingInvalidSkipped(invalidSkipped);
     setPendingCollections(collections);
 
-    const existing = getInvoices();
+    const existing = await getInvoices();
     const existingByNumber = new Map(existing.map((inv) => [inv.invoiceNumber, inv]));
 
     const newConflicts: PendingConflict[] = [];
@@ -250,8 +249,16 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       let saved = 0;
       let failed = 0;
       for (const inv of newNonConflicting) {
-        if (saveInvoice(inv)) saved++;
-        else failed++;
+        // preserveNumber: a restored invoice is not a new document. It may
+        // already be in a client's inbox under the number it was issued
+        // with, so allocating a fresh one would put the app's records and
+        // the customer's out of step.
+        try {
+          await createInvoice(inv, { preserveNumber: true });
+          saved++;
+        } catch {
+          failed++;
+        }
       }
       if (saved > 0 || hasAnyCollectionWrite(collections)) forceMigration();
 
@@ -270,7 +277,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   };
 
   /** The legacy shape: a bare `Invoice[]` array, exactly what every existing `invoices-<date>.json` file on disk already is. */
-  const importLegacyInvoiceArray = (parsed: unknown[]) => {
+  const importLegacyInvoiceArray = async (parsed: unknown[]) => {
     const result = validateImportedInvoices(parsed);
     if (!result.ok) {
       toast(
@@ -289,7 +296,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
-    beginInvoiceReconciliation(incoming, invalidSkipped, EMPTY_COLLECTIONS);
+    await beginInvoiceReconciliation(incoming, invalidSkipped, EMPTY_COLLECTIONS);
   };
 
   /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, templates, invoices }`. */
@@ -368,7 +375,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
-    beginInvoiceReconciliation(invoices.valid, invoices.skipped, collections);
+    await beginInvoiceReconciliation(invoices.valid, invoices.skipped, collections);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,20 +396,19 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       // already is — routed to the untouched invoices-only pipeline below so
       // those files keep working exactly as they always have. Anything else
       // is validated as a full-backup envelope.
-      if (Array.isArray(parsed)) {
-        importLegacyInvoiceArray(parsed);
-      } else {
-        // Caught rather than left floating: this runs inside FileReader's
-        // onload, so nothing above it can await the result, and a rejected
-        // write would otherwise surface only as an unhandled rejection.
-        importBackupEnvelope(parsed).catch((err: unknown) => {
-          toast(
-            err instanceof Error
-              ? `Import failed — ${err.message}`
-              : "Import failed. Nothing was changed."
-          );
-        });
-      }
+      // Caught rather than left floating: this runs inside FileReader's
+      // onload, so nothing above it can await the result, and a rejected
+      // write would otherwise surface only as an unhandled rejection.
+      const run = Array.isArray(parsed)
+        ? importLegacyInvoiceArray(parsed)
+        : importBackupEnvelope(parsed);
+      run.catch((err: unknown) => {
+        toast(
+          err instanceof Error
+            ? `Import failed — ${err.message}`
+            : "Import failed. Nothing was changed."
+        );
+      });
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -440,7 +446,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     onImportDone();
   };
 
-  const applyResolution = (resolution: ConflictResolution) => {
+  const applyResolution = async (resolution: ConflictResolution) => {
     const newResolutions = [...resolutions, resolution];
 
     if (conflictIndex < conflicts.length - 1) {
@@ -454,8 +460,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       let saved = 0;
       let failed = 0;
       for (const inv of nonConflicting) {
-        if (saveInvoice(inv)) saved++;
-        else failed++;
+        try {
+          await createInvoice(inv, { preserveNumber: true });
+          saved++;
+        } catch {
+          failed++;
+        }
       }
 
       let overwritten = 0;
@@ -467,27 +477,30 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         const res = newResolutions[i];
 
         if (res.action === "overwrite") {
-          // Save the incoming record before touching the existing one — if
-          // the write fails (e.g. a full quota), the existing invoice is
-          // still there rather than being deleted out from under a save
-          // that never landed.
-          if (!saveInvoice(incoming)) {
+          // Overwrite the existing row in place, keeping its id, rather than
+          // inserting the incoming record and deleting the old one.
+          //
+          // The conflict was detected BY invoice number, so both rows carry
+          // the same one — and `invoices_number_unique` will not hold two.
+          // Insert-then-delete is therefore impossible, and delete-then-
+          // insert would leave nothing at all if the insert failed. Updating
+          // in place is a single transaction with no window where the
+          // invoice is missing. Nothing references an invoice's id, so
+          // discarding the incoming one costs nothing.
+          try {
+            await saveInvoice({ ...incoming, id: existing.id });
+            overwritten++;
+          } catch {
             failed++;
-            continue;
           }
-          // If the old record under a different id can't be deleted (e.g. a
-          // full quota mid-import), both records now sit in storage under
-          // the same invoiceNumber — that's a failed overwrite, not a clean
-          // one, even though the new invoice did persist.
-          if (existing.id !== incoming.id && !deleteInvoice(existing.id)) {
-            failed++;
-            continue;
-          }
-          overwritten++;
         } else if (res.action === "rename") {
-          if (saveInvoice({ ...incoming, invoiceNumber: res.newNumber })) {
+          try {
+            await createInvoice(
+              { ...incoming, invoiceNumber: res.newNumber },
+              { preserveNumber: true }
+            );
             renamed++;
-          } else {
+          } catch {
             failed++;
           }
         } else {

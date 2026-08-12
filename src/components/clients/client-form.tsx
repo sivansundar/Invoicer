@@ -99,9 +99,6 @@ export function ClientForm({ client }: ClientFormProps) {
     // "removed" while an invoice is left with a dangling `clientId` is
     // exactly the false-success bug this pattern exists to prevent.
     //
-    // `remove` rejects on failure; `saveInvoice` still returns a boolean,
-    // because invoices have not moved off localStorage yet. When they do,
-    // the `.filter` below becomes a Promise.allSettled over rejections.
     try {
       await remove(client.id);
     } catch (err) {
@@ -109,10 +106,16 @@ export function ClientForm({ client }: ClientFormProps) {
       return;
     }
 
-    const results = clientInvoices.map((invoice) =>
-      saveInvoice({ ...invoice, clientId: null, updatedAt: new Date().toISOString() })
+    // `allSettled`, not `all`: one invoice failing to unlink must not abort
+    // the rest, and the count of what failed is exactly what the summary
+    // below reports. `all` would reject on the first failure and leave the
+    // remaining invoices untouched with no accounting for them.
+    const results = await Promise.allSettled(
+      clientInvoices.map((invoice) =>
+        saveInvoice({ ...invoice, clientId: null, updatedAt: new Date().toISOString() })
+      )
     );
-    const failures = results.filter((persisted) => !persisted).length;
+    const failures = results.filter((result) => result.status === "rejected").length;
 
     if (failures > 0) {
       toast(

@@ -83,26 +83,29 @@ export default function InvoiceDetailPage() {
   const showFollowups =
     FEATURES.followups && (invoice.status !== "draft" || invoice.reminders.length > 0);
 
-  // `save`/`remove` (from `useInvoices`) pass through `storage.ts`'s own
-  // return value — `false` means the write didn't actually persist (e.g. a
-  // full `localStorage` quota, which `storage.ts` has already toasted its
-  // own clear failure message for). Every handler below checks it and bails
-  // before its own success toast or any other side effect (closing a dialog,
-  // navigating away) — the invoice on screen must keep showing what's
-  // actually saved, not what the user just tried to save. "Mark as paid" is
-  // the sharpest case: toasting an amount "in the bank" that was never
-  // actually recorded is the worst version of this bug.
-  const handleMarkSent = () => {
+  // `save`/`remove` (from `useInvoices`) reject when the write didn't
+  // persist. Every handler below catches and bails before its own success
+  // toast or any other side effect (closing a dialog, navigating away) — the
+  // invoice on screen must keep showing what's actually saved, not what the
+  // user just tried to save. "Mark as paid" is the sharpest case: toasting an
+  // amount "in the bank" that was never actually recorded is the worst
+  // version of this bug.
+  const handleMarkSent = async () => {
     if (!canMarkSent(invoice)) {
       toast("Add a due date before marking this sent");
       return;
     }
     const updated: Invoice = { ...invoice, status: "sent", updatedAt: new Date().toISOString() };
-    if (!save(updated)) return;
+    try {
+      await save(updated);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+      return;
+    }
     toast(`${invoice.invoiceNumber} marked as sent`);
   };
 
-  const handleMarkPaid = () => {
+  const handleMarkPaid = async () => {
     // Defaults `paidOn` to today — one click, no friction. Editable
     // afterwards from the "Paid on" field below: you mark an invoice paid
     // when you *notice*, not necessarily when the money actually landed.
@@ -112,7 +115,12 @@ export default function InvoiceDetailPage() {
       paidOn: format(new Date(), "yyyy-MM-dd"),
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    try {
+      await save(updated);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+      return;
+    }
     const amount = formatCurrency(invoice.total, currency);
     toast(
       invoice.reminders.length > 0
@@ -127,7 +135,7 @@ export default function InvoiceDetailPage() {
   // than clamped: a rejected edit leaves the field showing the last
   // persisted value (it's a controlled input bound to `invoice.paidOn`, not
   // local state), so there's nothing to revert.
-  const handlePaidOnChange = (value: string) => {
+  const handlePaidOnChange = async (value: string) => {
     if (value) {
       const result = validatePaidOn(value, invoice.billDate);
       if (!result.ok) {
@@ -140,20 +148,30 @@ export default function InvoiceDetailPage() {
       paidOn: value || undefined,
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    try {
+      await save(updated);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+      return;
+    }
     toast(value ? "Payment date updated" : "Payment date cleared");
   };
 
   // Unreachable while FEATURES.followups is off — the follow-ups card below
   // (the only UI that calls this) doesn't render. Left in place so it works
   // the moment the flag flips back on.
-  const handleTogglePause = () => {
+  const handleTogglePause = async () => {
     const updated: Invoice = {
       ...invoice,
       followupsPaused: !invoice.followupsPaused,
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    try {
+      await save(updated);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+      return;
+    }
     toast(
       updated.followupsPaused
         ? `Follow-ups paused for ${invoice.invoiceNumber}`
@@ -164,18 +182,28 @@ export default function InvoiceDetailPage() {
   // MOCK: no email is ever sent. This only records today's date on the
   // invoice's reminder history and toasts as if it had gone out.
   // Also unreachable while FEATURES.followups is off — see handleTogglePause.
-  const handleSendNow = () => {
+  const handleSendNow = async () => {
     const updated: Invoice = {
       ...invoice,
       reminders: [...invoice.reminders, format(new Date(), "yyyy-MM-dd")],
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    try {
+      await save(updated);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+      return;
+    }
     toast(`"${template?.name ?? "Reminder"}" sent to ${invoice.client.companyName}`);
   };
 
-  const handleDelete = () => {
-    if (!remove(invoice.id)) return;
+  const handleDelete = async () => {
+    try {
+      await remove(invoice.id);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't delete this invoice — try again");
+      return;
+    }
     setDeleteOpen(false);
     toast(`${invoice.invoiceNumber} deleted`);
     router.push("/dashboard");

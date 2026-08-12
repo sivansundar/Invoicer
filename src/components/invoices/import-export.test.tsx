@@ -165,7 +165,7 @@ describe("ImportExport — rename conflict resolution", () => {
 
     await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
 
-    const numbers = storage.getInvoices().map((i) => i.invoiceNumber).sort();
+    const numbers = (await storage.getInvoices()).map((i) => i.invoiceNumber).sort();
     expect(numbers).toEqual(["INV-001", "INV-999"]);
   });
 });
@@ -206,7 +206,7 @@ describe("ImportExport — full backup envelope", () => {
     expect((await storage.getBrands()).map((x) => x.id)).toEqual([b.id]);
     expect((await storage.getClients()).map((x) => x.id)).toEqual([c.id]);
     expect((await storage.getTemplates()).map((x) => x.id)).toEqual([t.id]);
-    expect(storage.getInvoices().map((x) => x.id)).toEqual([inv.id]);
+    expect((await storage.getInvoices()).map((x) => x.id)).toEqual([inv.id]);
   });
 
   it("skips brands/clients/templates whose id already exists locally, without overwriting them", async () => {
@@ -254,7 +254,7 @@ describe("ImportExport — full backup envelope", () => {
         expect.stringContaining("Failed to import — expected an Invoicer backup file")
       )
     );
-    expect(storage.getInvoices()).toHaveLength(0);
+    expect((await storage.getInvoices())).toHaveLength(0);
   });
 
   it("reports a malformed collection honestly and still imports what's readable", async () => {

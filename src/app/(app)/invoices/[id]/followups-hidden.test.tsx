@@ -115,7 +115,7 @@ describe("InvoiceDetailPage with follow-ups hidden (default flag state)", () => 
     expect(screen.queryByRole("button", { name: "Send one now" })).not.toBeInTheDocument();
   });
 
-  it("still renders status actions, dates and delete without the card", () => {
+  it("still renders status actions, dates and delete without the card", async () => {
     seed({ brands: [brand()], invoices: [invoice({ status: "sent" })] });
 
     renderWithProviders(
@@ -124,7 +124,9 @@ describe("InvoiceDetailPage with follow-ups hidden (default flag state)", () => 
       </ThemeProvider>
     );
 
-    expect(screen.getByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
+    // findBy, not getBy: the invoice is fetched, so nothing is on screen
+    // until that query resolves.
+    expect(await screen.findByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
     expect(screen.getByText("Preview")).toBeInTheDocument();
   });

@@ -52,6 +52,9 @@ describe("the fake seam matches @/lib/storage", () => {
       ["getTemplates", []],
       ["saveTemplate", [{ id: "t1" }]],
       ["deleteTemplate", ["t1"]],
+      ["getInvoices", []],
+      ["getInvoice", ["i1"]],
+      ["deleteInvoice", ["i1"]],
     ];
 
     for (const [name, args] of cases) {
@@ -63,16 +66,58 @@ describe("the fake seam matches @/lib/storage", () => {
     }
   });
 
-  it("keeps invoices and plan state synchronous, matching the real seam", () => {
-    // These have not moved to Postgres. If one of them starts returning a
-    // promise here but not there (or vice versa), callers that branch on a
-    // boolean silently take the wrong path — `if (!save(x))` on a promise is
-    // never true.
+  it("keeps plan state synchronous, matching the real seam", () => {
+    // Plan state is the one thing still in localStorage and still
+    // boolean-returning. If it started returning a promise here but not
+    // there (or vice versa), `if (!savePlan(x))` would silently take the
+    // wrong branch — a promise is never falsy.
     fake.resetFakeSeam();
 
-    expect(fake.getInvoices()).toBeInstanceOf(Array);
-    expect(typeof fake.saveInvoice({ id: "i1" } as never)).toBe("boolean");
-    expect(typeof fake.deleteInvoice("i1")).toBe("boolean");
+    expect(fake.getPlanSnapshot()).toEqual({ tier: "free", renewsOn: null });
     expect(typeof fake.savePlan({ tier: "free", renewsOn: null })).toBe("boolean");
+    expect(typeof real.savePlan).toBe("function");
+  });
+
+  it("mirrors the server allocating an invoice number on create", async () => {
+    // The fake must not simply echo the number it was handed. The real
+    // create_invoice allocates, so a test asserting "the UI reports the
+    // server's number" would pass against an echoing fake even if the UI
+    // still displayed its own provisional one.
+    fake.resetFakeSeam();
+
+    const draft = {
+      id: "i1",
+      brandId: "b1",
+      invoiceNumber: "SC-2026-001",
+      billDate: "2026-06-01",
+      brandSnapshot: { invoicePrefix: "SC" },
+      items: [],
+    } as unknown as Parameters<typeof fake.createInvoice>[0];
+
+    const first = await fake.createInvoice(draft);
+    expect(first.invoiceNumber).toBe("SC-2026-001");
+
+    // A second create with the same provisional number gets the next one,
+    // exactly as it would if another tab had saved first.
+    const second = await fake.createInvoice({ ...draft, id: "i2" });
+    expect(second.invoiceNumber).toBe("SC-2026-002");
+  });
+
+  it("preserves a supplied number when restoring, rather than allocating", async () => {
+    fake.resetFakeSeam();
+
+    const restored = {
+      id: "i9",
+      brandId: "b1",
+      invoiceNumber: "SC-2019-042",
+      billDate: "2019-06-01",
+      brandSnapshot: { invoicePrefix: "SC" },
+      items: [],
+    } as unknown as Parameters<typeof fake.createInvoice>[0];
+
+    const saved = await fake.createInvoice(restored, { preserveNumber: true });
+
+    expect(saved.invoiceNumber).toBe("SC-2019-042");
+    expect(saved.id).toBe("i9");
   });
 });

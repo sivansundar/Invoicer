@@ -13,22 +13,25 @@ const MAX_ROWS = 6;
 interface FollowupQueueProps {
   entries: FollowupQueueEntry[];
   templates: EmailTemplate[];
-  onSaveInvoice: (invoice: Invoice) => boolean;
+  onSaveInvoice: (invoice: Invoice) => Promise<Invoice>;
 }
 
 export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQueueProps) {
-  const handlePause = (invoice: Invoice) => {
+  const handlePause = async (invoice: Invoice) => {
     const updated: Invoice = {
       ...invoice,
       followupsPaused: true,
       updatedAt: new Date().toISOString(),
     };
-    // `onSaveInvoice` passes through `storage.saveInvoice`'s own return value
-    // — `false` means the write didn't persist (e.g. a full quota, which
-    // `storage.ts` has already toasted its own failure message for). Toasting
+    // `onSaveInvoice` rejects when the write didn't persist. Toasting
     // "paused" regardless would tell the user it worked when the invoice's
     // queue row hasn't actually gone anywhere.
-    if (!onSaveInvoice(updated)) return;
+    try {
+      await onSaveInvoice(updated);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't pause follow-ups — try again");
+      return;
+    }
     toast(`Follow-ups paused for ${invoice.invoiceNumber}`);
   };
 

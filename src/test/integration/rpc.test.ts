@@ -123,6 +123,75 @@ describe("create_invoice — numbering", () => {
   });
 });
 
+describe("create_invoice — preserving a restored invoice's identity", () => {
+  it("keeps the supplied number and id instead of allocating", async () => {
+    const brandId = await makeBrand(alice, "PP");
+    // Generated, not a literal: this suite never resets the database, so a
+    // fixed id collides with the previous run's row on the primary key.
+    const id = crypto.randomUUID();
+
+    const { data, error } = await alice.client.rpc("create_invoice", {
+      payload: payload(brandId, {
+        id,
+        invoice_number: "SC-2024-042",
+        number_year: 2024,
+        number_seq: 42,
+      }),
+    });
+
+    expect(error).toBeNull();
+    expect(data.id).toBe(id);
+    expect(data.invoice_number).toBe("SC-2024-042");
+    expect(data.number_seq).toBe(42);
+  });
+
+  it("stores a legacy number that will not parse, with no sequence", async () => {
+    const brandId = await makeBrand(alice, "QQ");
+
+    const { data, error } = await alice.client.rpc("create_invoice", {
+      payload: payload(brandId, { invoice_number: "OLD/2019/7" }),
+    });
+
+    expect(error).toBeNull();
+    expect(data.invoice_number).toBe("OLD/2019/7");
+    expect(data.number_seq).toBeNull();
+    expect(data.number_year).toBeNull();
+  });
+
+  it("still rejects a number that collides with one already issued", async () => {
+    const brandId = await makeBrand(alice, "RR");
+    const { data: first } = await alice.client.rpc("create_invoice", {
+      payload: payload(brandId),
+    });
+
+    const { error } = await alice.client.rpc("create_invoice", {
+      payload: payload(brandId, { invoice_number: first.invoice_number }),
+    });
+
+    expect(error).not.toBeNull();
+    expect(error!.code).toBe("23505");
+  });
+
+  it("allocates as normal when no number is supplied, alongside preserved ones", async () => {
+    // A restore drops an invoice numbered 007 into an empty brand; the next
+    // allocated number must continue from it rather than restart at 001.
+    const brandId = await makeBrand(alice, "SS");
+
+    await alice.client.rpc("create_invoice", {
+      payload: payload(brandId, {
+        invoice_number: "SS-2026-007",
+        number_year: 2026,
+        number_seq: 7,
+      }),
+    });
+    const { data: next } = await alice.client.rpc("create_invoice", {
+      payload: payload(brandId),
+    });
+
+    expect(next.invoice_number).toBe("SS-2026-008");
+  });
+});
+
 describe("create_invoice — isolation", () => {
   it("refuses a brand belonging to another org", async () => {
     const theirs = await makeBrand(bob, "GG");

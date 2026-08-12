@@ -1,12 +1,19 @@
 import type {
   BankDetails,
   Brand,
+  BrandSnapshot,
   Client,
+  Currency,
   EmailTemplate,
   EmailTone,
   FollowupConfig,
+  Invoice,
+  InvoiceClient,
   InvoiceDesign,
+  InvoiceStatus,
+  LineItem,
 } from "@/lib/types";
+import { parseInvoiceNumber } from "@/lib/numbering";
 
 /**
  * The one place row shapes and domain types meet.
@@ -148,6 +155,133 @@ export function clientToRow(client: Client): ClientRow {
     gst_number: orNull(client.gstNumber),
     created_at: client.createdAt,
   };
+}
+
+export interface InvoiceItemRow {
+  id: string;
+  invoice_id: string;
+  position: number;
+  description: string;
+  amount: number;
+  tax: number;
+}
+
+export interface InvoiceRow {
+  id: string;
+  brand_id: string;
+  client_id: string | null;
+  invoice_number: string;
+  number_year: number | null;
+  number_seq: number | null;
+  status: InvoiceStatus;
+  currency: Currency;
+  bill_date: string;
+  due_date: string;
+  paid_on: string | null;
+  client_snapshot: InvoiceClient;
+  brand_snapshot: BrandSnapshot;
+  subtotal: number;
+  total_tax: number;
+  total: number;
+  notes: string | null;
+  reminders: string[];
+  followups_paused: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Present only when the query embeds them; see `getInvoices`. */
+  invoice_items?: InvoiceItemRow[];
+}
+
+export function rowToInvoice(row: InvoiceRow): Invoice {
+  return {
+    id: row.id,
+    invoiceNumber: row.invoice_number,
+    brandId: row.brand_id,
+    clientId: row.client_id,
+    currency: row.currency,
+    status: row.status,
+    // `date` columns come back as plain "yyyy-MM-dd" with no timezone, which
+    // is exactly the domain shape — deliberately NOT passed through `Date`,
+    // which would shift a bill date across midnight for anyone west of UTC.
+    billDate: row.bill_date,
+    dueDate: row.due_date,
+    paidOn: row.paid_on ?? undefined,
+    client: row.client_snapshot,
+    brandSnapshot: row.brand_snapshot,
+    items: (row.invoice_items ?? [])
+      // PostgREST does not promise embedded rows come back ordered, and
+      // line-item order is meaningful — it is what prints on the invoice.
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(
+        (item): LineItem => ({
+          id: item.id,
+          description: item.description,
+          amount: Number(item.amount),
+          tax: Number(item.tax),
+        })
+      ),
+    subtotal: Number(row.subtotal),
+    totalTax: Number(row.total_tax),
+    total: Number(row.total),
+    notes: orUndefined(row.notes),
+    reminders: row.reminders,
+    followupsPaused: row.followups_paused,
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+  };
+}
+
+/**
+ * Builds the jsonb payload both invoice RPCs take.
+ *
+ * `id` and `invoice_number` are included only when preserving an existing
+ * invoice's identity — a restore. `create_invoice` allocates both when they
+ * are absent, which is what the invoice form relies on.
+ */
+export function invoiceToPayload(
+  invoice: Invoice,
+  options: { preserveNumber?: boolean } = {}
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    id: invoice.id,
+    brand_id: invoice.brandId,
+    client_id: invoice.clientId ?? "",
+    status: invoice.status,
+    currency: invoice.currency,
+    bill_date: invoice.billDate,
+    due_date: invoice.dueDate,
+    paid_on: invoice.paidOn ?? "",
+    client_snapshot: invoice.client,
+    brand_snapshot: invoice.brandSnapshot,
+    subtotal: invoice.subtotal,
+    total_tax: invoice.totalTax,
+    total: invoice.total,
+    notes: invoice.notes ?? null,
+    reminders: invoice.reminders,
+    followups_paused: invoice.followupsPaused,
+    items: invoice.items.map((item) => ({
+      description: item.description,
+      amount: item.amount,
+      tax: item.tax,
+    })),
+  };
+
+  if (options.preserveNumber) {
+    payload.invoice_number = invoice.invoiceNumber;
+    // Parsed here rather than in plpgsql: numbering.ts already understands
+    // both the legacy "SC2026001" shape and the current one, and is tested.
+    // A number that will not parse is stored verbatim with no sequence,
+    // which the schema allows for exactly this case.
+    const parsed = parseInvoiceNumber(
+      invoice.invoiceNumber,
+      invoice.brandSnapshot.invoicePrefix
+    );
+    payload.number_year = parsed?.year ?? null;
+    payload.number_seq = parsed?.seq ?? null;
+  }
+
+  return payload;
 }
 
 export function rowToTemplate(row: EmailTemplateRow): EmailTemplate {

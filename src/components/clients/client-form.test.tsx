@@ -131,12 +131,12 @@ describe("ClientForm", () => {
       await waitFor(() => expect(push).toHaveBeenCalledWith("/clients"));
 
       expect(await storage.getClients()).toHaveLength(0);
-      expect(storage.getInvoices().find((i) => i.id === "i1")?.clientId).toBeNull();
-      expect(storage.getInvoices().find((i) => i.id === "i2")?.clientId).toBeNull();
-      expect(storage.getInvoices().find((i) => i.id === "i1")?.updatedAt).not.toBe("2026-06-01T00:00:00.000Z");
+      expect((await storage.getInvoices()).find((i) => i.id === "i1")?.clientId).toBeNull();
+      expect((await storage.getInvoices()).find((i) => i.id === "i2")?.clientId).toBeNull();
+      expect((await storage.getInvoices()).find((i) => i.id === "i1")?.updatedAt).not.toBe("2026-06-01T00:00:00.000Z");
       // Untouched: different client, and already-null.
-      expect(storage.getInvoices().find((i) => i.id === "i3")?.clientId).toBe("c2");
-      expect(storage.getInvoices().find((i) => i.id === "i4")?.clientId).toBeNull();
+      expect((await storage.getInvoices()).find((i) => i.id === "i3")?.clientId).toBe("c2");
+      expect((await storage.getInvoices()).find((i) => i.id === "i4")?.clientId).toBeNull();
 
       expect(toast).toHaveBeenCalledWith("Acme Studio removed");
     });

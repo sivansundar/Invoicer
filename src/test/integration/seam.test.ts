@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { makeUser, type TestUser } from "./helpers";
-import type { Brand, Client, EmailTemplate } from "@/lib/types";
+import type { Brand, Client, EmailTemplate, Invoice } from "@/lib/types";
 
 /**
  * `src/lib/storage.ts` against a real database.
@@ -215,6 +215,175 @@ describe("templates through the seam", () => {
     await storage.deleteTemplate(original.id);
 
     expect((await storage.getTemplates()).find((t) => t.id === original.id)).toBeUndefined();
+  });
+});
+
+describe("invoices through the seam", () => {
+  function draft(brandId: string, overrides: Partial<Invoice> = {}): Invoice {
+    return {
+      id: crypto.randomUUID(),
+      // Provisional: the server allocates the real one on create.
+      invoiceNumber: "XX-2026-001",
+      brandId,
+      clientId: null,
+      currency: "INR",
+      status: "sent",
+      billDate: "2026-06-01",
+      dueDate: "2026-06-15",
+      client: { companyName: "Acme Studio", address: "12 Residency Rd" },
+      items: [
+        { id: crypto.randomUUID(), description: "Design work", amount: 30000, tax: 18 },
+        { id: crypto.randomUUID(), description: "Revisions", amount: 10000.55, tax: 5.5 },
+      ],
+      subtotal: 40000.55,
+      totalTax: 7200.03,
+      total: 47200.58,
+      notes: "Thanks!",
+      createdAt: "2026-06-01T00:00:00.000Z",
+      updatedAt: "2026-06-01T00:00:00.000Z",
+      brandSnapshot: {
+        name: "Seam Brand",
+        address: "44, 100 Feet Rd",
+        invoicePrefix: "SM",
+        accentColor: "#2563eb",
+        invoiceDesign: "modern",
+        bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+      },
+      reminders: [],
+      followupsPaused: false,
+      ...overrides,
+    };
+  }
+
+  async function seamBrand(prefix: string): Promise<string> {
+    const b = brand({ invoicePrefix: prefix });
+    await storage.saveBrand(b);
+    return b.id;
+  }
+
+  it("returns the number the server issued, not the provisional one", async () => {
+    const brandId = await seamBrand("SM");
+
+    const created = await storage.createInvoice(draft(brandId));
+
+    expect(created.invoiceNumber).toBe("SM-2026-001");
+    expect(created.invoiceNumber).not.toBe("XX-2026-001");
+  });
+
+  it("round-trips money exactly, including fractional amounts", async () => {
+    // The Global Constraint this pins: numeric(14,2) must survive PostgREST's
+    // JSON encoding as an exact value, not a float approximation.
+    const brandId = await seamBrand("MN");
+
+    const created = await storage.createInvoice(draft(brandId));
+    const read = await storage.getInvoice(created.id);
+
+    expect(read!.subtotal).toBe(40000.55);
+    expect(read!.total).toBe(47200.58);
+    expect(read!.items[1].amount).toBe(10000.55);
+    expect(read!.items[1].tax).toBe(5.5);
+    // Numbers, not strings — a caller doing arithmetic on these must not
+    // silently concatenate instead.
+    expect(typeof read!.total).toBe("number");
+    expect(typeof read!.items[0].amount).toBe("number");
+  });
+
+  it("reads line items back in the order they were sent", async () => {
+    const brandId = await seamBrand("OR");
+
+    const created = await storage.createInvoice(draft(brandId));
+    const read = await storage.getInvoice(created.id);
+
+    expect(read!.items.map((i) => i.description)).toEqual(["Design work", "Revisions"]);
+  });
+
+  it("round-trips dates without shifting them across a timezone", async () => {
+    // `date` columns have no timezone. Passing them through Date() would
+    // move a bill date to the previous day for anyone west of UTC.
+    const brandId = await seamBrand("DT");
+
+    const created = await storage.createInvoice(
+      draft(brandId, { billDate: "2026-01-01", dueDate: "2026-12-31" })
+    );
+    const read = await storage.getInvoice(created.id);
+
+    expect(read!.billDate).toBe("2026-01-01");
+    expect(read!.dueDate).toBe("2026-12-31");
+  });
+
+  it("updates without touching the number, and replaces items", async () => {
+    const brandId = await seamBrand("UP");
+    const created = await storage.createInvoice(draft(brandId));
+
+    const updated = await storage.saveInvoice({
+      ...created,
+      status: "paid",
+      paidOn: "2026-06-20",
+      items: [{ id: crypto.randomUUID(), description: "Only this", amount: 500, tax: 0 }],
+      subtotal: 500,
+      totalTax: 0,
+      total: 500,
+    });
+
+    expect(updated.invoiceNumber).toBe(created.invoiceNumber);
+
+    const read = await storage.getInvoice(created.id);
+    expect(read!.status).toBe("paid");
+    expect(read!.paidOn).toBe("2026-06-20");
+    expect(read!.items.map((i) => i.description)).toEqual(["Only this"]);
+  });
+
+  it("preserves a restored invoice's own number and id", async () => {
+    const brandId = await seamBrand("RS");
+    const id = crypto.randomUUID();
+
+    const restored = await storage.createInvoice(
+      draft(brandId, { id, invoiceNumber: "RS-2019-042" }),
+      { preserveNumber: true }
+    );
+
+    expect(restored.id).toBe(id);
+    expect(restored.invoiceNumber).toBe("RS-2019-042");
+  });
+
+  it("deletes, taking its line items with it", async () => {
+    const brandId = await seamBrand("DL");
+    const created = await storage.createInvoice(draft(brandId));
+
+    await storage.deleteInvoice(created.id);
+
+    expect(await storage.getInvoice(created.id)).toBeNull();
+    const { data: orphans } = await alice.client
+      .from("invoice_items")
+      .select("id")
+      .eq("invoice_id", created.id);
+    expect(orphans).toEqual([]);
+  });
+
+  it("never returns another org's invoices", async () => {
+    const brandId = await seamBrand("IS");
+    await storage.createInvoice(draft(brandId));
+
+    const theirBrand = await bob.client
+      .from("brands")
+      .insert({ name: "Theirs", invoice_prefix: "TT", accent_color: "#000000" })
+      .select("id")
+      .single();
+    await bob.client.rpc("create_invoice", {
+      payload: {
+        brand_id: theirBrand.data!.id,
+        currency: "INR",
+        bill_date: "2026-06-01",
+        due_date: "2026-06-15",
+        client_snapshot: {},
+        brand_snapshot: {},
+        items: [],
+      },
+    });
+
+    const mine = await storage.getInvoices();
+    expect(mine.every((i) => i.brandSnapshot.invoicePrefix !== "TT")).toBe(true);
+    expect(mine.some((i) => i.brandId === theirBrand.data!.id)).toBe(false);
   });
 });
 

@@ -272,7 +272,7 @@ describe("BrandForm — invoice preview", () => {
       followupsPaused: false,
       ...overrides,
     };
-    storage.saveInvoice(invoice);
+    seed({ invoices: [invoice] });
     return invoice;
   }
 
@@ -327,11 +327,13 @@ describe("BrandForm — invoice preview", () => {
     expect(screen.getByText("Northwind Studio")).toBeInTheDocument();
   });
 
-  it("previews the brand's latest invoice when it has one", () => {
+  it("previews the brand's latest invoice when it has one", async () => {
     seedInvoice();
     renderForm(brand());
 
-    expect(screen.getByText("Harbourline Foods")).toBeInTheDocument();
+    // The invoice list is fetched now, so the preview swaps from sample data
+    // to the real invoice only once that query resolves.
+    expect(await screen.findByText("Harbourline Foods")).toBeInTheDocument();
     // Twice over: the pane's subtitle names which invoice is being shown, and
     // the document itself carries the number.
     expect(screen.getByText(/Your latest invoice, SDC-2026-007/)).toBeInTheDocument();

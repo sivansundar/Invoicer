@@ -8,80 +8,49 @@ import { createClient } from "./supabase/client";
 import {
   brandToRow,
   clientToRow,
+  invoiceToPayload,
   rowToBrand,
   rowToClient,
+  rowToInvoice,
   rowToTemplate,
   templateToRow,
   type BrandRow,
   type ClientRow,
   type EmailTemplateRow,
+  type InvoiceRow,
 } from "./supabase/mappers";
 
 export { nextInvoiceNumber } from "./numbering";
 
-// Invoices are still localStorage-backed — they move in a later task, with
-// the transactional create/update RPCs their numbering depends on. Brands,
-// clients and templates already live in Postgres.
-const INVOICES_KEY = "invoicer_invoices";
+// Plan state is the last thing still in localStorage, and stays there by
+// design: it is a mock with no billing integration and no schema behind it.
 const PLAN_KEY = "invoicer_plan";
 
 /**
- * Same hardening as `migrate.ts`'s own `read()` — unguarded, this fed
- * `getSnapshot`, which is `useSyncExternalStore`'s snapshot function. A
- * corrupt value (tampered with, or corrupted after `VERSION_KEY` was
- * written, which the migration never revisits) threw straight out of a
- * render with no error boundary anywhere in the tree: a white screen on
- * every route, unrecoverable without devtools.
+ * Plan state is the only thing left in localStorage — everything else lives
+ * in Postgres. It stays local because it is a mock: there is no billing
+ * integration and no schema behind it (see the Phase 2 plan, Decisions §2).
+ *
+ * `subscribe`/`notify` remain for the same reason. `use-plan` is the one
+ * hook still on `useSyncExternalStore`; the other four moved to TanStack
+ * Query, which does its own change notification.
  */
-function getItem<T>(key: string): T[] {
-  if (typeof window === "undefined") return [];
-  const data = localStorage.getItem(key);
-  if (!data) return [];
-  try {
-    const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Returns whether the write actually persisted. Every `save*`/`delete*`
- * below returns this straight through (and every hook in `src/hooks`
- * already passes it through too, since each just wraps the matching storage
- * call as a single-expression arrow function) — a caller that never checks
- * it loses nothing (this used to be `void`), but one that does, like
- * `BrandForm.handleSubmit`, can avoid telling the user their save succeeded
- * and navigating away from data that was never actually written.
- */
-function setItem<T>(key: string, data: T[]): boolean {
-  // A failed write must not invalidate the cache — the last snapshot is
-  // still what's actually persisted, and re-notifying subscribers with it
-  // unchanged is harmless, but dropping the cache (forcing every reader
-  // back to `localStorage.getItem`, which still holds the old value anyway)
-  // buys nothing and only risks a subscriber re-rendering mid-failure.
-  if (!writeLocalStorage(key, JSON.stringify(data))) return false;
-  invalidate(key);
-  return true;
-}
-
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
 function handleStorageEvent(): void {
-  snapshots.clear();
   planSnapshot = null;
   notify();
 }
 
 /**
- * Subscribe to local mutations and to writes from other tabs.
+ * Subscribe to plan changes, including from other tabs.
  *
  * The "storage" window event is only ever dispatched by other tabs/windows
  * (same-tab writes never fire it), so it is wired through a single shared
- * handler rather than the per-call `listener` reference — that handler
- * clears the snapshot cache before rebroadcasting to every subscriber, and
- * is attached/removed exactly once regardless of how many hooks subscribe.
+ * handler rather than the per-call `listener` reference — that handler drops
+ * the cached snapshot before rebroadcasting to every subscriber, and is
+ * attached/removed exactly once regardless of how many hooks subscribe.
  */
 export function subscribe(listener: Listener): () => void {
   listeners.add(listener);
@@ -100,63 +69,26 @@ function notify(): void {
   for (const listener of listeners) listener();
 }
 
-const EMPTY: never[] = [];
-const snapshots = new Map<string, unknown[]>();
-
-function getSnapshot<T>(key: string): T[] {
-  if (!snapshots.has(key)) {
-    snapshots.set(key, typeof window === "undefined" ? EMPTY : getItem<T>(key));
-  }
-  return snapshots.get(key) as T[];
-}
-
-function invalidate(key: string): void {
-  snapshots.delete(key);
-  notify();
-}
-
 /**
- * Runs the v1→v2 migration and clears every cached snapshot afterwards.
+ * Runs the v1→v2 migration over whatever is still in localStorage.
  *
- * `migrate.ts` writes the four data keys straight through `localStorage`,
- * bypassing `setItem`/`invalidate` entirely (and must keep doing so — it
- * cannot import this module, since this module already imports it). Without
- * this wrapper, a hook that reads its snapshot during the same first render
- * `Shell`'s `useEffect(() => runMigration())` runs in would cache
- * pre-migration data, and nothing would ever tell that cache slot to drop
- * it — the UI would keep serving pre-migration records (brands missing
- * `accentColor`/`followup`, invoices missing `brandSnapshot`/`reminders`)
- * for the rest of the session. Clearing the whole cache — not just the
- * cache for a key we'd have to guess — makes invalidation the migration's
- * own responsibility rather than every caller's.
+ * Nothing reads those collections any more — they were replaced by Postgres
+ * — so this no longer feeds the UI. It is kept because `migrate.ts` is what
+ * the localStorage importer will reuse to normalise a legacy file, and
+ * because a user's existing local data must not be touched until they have
+ * chosen to import it.
  */
 export function runMigration(): void {
   runMigrationInternal();
-  snapshots.clear();
   planSnapshot = null;
   notify();
 }
 
-/**
- * Same cache-invalidation wrapper as `runMigration` above, but around
- * `forceMigration` — used by `import-export.tsx` after writing an imported
- * file straight to the four data keys (bypassing `setItem`/`invalidate`,
- * same as every other direct `localStorage` write `migrate.ts` makes). An
- * import can reintroduce v1-shaped invoices into an install whose schema
- * version is already current, which is exactly the case `runMigration`
- * itself deliberately no-ops on — without this wrapper, both the forced
- * migration *and* the stale-cache problem `runMigration`'s own wrapper
- * exists to prevent would go unhandled for imported data.
- */
+/** As `runMigration`, but forced — used when importing a file into an install whose schema version already matches. */
 export function forceMigration(): void {
   forceMigrationInternal();
-  snapshots.clear();
   planSnapshot = null;
   notify();
-}
-
-export function getInvoicesSnapshot(): Invoice[] {
-  return getSnapshot<Invoice>(INVOICES_KEY);
 }
 
 // Plan state is a single object, not a collection, so it gets its own
@@ -278,30 +210,71 @@ export async function deleteClient(id: string): Promise<void> {
 }
 
 // Invoices
-export function getInvoices(): Invoice[] {
-  return getItem<Invoice>(INVOICES_KEY);
+//
+// Reads embed `invoice_items` in one round trip rather than a second query
+// per invoice; the mapper sorts them by `position`, because PostgREST makes
+// no promise about the order of embedded rows and line-item order is what
+// prints on the document.
+const INVOICE_SELECT = "*, invoice_items(*)";
+
+export async function getInvoices(): Promise<Invoice[]> {
+  const { data, error } = await createClient()
+    .from("invoices")
+    .select(INVOICE_SELECT)
+    .order("created_at", { ascending: true });
+  throwOn(error);
+  return (data as InvoiceRow[]).map(rowToInvoice);
 }
 
-export function getInvoice(id: string): Invoice | null {
-  return getInvoices().find((i) => i.id === id) ?? null;
+export async function getInvoice(id: string): Promise<Invoice | null> {
+  const { data, error } = await createClient()
+    .from("invoices")
+    .select(INVOICE_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+  throwOn(error);
+  return data ? rowToInvoice(data as InvoiceRow) : null;
 }
 
-export function saveInvoice(invoice: Invoice): boolean {
-  const invoices = getInvoices();
-  const index = invoices.findIndex((i) => i.id === invoice.id);
-  if (index >= 0) {
-    invoices[index] = invoice;
-  } else {
-    invoices.push(invoice);
-  }
-  return setItem(INVOICES_KEY, invoices);
+/**
+ * Creates an invoice, letting the server allocate its number.
+ *
+ * Separate from `saveInvoice` rather than dispatched inside it: telling a
+ * create from an update needs to know whether the row already exists, which
+ * the seam cannot answer without an extra round trip — and guessing wrong
+ * either renumbers a sent invoice or fails an edit. The two callers that
+ * create (the invoice form and the importer) both know which they are doing.
+ *
+ * The returned invoice carries the number the server actually issued, which
+ * is not necessarily the provisional one the form displayed while drafting.
+ * Callers must show this one.
+ */
+export async function createInvoice(
+  invoice: Invoice,
+  options: { preserveNumber?: boolean } = {}
+): Promise<Invoice> {
+  const { data, error } = await createClient().rpc("create_invoice", {
+    payload: invoiceToPayload(invoice, options),
+  });
+  throwOn(error);
+  return rowToInvoice(data as InvoiceRow);
 }
 
-export function deleteInvoice(id: string): boolean {
-  return setItem(
-    INVOICES_KEY,
-    getInvoices().filter((i) => i.id !== id)
-  );
+/**
+ * Updates an existing invoice. Never touches its number — a number, once
+ * issued, names a document that may already be in somebody's inbox.
+ */
+export async function saveInvoice(invoice: Invoice): Promise<Invoice> {
+  const { data, error } = await createClient().rpc("update_invoice", {
+    payload: invoiceToPayload(invoice),
+  });
+  throwOn(error);
+  return rowToInvoice(data as InvoiceRow);
+}
+
+export async function deleteInvoice(id: string): Promise<void> {
+  const { error } = await createClient().from("invoices").delete().eq("id", id);
+  throwOn(error);
 }
 
 // Templates

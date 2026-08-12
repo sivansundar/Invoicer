@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type { Brand, Client, EmailTemplate, Invoice, PlanState } from "@/lib/types";
+import { formatInvoiceNumber, parseInvoiceNumber } from "@/lib/numbering";
 
 /**
  * An in-memory stand-in for `@/lib/storage`, for unit tests.
@@ -160,26 +161,58 @@ export const deleteTemplate = vi.fn(async (id: string): Promise<void> => {
   state.templates = state.templates.filter((t) => t.id !== id);
 });
 
-// Invoices — still synchronous and boolean-returning, mirroring the real
-// module until they move to Postgres in a later task.
-export const getInvoices = vi.fn((): Invoice[] => [...state.invoices]);
-
-export const getInvoice = vi.fn(
-  (id: string): Invoice | null => state.invoices.find((i) => i.id === id) ?? null
-);
-
-export const getInvoicesSnapshot = vi.fn((): Invoice[] => state.invoices);
-
-export const saveInvoice = vi.fn((invoice: Invoice): boolean => {
-  if (shouldFail("saveInvoice")) return false;
-  upsert(state.invoices, invoice);
-  return true;
+// Invoices
+export const getInvoices = vi.fn(async (): Promise<Invoice[]> => {
+  maybeFail("getInvoices");
+  return [...state.invoices];
 });
 
-export const deleteInvoice = vi.fn((id: string): boolean => {
-  if (shouldFail("deleteInvoice")) return false;
+export const getInvoice = vi.fn(async (id: string): Promise<Invoice | null> => {
+  maybeFail("getInvoice");
+  return state.invoices.find((i) => i.id === id) ?? null;
+});
+
+/**
+ * Mirrors the server allocating the number: unless the caller is preserving
+ * one (a restore), the issued number is the next in sequence for the brand,
+ * which is NOT necessarily the provisional one the form supplied. Tests that
+ * assert the UI reports the server's answer depend on these differing.
+ */
+export const createInvoice = vi.fn(
+  async (invoice: Invoice, options: { preserveNumber?: boolean } = {}): Promise<Invoice> => {
+    maybeFail("createInvoice");
+
+    if (options.preserveNumber) {
+      return upsert(state.invoices, invoice);
+    }
+
+    const prefix = invoice.brandSnapshot.invoicePrefix;
+    const year = Number(invoice.billDate.slice(0, 4));
+    const taken = state.invoices
+      .filter((i) => i.brandId === invoice.brandId)
+      .map((i) => parseInvoiceNumber(i.invoiceNumber, prefix))
+      .filter((p): p is { year: number; seq: number } => p !== null && p.year === year)
+      .map((p) => p.seq);
+    const seq = taken.length > 0 ? Math.max(...taken) + 1 : 1;
+
+    return upsert(state.invoices, {
+      ...invoice,
+      invoiceNumber: formatInvoiceNumber(prefix, year, seq),
+    });
+  }
+);
+
+export const saveInvoice = vi.fn(async (invoice: Invoice): Promise<Invoice> => {
+  maybeFail("saveInvoice");
+  const existing = state.invoices.find((i) => i.id === invoice.id);
+  if (!existing) throw new Error("invoice not found");
+  // Never reallocates a number, matching update_invoice.
+  return upsert(state.invoices, { ...invoice, invoiceNumber: existing.invoiceNumber });
+});
+
+export const deleteInvoice = vi.fn(async (id: string): Promise<void> => {
+  maybeFail("deleteInvoice");
   state.invoices = state.invoices.filter((i) => i.id !== id);
-  return true;
 });
 
 // Plan state stays local and synchronous by design — it is a mock with no
