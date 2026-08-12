@@ -148,16 +148,20 @@ Do this first, before anything is async, so the hoist is reviewable on its own.
 
 ---
 
-## Task 3: `storage.ts` goes async — brands, clients, templates
+## Task 3: brands, clients and templates move to Postgres
 
-The three simple entities first. Invoices wait for the RPCs in Task 4 — porting them together would mix a mechanical translation with a genuine design change in one diff.
+The three simple entities first, each end-to-end. Invoices wait for the RPCs in Task 4 — porting them together would mix a mechanical translation with a genuine design change in one diff.
+
+> **Amended during execution (2026-08-12).** This task originally stopped at the seam and left every hook on `useSyncExternalStore` until Task 6. That does not compose: `useSyncExternalStore` needs a synchronous snapshot, so deleting `getBrandsSnapshot` forces the hook conversion, and *not* deleting it would leave the app reading `localStorage` while writing to Postgres for several commits. The slice is per entity, not per layer. Task 6 keeps `use-invoices` (which depends on Task 4's RPCs) and the deletion of the cross-tab listener machinery. Per this plan's own process note, Global Constraints and "Done when" were re-read against this change; both still hold.
 
 - [ ] Write `src/lib/supabase/mappers.ts` with `rowToBrand`/`brandToRow`, `rowToClient`/`clientToRow`, `rowToTemplate`/`templateToRow`
 - [ ] Mapper unit tests, round-trip per entity. `Brand.nextInvoiceNumber` is dead (POST-MERGE-NOTES) and has no column — assert the mapper drops it rather than silently carrying it
 - [ ] **Integration test first:** write a value with each money and date type through the seam and read it back unchanged. This is the check that settles how PostgREST encodes `numeric` — if it returns a string, the mapper converts, and that fact gets a comment
 - [ ] Rewrite `getBrands`/`getBrand`/`saveBrand`/`deleteBrand` and the client/template equivalents as `async`, against the browser Supabase client
-- [ ] Decide and implement the unit-test substitute for `localStorage` — MSW intercepting PostgREST, or a fake seam module the tests inject. Pick one and use it everywhere; two mechanisms across 7 test files is how test suites rot
-- [ ] Port the affected test files (`brand-form.test.tsx`, `client-form.test.tsx`) onto it
+- [ ] **Test substitute: an in-memory fake of the seam**, injected with `vi.mock("@/lib/storage")` — ruled 2026-08-12 over MSW. MSW would mean hand-writing a PostgREST emulator (filter syntax, embedded selects, `Prefer` headers, RPC endpoints, `23505`/`42501`/`PGRST204` envelopes) whose fidelity is capped by the author's model of PostgREST — a handler returning a shape PostgREST would not produce gives false confidence. The call sites being ported are overwhelmingly fixture setup, not assertions about persistence, and everything the fake skips (mappers, query building, money encoding, RLS) is covered against real Postgres by the integration suite, which already exists and runs in ~3s
+- [ ] A test asserting the fake and the real module export identical names, so the fake cannot silently drift after a signature change
+- [ ] Convert `use-brands`, `use-clients`, `use-templates` to TanStack Query — forced by this task, see the amendment note above. Keep each hook's return shape so no consumer changes beyond honouring `loading`
+- [ ] Port the affected test files (`brand-form.test.tsx`, `client-form.test.tsx`) onto the fake
 - [ ] Delete `getBrandsSnapshot`/`getClientsSnapshot`/`getTemplatesSnapshot` and their cache slots
 
 **Verification:** integration suite covers create/read/update/delete per entity; unit suite still passes with no `localStorage` in the ported files.
@@ -203,11 +207,13 @@ The three simple entities first. Invoices wait for the RPCs in Task 4 — portin
 
 ---
 
-## Task 6: Hooks move to TanStack Query
+## Task 6: `use-invoices` on TanStack Query, and the listener machinery goes
 
-- [ ] Rewrite `use-brands`, `use-clients`, `use-invoices`, `use-templates` as `useQuery` + `useMutation`
-- [ ] Keep each hook's return shape — `{ brands, loading, save, remove, refresh }` — so no consumer changes beyond honouring `loading`. `loading` stops being the hardcoded `false` it is today
-- [ ] Optimistic updates on every mutation, each with an `onError` rollback and an `onSettled` invalidate
+The other three hooks moved in Task 3 — see its amendment note.
+
+- [ ] Rewrite `use-invoices` as `useQuery` + `useMutation`, with `save` routing through Task 4's RPCs
+- [ ] Keep the hook's return shape — `{ invoices, loading, save, remove, refresh }` — so no consumer changes beyond honouring `loading`. `loading` stops being the hardcoded `false` it is today
+- [ ] Optimistic updates on every mutation across all four hooks, each with an `onError` rollback and an `onSettled` invalidate
 - [ ] Test the rollback explicitly per hook: a failing save restores the prior cache value
 - [ ] `use-plan` is untouched — see Decisions §2
 - [ ] Delete `subscribe`, `notify`, the listener set, and the cross-tab `storage` event handler from `storage.ts`
@@ -284,6 +290,10 @@ Last, so every prior task can be verified against a working app.
 - A backup exported by the pre-Phase-2 build restores correctly into the hosted app.
 - Unit and integration suites both pass, build is clean, lint is zero.
 - `docs/PHASE2-CARRYOVER.md`'s test-gap and architecture items are closed, and a fresh carry-over doc records what this phase defers.
+
+## Found during execution — carry into the next phase
+
+- **Nothing seeds the three default email templates any more.** `migrateToV2` wrote them into `localStorage` whenever the templates collection came back empty; templates now live in Postgres, which that migration never touches, so a new account starts with none. Not user-visible while `FEATURES.followups` is off, and not worth a migration until the follow-ups feature is real — but it must be decided before that flag flips, and the natural home is the signup trigger rather than a client-side backfill. Recorded at `import-export.test.tsx`, whose assertion changed because of it.
 
 ## Explicitly NOT in this plan
 

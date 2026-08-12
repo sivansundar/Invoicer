@@ -34,7 +34,7 @@ export function ClientForm({ client }: ClientFormProps) {
 
   const clientInvoices = isEdit ? invoicesToUnlink(client.id, invoices) : [];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = companyName.trim();
     if (!trimmedName) {
@@ -53,14 +53,16 @@ export function ClientForm({ client }: ClientFormProps) {
       createdAt: client?.createdAt ?? new Date().toISOString(),
     };
 
-    // `save` (from `useClients`) passes through `storage.saveClient`'s own
-    // return value — `false` means the write didn't actually persist (e.g. a
-    // full `localStorage` quota, which `storage.ts` has already toasted its
-    // own clear failure message for). Toasting success and navigating away
-    // regardless would tell the user this worked when it didn't, and take
-    // them off the one screen still holding what they typed.
-    const persisted = save(record);
-    if (!persisted) return;
+    // `save` (from `useClients`) rejects when the write didn't persist — a
+    // network failure, or an RLS policy refusing the row. Toasting success
+    // and navigating away regardless would tell the user this worked when it
+    // didn't, and take them off the one screen still holding what they typed.
+    try {
+      await save(record);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save this client — try again");
+      return;
+    }
 
     toast(
       isEdit
@@ -70,7 +72,7 @@ export function ClientForm({ client }: ClientFormProps) {
     router.push("/clients");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!client) return;
 
     // Unlike a brand — whose invoices carry only a live `brandId`, nothing
@@ -91,14 +93,21 @@ export function ClientForm({ client }: ClientFormProps) {
     // Order matters: the client record itself is removed first, and only
     // once that write is confirmed does the cascade start — nulling
     // references before confirming the delete actually persisted would risk
-    // unlinking invoices from a client that's still there. `remove`/`save`
-    // (like every other write in this app) return whether they actually
-    // persisted; each nulling write is checked too, not just the first one —
-    // a full quota can strike on invoice 3 of 5 as easily as on the first
-    // write, and silently telling the user "removed" while an invoice is
-    // left with a dangling `clientId` is exactly the false-success bug this
-    // pattern exists to prevent.
-    if (!remove(client.id)) return;
+    // unlinking invoices from a client that's still there. Each nulling write
+    // is checked too, not just the first one: a failure can strike on invoice
+    // 3 of 5 as easily as on the first write, and silently telling the user
+    // "removed" while an invoice is left with a dangling `clientId` is
+    // exactly the false-success bug this pattern exists to prevent.
+    //
+    // `remove` rejects on failure; `saveInvoice` still returns a boolean,
+    // because invoices have not moved off localStorage yet. When they do,
+    // the `.filter` below becomes a Promise.allSettled over rejections.
+    try {
+      await remove(client.id);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't remove this client — try again");
+      return;
+    }
 
     const results = clientInvoices.map((invoice) =>
       saveInvoice({ ...invoice, clientId: null, updatedAt: new Date().toISOString() })

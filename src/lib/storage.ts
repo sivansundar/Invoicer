@@ -4,13 +4,25 @@ import {
   runMigration as runMigrationInternal,
 } from "./migrate";
 import { writeLocalStorage } from "./local-storage";
+import { createClient } from "./supabase/client";
+import {
+  brandToRow,
+  clientToRow,
+  rowToBrand,
+  rowToClient,
+  rowToTemplate,
+  templateToRow,
+  type BrandRow,
+  type ClientRow,
+  type EmailTemplateRow,
+} from "./supabase/mappers";
 
 export { nextInvoiceNumber } from "./numbering";
 
-const BRANDS_KEY = "invoicer_brands";
-const CLIENTS_KEY = "invoicer_clients";
+// Invoices are still localStorage-backed — they move in a later task, with
+// the transactional create/update RPCs their numbering depends on. Brands,
+// clients and templates already live in Postgres.
 const INVOICES_KEY = "invoicer_invoices";
-const TEMPLATES_KEY = "invoicer_templates";
 const PLAN_KEY = "invoicer_plan";
 
 /**
@@ -143,20 +155,8 @@ export function forceMigration(): void {
   notify();
 }
 
-export function getBrandsSnapshot(): Brand[] {
-  return getSnapshot<Brand>(BRANDS_KEY);
-}
-
-export function getClientsSnapshot(): Client[] {
-  return getSnapshot<Client>(CLIENTS_KEY);
-}
-
 export function getInvoicesSnapshot(): Invoice[] {
   return getSnapshot<Invoice>(INVOICES_KEY);
-}
-
-export function getTemplatesSnapshot(): EmailTemplate[] {
-  return getSnapshot<EmailTemplate>(TEMPLATES_KEY);
 }
 
 // Plan state is a single object, not a collection, so it gets its own
@@ -190,58 +190,91 @@ function invalidatePlan(): void {
   notify();
 }
 
+/**
+ * Every read and write below goes through PostgREST as the signed-in user,
+ * so RLS is the only tenancy filter — none of these queries mention
+ * `org_id`, and none of them should.
+ *
+ * They throw on failure rather than returning `false` the way the
+ * localStorage implementation did. A rejected promise is the honest signal
+ * for a network or policy error, and TanStack Query's mutation `onError`
+ * is what turns it back into a toast.
+ */
+function throwOn(error: { message: string } | null): void {
+  if (error) throw new Error(error.message);
+}
+
 // Brands
-export function getBrands(): Brand[] {
-  return getItem<Brand>(BRANDS_KEY);
+export async function getBrands(): Promise<Brand[]> {
+  const { data, error } = await createClient()
+    .from("brands")
+    .select("*")
+    .order("created_at", { ascending: true });
+  throwOn(error);
+  return (data as BrandRow[]).map(rowToBrand);
 }
 
-export function getBrand(id: string): Brand | null {
-  return getBrands().find((b) => b.id === id) ?? null;
+export async function getBrand(id: string): Promise<Brand | null> {
+  const { data, error } = await createClient()
+    .from("brands")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  throwOn(error);
+  return data ? rowToBrand(data as BrandRow) : null;
 }
 
-export function saveBrand(brand: Brand): boolean {
-  const brands = getBrands();
-  const index = brands.findIndex((b) => b.id === brand.id);
-  if (index >= 0) {
-    brands[index] = brand;
-  } else {
-    brands.push(brand);
-  }
-  return setItem(BRANDS_KEY, brands);
+export async function saveBrand(brand: Brand): Promise<Brand> {
+  // Upsert rather than insert-or-update: the form generates the id with
+  // crypto.randomUUID() before it knows whether this is a create or an
+  // edit, so both paths are the same write.
+  const { data, error } = await createClient()
+    .from("brands")
+    .upsert(brandToRow(brand))
+    .select("*")
+    .single();
+  throwOn(error);
+  return rowToBrand(data as BrandRow);
 }
 
-export function deleteBrand(id: string): boolean {
-  return setItem(
-    BRANDS_KEY,
-    getBrands().filter((b) => b.id !== id)
-  );
+export async function deleteBrand(id: string): Promise<void> {
+  const { error } = await createClient().from("brands").delete().eq("id", id);
+  throwOn(error);
 }
 
 // Clients
-export function getClients(): Client[] {
-  return getItem<Client>(CLIENTS_KEY);
+export async function getClients(): Promise<Client[]> {
+  const { data, error } = await createClient()
+    .from("clients")
+    .select("*")
+    .order("created_at", { ascending: true });
+  throwOn(error);
+  return (data as ClientRow[]).map(rowToClient);
 }
 
-export function getClient(id: string): Client | null {
-  return getClients().find((c) => c.id === id) ?? null;
+export async function getClient(id: string): Promise<Client | null> {
+  const { data, error } = await createClient()
+    .from("clients")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  throwOn(error);
+  return data ? rowToClient(data as ClientRow) : null;
 }
 
-export function saveClient(client: Client): boolean {
-  const clients = getClients();
-  const index = clients.findIndex((c) => c.id === client.id);
-  if (index >= 0) {
-    clients[index] = client;
-  } else {
-    clients.push(client);
-  }
-  return setItem(CLIENTS_KEY, clients);
+export async function saveClient(client: Client): Promise<Client> {
+  const { data, error } = await createClient()
+    .from("clients")
+    .upsert(clientToRow(client))
+    .select("*")
+    .single();
+  throwOn(error);
+  return rowToClient(data as ClientRow);
 }
 
-export function deleteClient(id: string): boolean {
-  return setItem(
-    CLIENTS_KEY,
-    getClients().filter((c) => c.id !== id)
-  );
+export async function deleteClient(id: string): Promise<void> {
+  const { error } = await createClient().from("clients").delete().eq("id", id);
+  throwOn(error);
 }
 
 // Invoices
@@ -272,26 +305,28 @@ export function deleteInvoice(id: string): boolean {
 }
 
 // Templates
-export function getTemplates(): EmailTemplate[] {
-  return getItem<EmailTemplate>(TEMPLATES_KEY);
+export async function getTemplates(): Promise<EmailTemplate[]> {
+  const { data, error } = await createClient()
+    .from("email_templates")
+    .select("*")
+    .order("created_at", { ascending: true });
+  throwOn(error);
+  return (data as EmailTemplateRow[]).map(rowToTemplate);
 }
 
-export function saveTemplate(template: EmailTemplate): boolean {
-  const templates = getTemplates();
-  const index = templates.findIndex((t) => t.id === template.id);
-  if (index >= 0) {
-    templates[index] = template;
-  } else {
-    templates.push(template);
-  }
-  return setItem(TEMPLATES_KEY, templates);
+export async function saveTemplate(template: EmailTemplate): Promise<EmailTemplate> {
+  const { data, error } = await createClient()
+    .from("email_templates")
+    .upsert(templateToRow(template))
+    .select("*")
+    .single();
+  throwOn(error);
+  return rowToTemplate(data as EmailTemplateRow);
 }
 
-export function deleteTemplate(id: string): boolean {
-  return setItem(
-    TEMPLATES_KEY,
-    getTemplates().filter((t) => t.id !== id)
-  );
+export async function deleteTemplate(id: string): Promise<void> {
+  const { error } = await createClient().from("email_templates").delete().eq("id", id);
+  throwOn(error);
 }
 
 // MOCK: plan state is local-only. There is no billing integration.

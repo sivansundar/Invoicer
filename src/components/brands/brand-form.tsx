@@ -154,7 +154,7 @@ export function BrandForm({ brand }: BrandFormProps) {
 
   const handleRemoveLogo = () => setLogo("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -169,14 +169,16 @@ export function BrandForm({ brand }: BrandFormProps) {
     // real.
     const record: Brand = { ...draftBrand, id: brand?.id ?? crypto.randomUUID() };
 
-    // `save` (from `useBrands`) passes through `storage.saveBrand`'s own
-    // return value — `false` means the write didn't actually persist (e.g.
-    // a full `localStorage` quota, which `storage.ts` has already toasted
-    // its own clear failure message for). Toasting success and navigating
-    // away regardless would tell the user this worked when it didn't, and
-    // take them off the one screen still holding what they typed.
-    const persisted = save(record);
-    if (!persisted) return;
+    // `save` (from `useBrands`) rejects when the write didn't persist — a
+    // network failure, or an RLS policy refusing the row. Toasting success
+    // and navigating away regardless would tell the user this worked when it
+    // didn't, and take them off the one screen still holding what they typed.
+    try {
+      await save(record);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't save this brand — try again");
+      return;
+    }
 
     toast(
       isEdit
@@ -186,14 +188,19 @@ export function BrandForm({ brand }: BrandFormProps) {
     router.push("/brands");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!brand) return;
     const guard = brandDeleteGuard(brand, invoices);
     if (!guard.allowed) {
       toast(`Move or delete its ${guard.count} invoices first`);
       return;
     }
-    if (!remove(brand.id)) return;
+    try {
+      await remove(brand.id);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't remove this brand — try again");
+      return;
+    }
     if (activeBrandId === brand.id) {
       setBrandId(null);
     }

@@ -1,0 +1,205 @@
+import { vi } from "vitest";
+import type { Brand, Client, EmailTemplate, Invoice, PlanState } from "@/lib/types";
+
+/**
+ * An in-memory stand-in for `@/lib/storage`, for unit tests.
+ *
+ * Chosen over MSW (ruled 2026-08-12, see the Phase 2 plan). MSW would mean
+ * hand-writing a PostgREST emulator — filter syntax, embedded selects,
+ * `Prefer` headers, RPC endpoints, `23505`/`42501`/`PGRST204` envelopes —
+ * whose fidelity is capped by the author's model of PostgREST, and a handler
+ * returning a shape PostgREST would not produce gives false confidence.
+ *
+ * What this fake skips is covered better elsewhere: the mappers have their
+ * own unit tests, and `storage.ts` itself is exercised against real Postgres
+ * by the integration suite. What component tests actually need from storage
+ * is a place to put fixtures and a way to make a write fail, which is all
+ * this provides.
+ *
+ * `fake-seam.test.ts` asserts this exports exactly what the real module
+ * does, so it cannot silently drift.
+ */
+
+interface FakeState {
+  brands: Brand[];
+  clients: Client[];
+  templates: EmailTemplate[];
+  invoices: Invoice[];
+  plan: PlanState;
+}
+
+const EMPTY_PLAN: PlanState = { tier: "free", renewsOn: null };
+
+const state: FakeState = {
+  brands: [],
+  clients: [],
+  templates: [],
+  invoices: [],
+  plan: { ...EMPTY_PLAN },
+};
+
+/**
+ * Set to make the next matching call reject. Tests that assert failure
+ * handling ("the form must not navigate away when the save fails") set this
+ * rather than reaching for a spy on an internal.
+ */
+const failures = new Map<string, { message: string; onCall: number }>();
+const callCounts = new Map<string, number>();
+
+export function failNext(fn: string, message = "write failed"): void {
+  failures.set(fn, { message, onCall: (callCounts.get(fn) ?? 0) + 1 });
+}
+
+/**
+ * Fail the nth call to `fn` (1-based), letting the ones before and after it
+ * through. For the partial-failure paths: a cascade that writes five records
+ * and fails on the third has to report the shortfall rather than claim
+ * success, and that is only testable if one write in the middle can fail.
+ */
+export function failOnCall(fn: string, callNumber: number, message = "write failed"): void {
+  failures.set(fn, { message, onCall: callNumber });
+}
+
+/** Returns whether this call is the armed one, consuming the arming if so. */
+function shouldFail(fn: string): string | null {
+  const count = (callCounts.get(fn) ?? 0) + 1;
+  callCounts.set(fn, count);
+
+  const armed = failures.get(fn);
+  if (!armed || armed.onCall !== count) return null;
+  failures.delete(fn);
+  return armed.message;
+}
+
+function maybeFail(fn: string): void {
+  const message = shouldFail(fn);
+  if (message) throw new Error(message);
+}
+
+/** Wipes every collection, call counter and armed failure. Call in `beforeEach`. */
+export function resetFakeSeam(): void {
+  state.brands = [];
+  state.clients = [];
+  state.templates = [];
+  state.invoices = [];
+  state.plan = { ...EMPTY_PLAN };
+  failures.clear();
+  callCounts.clear();
+}
+
+/** Seeds a collection directly, without going through the async save path. */
+export function seed(data: Partial<Omit<FakeState, "plan">>): void {
+  if (data.brands) state.brands = [...data.brands];
+  if (data.clients) state.clients = [...data.clients];
+  if (data.templates) state.templates = [...data.templates];
+  if (data.invoices) state.invoices = [...data.invoices];
+}
+
+function upsert<T extends { id: string }>(collection: T[], item: T): T {
+  const index = collection.findIndex((existing) => existing.id === item.id);
+  if (index >= 0) collection[index] = item;
+  else collection.push(item);
+  return item;
+}
+
+// Brands — async, matching the real seam
+export const getBrands = vi.fn(async (): Promise<Brand[]> => {
+  maybeFail("getBrands");
+  return [...state.brands];
+});
+
+export const getBrand = vi.fn(async (id: string): Promise<Brand | null> => {
+  maybeFail("getBrand");
+  return state.brands.find((b) => b.id === id) ?? null;
+});
+
+export const saveBrand = vi.fn(async (brand: Brand): Promise<Brand> => {
+  maybeFail("saveBrand");
+  return upsert(state.brands, brand);
+});
+
+export const deleteBrand = vi.fn(async (id: string): Promise<void> => {
+  maybeFail("deleteBrand");
+  state.brands = state.brands.filter((b) => b.id !== id);
+});
+
+// Clients
+export const getClients = vi.fn(async (): Promise<Client[]> => {
+  maybeFail("getClients");
+  return [...state.clients];
+});
+
+export const getClient = vi.fn(async (id: string): Promise<Client | null> => {
+  maybeFail("getClient");
+  return state.clients.find((c) => c.id === id) ?? null;
+});
+
+export const saveClient = vi.fn(async (client: Client): Promise<Client> => {
+  maybeFail("saveClient");
+  return upsert(state.clients, client);
+});
+
+export const deleteClient = vi.fn(async (id: string): Promise<void> => {
+  maybeFail("deleteClient");
+  state.clients = state.clients.filter((c) => c.id !== id);
+});
+
+// Templates
+export const getTemplates = vi.fn(async (): Promise<EmailTemplate[]> => {
+  maybeFail("getTemplates");
+  return [...state.templates];
+});
+
+export const saveTemplate = vi.fn(async (template: EmailTemplate): Promise<EmailTemplate> => {
+  maybeFail("saveTemplate");
+  return upsert(state.templates, template);
+});
+
+export const deleteTemplate = vi.fn(async (id: string): Promise<void> => {
+  maybeFail("deleteTemplate");
+  state.templates = state.templates.filter((t) => t.id !== id);
+});
+
+// Invoices — still synchronous and boolean-returning, mirroring the real
+// module until they move to Postgres in a later task.
+export const getInvoices = vi.fn((): Invoice[] => [...state.invoices]);
+
+export const getInvoice = vi.fn(
+  (id: string): Invoice | null => state.invoices.find((i) => i.id === id) ?? null
+);
+
+export const getInvoicesSnapshot = vi.fn((): Invoice[] => state.invoices);
+
+export const saveInvoice = vi.fn((invoice: Invoice): boolean => {
+  if (shouldFail("saveInvoice")) return false;
+  upsert(state.invoices, invoice);
+  return true;
+});
+
+export const deleteInvoice = vi.fn((id: string): boolean => {
+  if (shouldFail("deleteInvoice")) return false;
+  state.invoices = state.invoices.filter((i) => i.id !== id);
+  return true;
+});
+
+// Plan state stays local and synchronous by design — it is a mock with no
+// schema behind it. See the Phase 2 plan, Decisions §2.
+export const getPlanSnapshot = vi.fn((): PlanState => state.plan);
+
+export const savePlan = vi.fn((plan: PlanState): boolean => {
+  if (shouldFail("savePlan")) return false;
+  state.plan = plan;
+  return true;
+});
+
+// Migration and subscription surface, kept so the fake matches the real
+// module's exports. The migration is a localStorage concern that no longer
+// has anything to do for the collections that moved to Postgres.
+export const subscribe = vi.fn((listener: () => void) => {
+  void listener;
+  return () => {};
+});
+export const runMigration = vi.fn(() => {});
+export const forceMigration = vi.fn(() => {});
+
+export { nextInvoiceNumber } from "@/lib/numbering";

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ interface BrandFollowupCardProps {
   brand: Brand;
   invoices: Invoice[];
   templates: EmailTemplate[];
-  onSaveBrand: (brand: Brand) => boolean;
+  onSaveBrand: (brand: Brand) => Promise<Brand>;
 }
 
 export function BrandFollowupCard({
@@ -40,18 +41,20 @@ export function BrandFollowupCard({
     0
   );
 
-  // Every control here is bound straight to the brand record from the
-  // reactive store (`useBrands`), so a successful write is already visible
-  // as the control's own new value on the next render — there's nothing
-  // further to toast. `onSaveBrand`'s boolean result is deliberately
-  // discarded here (a bare expression statement, not assigned): a failed
-  // write (a full storage quota) leaves the brand record, and therefore
-  // every control reading from it, unchanged, so the controlled inputs
-  // simply revert to their pre-edit values on the next render — and
-  // `writeLocalStorage` has already surfaced the failure with its own toast,
-  // so there's nothing further to do with the result here.
+  // Every control here is bound straight to the brand record from
+  // `useBrands`, so a successful write is already visible as the control's
+  // own new value on the next render — there's nothing further to toast on
+  // success, and a failed write leaves the record (and therefore every
+  // control reading from it) unchanged, so the inputs revert on their own.
+  //
+  // The rejection still has to be caught rather than dropped. When this was
+  // localStorage-backed, `writeLocalStorage` surfaced its own quota toast and
+  // the boolean could be discarded; a rejected promise from the network has
+  // nobody else reporting it, and an uncaught one is an unhandled rejection.
   const updateConfig = (patch: Partial<FollowupConfig>) => {
-    onSaveBrand({ ...brand, followup: { ...config, ...patch } });
+    onSaveBrand({ ...brand, followup: { ...config, ...patch } }).catch((err: unknown) => {
+      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+    });
   };
 
   return (

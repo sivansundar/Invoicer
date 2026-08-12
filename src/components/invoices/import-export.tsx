@@ -105,24 +105,31 @@ function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
  * an export into a populated app never clobbers a local edit. Every skip and
  * every failed write is counted, never silently dropped.
  */
-function importCollection<T extends { id: string }>(
+async function importCollection<T extends { id: string }>(
   validation: CollectionValidation<T>,
   existingIds: Set<string>,
-  save: (item: T) => boolean
-): CollectionImportResult {
+  save: (item: T) => Promise<unknown>
+): Promise<CollectionImportResult> {
   const seenThisBatch = new Set<string>();
   let imported = 0;
   let skippedExisting = 0;
   let failed = 0;
 
+  // Sequential rather than Promise.all: a rejected write must be counted,
+  // not abort the batch, and the failure count is what the summary reports.
+  // Task 8 revisits this whole path for all-or-nothing semantics.
   for (const item of validation.valid) {
     if (existingIds.has(item.id) || seenThisBatch.has(item.id)) {
       skippedExisting++;
       continue;
     }
     seenThisBatch.add(item.id);
-    if (save(item)) imported++;
-    else failed++;
+    try {
+      await save(item);
+      imported++;
+    } catch {
+      failed++;
+    }
   }
 
   return {
@@ -165,7 +172,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     // A full backup, not just invoices — this app has no server and no
     // other backup, so this file is the only copy of a brand's bank details
     // and follow-up config, every saved client, and every custom email
@@ -173,12 +180,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     // and handle this shape without guessing; existing `invoices-<date>.json`
     // files (a bare array, no envelope) predate this and are still read by
     // `handleFileChange`'s legacy path below, unaffected by this change.
+    const [brands, clients, templates] = await Promise.all([
+      getBrands(),
+      getClients(),
+      getTemplates(),
+    ]);
     const backup = {
       version: 2,
       exportedAt: new Date().toISOString(),
-      brands: getBrands(),
-      clients: getClients(),
-      templates: getTemplates(),
+      brands,
+      clients,
+      templates,
+      // Still synchronous — invoices have not moved off localStorage yet.
       invoices: getInvoices(),
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
@@ -280,7 +293,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   };
 
   /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, templates, invoices }`. */
-  const importBackupEnvelope = (parsed: unknown) => {
+  const importBackupEnvelope = async (parsed: unknown) => {
     const result = validateImportedBackup(parsed);
     if (!result.ok) {
       toast(
@@ -311,19 +324,24 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     // Written before invoices are even looked at, so an imported invoice's
     // brandId/clientId resolve against records that already exist by the
     // time forceMigration (and every screen after it) reads them.
-    const brandsResult = importCollection(
+    const [existingBrands, existingClients, existingTemplates] = await Promise.all([
+      getBrands(),
+      getClients(),
+      getTemplates(),
+    ]);
+    const brandsResult = await importCollection(
       brands,
-      new Set(getBrands().map((b) => b.id)),
+      new Set(existingBrands.map((b) => b.id)),
       saveBrand
     );
-    const clientsResult = importCollection(
+    const clientsResult = await importCollection(
       clients,
-      new Set(getClients().map((c) => c.id)),
+      new Set(existingClients.map((c) => c.id)),
       saveClient
     );
-    const templatesResult = importCollection(
+    const templatesResult = await importCollection(
       templates,
-      new Set(getTemplates().map((t) => t.id)),
+      new Set(existingTemplates.map((t) => t.id)),
       saveTemplate
     );
     const collections: ImportedCollections = {
@@ -374,7 +392,16 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       if (Array.isArray(parsed)) {
         importLegacyInvoiceArray(parsed);
       } else {
-        importBackupEnvelope(parsed);
+        // Caught rather than left floating: this runs inside FileReader's
+        // onload, so nothing above it can await the result, and a rejected
+        // write would otherwise surface only as an unhandled rejection.
+        importBackupEnvelope(parsed).catch((err: unknown) => {
+          toast(
+            err instanceof Error
+              ? `Import failed — ${err.message}`
+              : "Import failed. Nothing was changed."
+          );
+        });
       }
     };
     reader.readAsText(file);
@@ -536,7 +563,15 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         variant="outline"
         size="sm"
         className="text-xs gap-1.5"
-        onClick={handleExport}
+        onClick={() => {
+          handleExport().catch((err: unknown) => {
+            toast(
+              err instanceof Error
+                ? `Export failed — ${err.message}`
+                : "Export failed. Nothing was downloaded."
+            );
+          });
+        }}
       >
         <Download className="h-3.5 w-3.5" />
         Export

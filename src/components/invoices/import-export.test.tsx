@@ -1,9 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ImportExport } from "./import-export";
+import { renderWithProviders } from "@/test/render";
+import { resetFakeSeam, seed } from "@/test/fake-seam";
 import * as storage from "@/lib/storage";
 import type { Brand, Client, EmailTemplate, Invoice } from "@/lib/types";
+
+// Brands, clients and templates are in Postgres now; invoices are not yet.
+vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
 const toast = vi.fn();
 vi.mock("sonner", () => ({
@@ -100,6 +105,7 @@ function uploadFile(container: HTMLElement, payload: unknown, name = "invoices.j
 describe("ImportExport — rename conflict resolution", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    resetFakeSeam();
     toast.mockClear();
   });
 
@@ -108,9 +114,9 @@ describe("ImportExport — rename conflict resolution", () => {
   });
 
   it("disables Confirm on the prefilled (still-colliding) value, and it never overwrites the existing invoice", async () => {
-    storage.saveInvoice(invoice({ id: "existing-1", invoiceNumber: "INV-001" }));
+    seed({ invoices: [invoice({ id: "existing-1", invoiceNumber: "INV-001" })] });
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(container, [invoice({ id: "incoming-1", invoiceNumber: "INV-001" })]);
 
     await screen.findByText("Invoice Already Exists");
@@ -125,10 +131,9 @@ describe("ImportExport — rename conflict resolution", () => {
   });
 
   it("stays disabled when edited to a number that collides with a different existing invoice", async () => {
-    storage.saveInvoice(invoice({ id: "existing-1", invoiceNumber: "INV-001" }));
-    storage.saveInvoice(invoice({ id: "existing-2", invoiceNumber: "INV-002" }));
+    seed({ invoices: [invoice({ id: "existing-1", invoiceNumber: "INV-001" }), invoice({ id: "existing-2", invoiceNumber: "INV-002" })] });
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(container, [invoice({ id: "incoming-1", invoiceNumber: "INV-001" })]);
 
     await screen.findByText("Invoice Already Exists");
@@ -142,9 +147,9 @@ describe("ImportExport — rename conflict resolution", () => {
   });
 
   it("enables Confirm once the value is edited to a genuinely free number, and saves under it", async () => {
-    storage.saveInvoice(invoice({ id: "existing-1", invoiceNumber: "INV-001" }));
+    seed({ invoices: [invoice({ id: "existing-1", invoiceNumber: "INV-001" })] });
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(container, [invoice({ id: "incoming-1", invoiceNumber: "INV-001" })]);
 
     await screen.findByText("Invoice Already Exists");
@@ -168,6 +173,7 @@ describe("ImportExport — rename conflict resolution", () => {
 describe("ImportExport — full backup envelope", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    resetFakeSeam();
     toast.mockClear();
   });
 
@@ -181,7 +187,7 @@ describe("ImportExport — full backup envelope", () => {
     const t = template();
     const inv = invoice({ brandId: b.id, clientId: c.id });
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(
       container,
       {
@@ -197,18 +203,20 @@ describe("ImportExport — full backup envelope", () => {
 
     await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
 
-    expect(storage.getBrands().map((x) => x.id)).toEqual([b.id]);
-    expect(storage.getClients().map((x) => x.id)).toEqual([c.id]);
-    expect(storage.getTemplates().map((x) => x.id)).toEqual([t.id]);
+    expect((await storage.getBrands()).map((x) => x.id)).toEqual([b.id]);
+    expect((await storage.getClients()).map((x) => x.id)).toEqual([c.id]);
+    expect((await storage.getTemplates()).map((x) => x.id)).toEqual([t.id]);
     expect(storage.getInvoices().map((x) => x.id)).toEqual([inv.id]);
   });
 
   it("skips brands/clients/templates whose id already exists locally, without overwriting them", async () => {
-    storage.saveBrand(brand({ name: "Original Name" }));
-    storage.saveClient(client({ companyName: "Original Co" }));
-    storage.saveTemplate(template({ name: "Original Template" }));
+    seed({
+      brands: [brand({ name: "Original Name" })],
+      clients: [client({ companyName: "Original Co" })],
+      templates: [template({ name: "Original Template" })],
+    });
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(
       container,
       {
@@ -223,10 +231,10 @@ describe("ImportExport — full backup envelope", () => {
 
     await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
 
-    expect(storage.getBrands()).toHaveLength(1);
-    expect(storage.getBrands()[0].name).toBe("Original Name");
-    expect(storage.getClients()[0].companyName).toBe("Original Co");
-    expect(storage.getTemplates()[0].name).toBe("Original Template");
+    expect((await storage.getBrands())).toHaveLength(1);
+    expect((await storage.getBrands())[0].name).toBe("Original Name");
+    expect((await storage.getClients())[0].companyName).toBe("Original Co");
+    expect((await storage.getTemplates())[0].name).toBe("Original Template");
 
     expect(screen.getByText("Brands skipped (already exist)")).toBeInTheDocument();
     expect(screen.getByText("Clients skipped (already exist)")).toBeInTheDocument();
@@ -238,7 +246,7 @@ describe("ImportExport — full backup envelope", () => {
     // exercises the *shape* rejection in `validateImportedBackup`, not the
     // `JSON.parse` failure path (covered by the "rename conflict resolution"
     // describe block's malformed-JSON case elsewhere in this file).
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(container, "just a string", "backup.json");
 
     await waitFor(() =>
@@ -252,7 +260,7 @@ describe("ImportExport — full backup envelope", () => {
   it("reports a malformed collection honestly and still imports what's readable", async () => {
     const b = brand();
 
-    const { container } = render(<ImportExport onImportDone={() => {}} />);
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(
       container,
       {
@@ -267,15 +275,17 @@ describe("ImportExport — full backup envelope", () => {
 
     await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
 
-    expect(storage.getBrands().map((x) => x.id)).toEqual([b.id]);
-    expect(storage.getClients()).toHaveLength(0);
-    // Neither junk template record was imported — what's left is the seeded
-    // defaults `forceMigration` writes when the templates collection is
-    // empty (pre-existing `migrateToV2` behaviour, not this feature), not a
-    // resurrection of the rejected records.
-    expect(storage.getTemplates().map((x) => x.id).sort()).toEqual(
-      ["tpl-final-notice", "tpl-gentle-nudge", "tpl-second-reminder"]
-    );
+    expect((await storage.getBrands()).map((x) => x.id)).toEqual([b.id]);
+    expect((await storage.getClients())).toHaveLength(0);
+    // Neither junk template record was imported.
+    //
+    // This used to assert the three default templates instead. That was
+    // `forceMigration` seeding them into localStorage when the collection
+    // came back empty — a side effect of the v1→v2 migration, which no
+    // longer reaches templates now they live in Postgres. Nothing seeds
+    // defaults for a new account yet; recorded as carry-over, and not
+    // user-visible while FEATURES.followups is off.
+    expect(await storage.getTemplates()).toHaveLength(0);
     expect(screen.getByText("Clients section unreadable")).toBeInTheDocument();
     expect(screen.getByText("Templates skipped (invalid)")).toBeInTheDocument();
   });
