@@ -1,17 +1,12 @@
 "use client";
 
-import { Shell } from "@/components/layout/shell";
 import { SummaryReportDialog } from "@/components/reports/summary-report-dialog";
 import { ImportExport } from "@/components/invoices/import-export";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 
 export default function ReportsPage() {
-  return (
-    <Shell>
-      <ReportsPageContent />
-    </Shell>
-  );
+  return <ReportsPageContent />;
 }
 
 function ReportsPageContent() {

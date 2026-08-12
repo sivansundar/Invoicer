@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
-import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProDialog } from "@/components/layout/pro-dialog";
@@ -19,11 +18,7 @@ import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
 import type { Brand, Invoice } from "@/lib/types";
 
 export default function BrandsPage() {
-  return (
-    <Shell>
-      <BrandsPageContent />
-    </Shell>
-  );
+  return <BrandsPageContent />;
 }
 
 function ProPill() {

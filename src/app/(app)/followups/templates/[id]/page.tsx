@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Shell } from "@/components/layout/shell";
 import { TemplateForm } from "@/components/followups/template-form";
 import { useTemplates } from "@/hooks/use-templates";
 import { FEATURES } from "@/lib/features";
@@ -23,16 +22,8 @@ export default function EditTemplatePage() {
   if (!FEATURES.followups) return null;
 
   if (!template) {
-    return (
-      <Shell>
-        <p className="text-sm text-muted-foreground p-6">Template not found.</p>
-      </Shell>
-    );
+    return <p className="text-sm text-muted-foreground p-6">Template not found.</p>;
   }
 
-  return (
-    <Shell>
-      <TemplateForm template={template} />
-    </Shell>
-  );
+  return <TemplateForm template={template} />;
 }

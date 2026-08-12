@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Bell, Check, ChevronLeft } from "lucide-react";
-import { Shell } from "@/components/layout/shell";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
 import { StatusBadge } from "@/components/invoices/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -71,11 +70,7 @@ export default function InvoiceDetailPage() {
   const brand = useMemo(() => brands.find((b) => b.id === invoice?.brandId), [brands, invoice]);
 
   if (!invoice) {
-    return (
-      <Shell>
-        <p className="text-sm text-muted-foreground p-6">Invoice not found.</p>
-      </Shell>
-    );
+    return <p className="text-sm text-muted-foreground p-6">Invoice not found.</p>;
   }
 
   const currency = invoice.currency ?? "INR";
@@ -187,7 +182,7 @@ export default function InvoiceDetailPage() {
   };
 
   return (
-    <Shell>
+    <>
       <div className="flex flex-wrap items-stretch flex-1 min-h-0">
         {/* Left pane */}
         <div className="flex-[1_1_460px] min-w-0 p-6 flex flex-col gap-4">
@@ -425,6 +420,6 @@ export default function InvoiceDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Shell>
+    </>
   );
 }

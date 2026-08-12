@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
-import { Shell } from "@/components/layout/shell";
 import { BrandForm } from "@/components/brands/brand-form";
 import { useBrands } from "@/hooks/use-brands";
 
@@ -14,16 +13,8 @@ export default function EditBrandPage() {
   const brand = useMemo(() => brands.find((b) => b.id === id) ?? null, [brands, id]);
 
   if (!brand) {
-    return (
-      <Shell>
-        <p className="text-sm text-muted-foreground p-6">Brand not found.</p>
-      </Shell>
-    );
+    return <p className="text-sm text-muted-foreground p-6">Brand not found.</p>;
   }
 
-  return (
-    <Shell>
-      <BrandForm brand={brand} />
-    </Shell>
-  );
+  return <BrandForm brand={brand} />;
 }

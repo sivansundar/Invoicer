@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { BrandFollowupCard } from "@/components/followups/brand-followup-card";
 import { TemplateList } from "@/components/followups/template-list";
 import { FollowupQueue } from "@/components/followups/followup-queue";
-import { Shell } from "@/components/layout/shell";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTemplates } from "@/hooks/use-templates";
@@ -33,11 +32,7 @@ export default function FollowupsPage() {
 
   if (!FEATURES.followups) return null;
 
-  return (
-    <Shell>
-      <FollowupsPageContent />
-    </Shell>
-  );
+  return <FollowupsPageContent />;
 }
 
 function FollowupsPageContent() {

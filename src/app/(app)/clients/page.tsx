@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
@@ -10,11 +9,7 @@ import { Plus } from "lucide-react";
 import type { Client, Invoice } from "@/lib/types";
 
 export default function ClientsPage() {
-  return (
-    <Shell>
-      <ClientsPageContent />
-    </Shell>
-  );
+  return <ClientsPageContent />;
 }
 
 function ClientsPageContent() {

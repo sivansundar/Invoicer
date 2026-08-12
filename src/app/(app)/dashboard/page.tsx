@@ -1,6 +1,5 @@
 "use client";
 
-import { Shell } from "@/components/layout/shell";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { InvoiceDataTable } from "@/components/dashboard/invoice-data-table";
@@ -10,16 +9,14 @@ export default function DashboardPage() {
   const { invoices } = useInvoices();
 
   return (
-    <Shell>
-      <div className="flex flex-col gap-6 py-6">
-        <div className="px-6">
-          <StatCards invoices={invoices} />
-        </div>
-        <div className="px-6">
-          <RevenueChart invoices={invoices} />
-        </div>
-        <InvoiceDataTable invoices={invoices} />
+    <div className="flex flex-col gap-6 py-6">
+      <div className="px-6">
+        <StatCards invoices={invoices} />
       </div>
-    </Shell>
+      <div className="px-6">
+        <RevenueChart invoices={invoices} />
+      </div>
+      <InvoiceDataTable invoices={invoices} />
+    </div>
   );
 }

@@ -19,6 +19,16 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("next/navigation", () => ({ redirect }));
 
+// Stubbed because this file tests the auth gate, not the chrome. The real
+// Shell renders AppSidebar, which calls usePathname() — a hook the
+// next/navigation mock above deliberately does not provide, since adding it
+// would mean maintaining a growing stub of the router here for no gain. What
+// matters to these tests is that children render at all; shell-rendering.test.tsx
+// covers Shell being mounted by this layout rather than by each page.
+vi.mock("@/components/layout/shell", () => ({
+  Shell: ({ children }: { children: React.ReactNode }) => <div data-shell>{children}</div>,
+}));
+
 const { default: AppLayout } = await import("./layout");
 
 describe("(app)/layout — auth guard", () => {

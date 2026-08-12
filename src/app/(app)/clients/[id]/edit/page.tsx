@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
-import { Shell } from "@/components/layout/shell";
 import { ClientForm } from "@/components/clients/client-form";
 import { useClients } from "@/hooks/use-clients";
 
@@ -14,16 +13,8 @@ export default function EditClientPage() {
   const client = useMemo(() => clients.find((c) => c.id === id) ?? null, [clients, id]);
 
   if (!client) {
-    return (
-      <Shell>
-        <p className="text-sm text-muted-foreground p-6">Client not found.</p>
-      </Shell>
-    );
+    return <p className="text-sm text-muted-foreground p-6">Client not found.</p>;
   }
 
-  return (
-    <Shell>
-      <ClientForm client={client} />
-    </Shell>
-  );
+  return <ClientForm client={client} />;
 }
