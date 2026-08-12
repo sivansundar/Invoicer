@@ -19,7 +19,8 @@ Every task's requirements implicitly include this section.
 **Verification for every task:** `npx tsc --noEmit` passes, `npm run lint` reports zero problems, `npm test` reports 455+ passing.
 
 **Next.js 16 file conventions:**
-- Request interception goes in **`proxy.ts` at the repo root, exporting `proxy`** — not `middleware.ts` exporting `middleware`. `middleware.ts` is deprecated in Next.js 16 and emits a warning. `proxy.ts` runs on the Node.js runtime.
+- Request interception goes in **`src/proxy.ts`, exporting `proxy`** — not `middleware.ts` exporting `middleware`. `middleware.ts` is deprecated in Next.js 16 and emits a warning. `proxy.ts` runs on the Node.js runtime.
+- **The path is `src/proxy.ts`, not the repo root.** This project uses a `src/` layout, and Next.js resolves the proxy relative to the app directory's parent (`appDir/..` → `src/`). A `proxy.ts` at the true repo root is **never detected**, and — this is what makes it dangerous — it fails *silently*: no error, no warning, no `ƒ Proxy (Middleware)` line in the build output. The auth guard simply does not run and every protected route returns 200. Verified empirically: root placement → `/brands` returns 200 signed out; `src/proxy.ts` → 307 redirect to `/login?next=%2Fbrands`.
 
 **Supabase CLI:** must be **≥ 2.81.3**. The machine currently has **2.62.5**, which is too old — `supabase db query` needs ≥ 2.79.0 and `supabase db advisors` needs ≥ 2.81.3. Task 1 upgrades it. Never invent a migration filename; always use `supabase migration new <name>`.
 
@@ -79,8 +80,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 | `supabase/config.toml` | Local stack config; enables password auth for tests only |
 | `supabase/migrations/*_tenancy.sql` | `orgs`, `org_members`, signup trigger |
 | `supabase/migrations/*_domain_tables.sql` | `brands`, `clients`, `invoices`, `invoice_items`, `email_templates` |
-| `supabase/migrations/*_rls_policies.sql` | `private.is_org_member`, policies on all seven tables |
-| `supabase/migrations/*_data_api_grants.sql` | Explicit `grant`s to `anon`/`authenticated` |
+| `supabase/migrations/*_rls_policies.sql` | `private.is_org_member`, policies on all seven tables, explicit `grant`s to `anon`/`authenticated` |
+| `supabase/migrations/*_revoke_destructive_grants.sql` | Revokes TRUNCATE/REFERENCES/TRIGGER from `anon`/`authenticated`; `invoices.updated_at` maintenance trigger |
 
 **New — client factories:**
 
@@ -88,8 +89,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 |---|---|
 | `src/lib/supabase/client.ts` | Browser client (`createBrowserClient`) |
 | `src/lib/supabase/server.ts` | Server client bound to the Next.js cookie store |
-| `src/lib/supabase/proxy.ts` | Session-refresh helper used by root `proxy.ts` |
-| `proxy.ts` | Root request interceptor: refresh session, guard `(app)` routes |
+| `src/lib/supabase/proxy.ts` | Session-refresh helper used by `src/proxy.ts` |
+| `src/proxy.ts` | Request interceptor: refresh session, guard `(app)` routes. **`src/`, not the repo root** — see Global Constraints |
 
 **New — auth surface:**
 
@@ -171,14 +172,14 @@ Create `.env.local.example` (committed):
 
 ```bash
 # Local: get real values from `supabase status -o env`
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54421
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=replace-me
 ```
 
 Create `.env.test.local` (NOT committed) with the values from Step 2:
 
 ```bash
-SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_URL=http://127.0.0.1:54421
 SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase status>
 SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from supabase status>
 ```
@@ -586,6 +587,22 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function private.handle_new_user();
+
+-- Supabase CLI 2.113+ ships `auto_expose_new_tables = false` (matching the
+-- current cloud default; the flag itself is deprecated and removed
+-- 2026-10-30), so a new table in `public` carries NO role grants at all.
+--
+-- `service_role` bypasses RLS but that is orthogonal to table-level
+-- privileges — without this grant even the service-role admin client used by
+-- the integration tests gets `permission denied for table org_members`
+-- (SQLSTATE 42501).
+--
+-- Only `service_role` is granted here. The `anon`/`authenticated` exposure
+-- surface is deliberately consolidated into one reviewable migration in
+-- Task 5, so "who can reach this data" is decided in a single place rather
+-- than scattered across every table migration.
+grant usage on schema public to service_role;
+grant all on public.orgs, public.org_members to service_role;
 ```
 
 - [ ] **Step 5: Apply and re-run the test**
@@ -882,6 +899,19 @@ create table public.email_templates (
   created_at  timestamptz not null default now()
 );
 create index email_templates_org_id_idx on public.email_templates (org_id);
+
+-- Same reason as the tenancy migration: new `public` tables carry no role
+-- grants under `auto_expose_new_tables = false`, and `service_role`'s
+-- BYPASSRLS does not substitute for table privileges. Without this the
+-- integration tests in this task fail with `permission denied` before they
+-- can assert anything. `anon`/`authenticated` grants stay in Task 5.
+grant all on
+  public.brands,
+  public.clients,
+  public.invoices,
+  public.invoice_items,
+  public.email_templates
+to service_role;
 ```
 
 - [ ] **Step 5: Apply and re-run**
@@ -1143,7 +1173,42 @@ $$;
 
 revoke execute on function private.is_org_member(uuid)
   from public, anon, authenticated, service_role;
+
+-- Then grant it back to `authenticated` alone.
+--
+-- This is NOT redundant with the revoke above, and the revoke on its own is a
+-- bug. RLS policy expressions are evaluated with the *querying* role's
+-- privileges, not the table owner's. `security definer` governs what happens
+-- INSIDE the function body once it is called; it does not waive the EXECUTE
+-- check needed to call it. Without this grant every policy below fails closed
+-- with `permission denied for function is_org_member` — verified directly
+-- against this database:
+--
+--   set role authenticated;
+--   select count(*) from public.brands;
+--   -- ERROR:  permission denied for function is_org_member
+--
+-- Granting it to `authenticated` is safe on two independent grounds:
+--   1. `private` is absent from config.toml's
+--      `schemas = ["public", "graphql_public"]`, so PostgREST cannot route to
+--      it at all — /rpc answers PGRST202 or PGRST106 whichever schema header
+--      is sent.
+--   2. Even if it were reachable, the function checks `auth.uid()` internally
+--      and answers only "is the CALLING user a member of org X" — a question
+--      the caller already knows the answer to. No other tenant's data is
+--      exposed.
+--
+-- `anon`, `public` and `service_role` stay revoked. `service_role` bypasses
+-- RLS entirely and never evaluates these policies.
+grant execute on function private.is_org_member(uuid) to authenticated;
 ```
+
+> **Correction to a widely-copied pattern.** Supabase's own RLS-performance guidance shows
+> `revoke execute … from PUBLIC, anon, authenticated, service_role` followed by using the helper
+> in a policy, on the stated basis that policy expressions evaluate with the owner's privileges.
+> That basis is wrong, and following it verbatim yields policies that fail closed for every
+> user. The revoke is still correct — it is the missing re-grant to `authenticated` that breaks
+> it. Do not "simplify" this pair back to a lone revoke.
 
 - [ ] **Step 5: Write the org and membership policies**
 
@@ -1307,6 +1372,30 @@ create policy invoice_items_delete on public.invoice_items
   ));
 ```
 
+- [ ] **Step 7b: Grant `authenticated` the access its policies describe**
+
+A grant and a policy are two halves of one security decision: the grant says whether the role may address the table **at all**, RLS says which rows it then sees. Postgres checks grants *first*, so without this the tests in Step 1 fail with `permission denied` before any policy is ever consulted — and a cross-tenant test that passes for that reason proves nothing about isolation.
+
+These grants mirror the policies above exactly: full CRUD where the table has insert/update/delete policies, select-only on `orgs` and `org_members`, which are written solely by the signup trigger.
+
+```sql
+grant usage on schema public to authenticated;
+
+grant select, insert, update, delete on
+  public.brands,
+  public.clients,
+  public.invoices,
+  public.invoice_items,
+  public.email_templates
+to authenticated;
+
+grant select on public.orgs, public.org_members to authenticated;
+
+-- `anon` is granted nothing at all, deliberately: every route that touches
+-- data requires a session. Task 5 proves it with a test rather than trusting
+-- the absence of a grant statement.
+```
+
 - [ ] **Step 8: Apply and re-run**
 
 ```bash
@@ -1335,51 +1424,233 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 5: Data API grants and advisor clean-up
+## Task 5: Prove `anon` is locked out, and clear the advisors
+
+> **Scope changed mid-execution (2026-08-11).** This task originally issued all the Data API grants. Those moved into Task 4, where they belong beside the policies they mirror — Task 4's own tests cannot run without them. What remains here is the half that was never really about grants: proving the anonymous role can reach nothing, and clearing the database advisors.
 
 **Files:**
-- Create: `supabase/migrations/<ts>_data_api_grants.sql`
+- Create: `src/test/integration/anon.test.ts`
 
 **Interfaces:**
-- Consumes: all tables and policies from Tasks 2–4.
-- Produces: explicit `grant`s so PostgREST can reach the tables. No new application interfaces.
+- Consumes: all tables, policies and `authenticated` grants from Tasks 2–4.
+- Produces: no new application interfaces. A regression test pinning the anonymous access surface.
 
-- [ ] **Step 1: Create the migration file**
+- [ ] **Step 1: Write the anon lockdown test**
+
+This test pins the **outcome**: a signed-out visitor retrieves no rows and writes no rows, today and on every future run.
+
+Be precise about what it does *not* prove. From an anon REST client's vantage point, "no grant exists" and "a grant exists but RLS denies every row" are **observationally identical** — both yield an empty result on select and an error on insert, under the same SQLSTATE. Since all 22 policies target `to authenticated`, Postgres falls through to implicit default-deny for `anon`, so adding `grant all on all tables in schema public to anon` tomorrow would **not** fail this test. No client-side test can distinguish those two states; that requires reading the catalogue, which anon cannot do.
+
+That is acceptable, because the outcome is the security property and RLS enforces it independently of the grant layer. This test would still fail loudly on a real leak — a future `to anon` policy with `using (true)`, or `force row level security` being dropped. Step 1b adds the mechanism-level check separately.
+
+`src/test/integration/anon.test.ts`:
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { describe, expect, it } from "vitest";
+
+const URL = process.env.SUPABASE_URL!;
+const PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+
+/** A signed-out visitor: the publishable key with no session attached. */
+const anon = createClient(URL, PUBLISHABLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+const TABLES = [
+  "orgs",
+  "org_members",
+  "brands",
+  "clients",
+  "invoices",
+  "invoice_items",
+  "email_templates",
+] as const;
+
+/**
+ * One schema-valid row per table. These would satisfy every not-null and
+ * check constraint if a permitted caller sent them, so a rejection is
+ * attributable to permissions rather than to a malformed payload.
+ * The uuids are deliberately random and reference nothing.
+ */
+const VALID_ROWS: Record<(typeof TABLES)[number], Record<string, unknown>> = {
+  orgs: { name: "Anon Org" },
+  org_members: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    user_id: "00000000-0000-4000-8000-000000000002",
+    role: "owner",
+  },
+  brands: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    name: "Anon Brand",
+    invoice_prefix: "AN",
+    accent_color: "#2563eb",
+  },
+  clients: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    company_name: "Anon Client",
+  },
+  invoices: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    brand_id: "00000000-0000-4000-8000-000000000003",
+    invoice_number: "AN-2026-001",
+    currency: "INR",
+    bill_date: "2026-08-11",
+    due_date: "2026-09-10",
+    client_snapshot: {},
+    brand_snapshot: {},
+  },
+  invoice_items: {
+    invoice_id: "00000000-0000-4000-8000-000000000004",
+    position: 0,
+    description: "Anon line",
+    amount: "1.00",
+    tax: "0",
+  },
+  email_templates: {
+    org_id: "00000000-0000-4000-8000-000000000001",
+    name: "Anon template",
+    subject: "Hello",
+    tone: "Friendly",
+    body: "Body",
+  },
+};
+
+describe("an anonymous visitor can reach no data at all", () => {
+  for (const table of TABLES) {
+    it(`${table}: select returns no rows to anon`, async () => {
+      const { data } = await anon.from(table).select("*").limit(1);
+      // A hard permission error and an empty result are both acceptable.
+      // What must never happen is a row coming back. `error` is deliberately
+      // not asserted on: any assertion covering "error OR empty" is
+      // vacuously true, and the row check alone already says what matters.
+      expect(data ?? []).toEqual([]);
+    });
+
+    it(`${table}: insert is rejected for anon`, async () => {
+      // A *valid* payload, so the rejection is attributable to permissions
+      // rather than to a not-null violation. `insert({})` would be rejected
+      // by every table's constraints even for a fully authorized caller,
+      // which would prove nothing about anon.
+      const { error } = await anon.from(table).insert(VALID_ROWS[table]);
+      expect(error).not.toBeNull();
+    });
+  }
+});
+```
+
+- [ ] **Step 1b: Pin the grant layer itself**
+
+Step 1 pins the outcome. This pins the mechanism, closing the blind spot named above: it reads the catalogue directly, so it *can* tell "no grant" from "grant plus default-deny".
+
+Why bother, when a stray `anon` grant leaks nothing on its own? Because it stops being harmless the moment any future policy targets `anon` — a public "pay this invoice" link is a plausible Phase 2 feature. A grant added today and a `to anon` policy added next quarter are individually defensible and jointly a leak. This test catches the drift while it is still inert.
+
+The catalogue is not reachable through PostgREST, so this connects to Postgres directly.
 
 ```bash
-supabase migration new data_api_grants
+npm install --save-dev --save-exact pg @types/pg
 ```
 
-- [ ] **Step 2: Write the grants**
-
-Table access and RLS are two separate gates. RLS decides which *rows* are visible; a `grant` decides whether the role can address the *table* at all. Depending on the project's Data API settings, new tables may not be exposed automatically.
-
-```sql
-grant usage on schema public to anon, authenticated;
-
-grant select, insert, update, delete on
-  public.brands,
-  public.clients,
-  public.invoices,
-  public.invoice_items,
-  public.email_templates
-to authenticated;
-
-grant select on public.orgs, public.org_members to authenticated;
-
--- `anon` gets nothing. Every route that touches data requires a session.
-```
-
-- [ ] **Step 3: Apply and confirm the suite still passes**
+Add the connection string to `.env.test.local` (gitignored) — take the value from `supabase status -o env`'s `DB_URL`:
 
 ```bash
-supabase db reset
-npm run test:integration
+SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54422/postgres
 ```
 
-Expected: PASS.
+Add the same key with a placeholder to the committed `.env.local.example`.
 
-- [ ] **Step 4: Run the advisors**
+`src/test/integration/anon-grants.test.ts`:
+
+```ts
+import { Client } from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+const DB_URL = process.env.SUPABASE_DB_URL;
+
+if (!DB_URL) {
+  throw new Error(
+    "anon-grants.test.ts needs SUPABASE_DB_URL in .env.test.local. " +
+      "Take it from `supabase status -o env`'s DB_URL."
+  );
+}
+
+const APP_TABLES = [
+  "orgs",
+  "org_members",
+  "brands",
+  "clients",
+  "invoices",
+  "invoice_items",
+  "email_templates",
+];
+
+const db = new Client({ connectionString: DB_URL });
+
+beforeAll(async () => {
+  await db.connect();
+});
+
+afterAll(async () => {
+  await db.end();
+});
+
+describe("the anon role holds no privilege on any application table", () => {
+  it("has no data privileges granted", async () => {
+    const { rows } = await db.query(
+      `select table_name, privilege_type
+         from information_schema.role_table_grants
+        where grantee = 'anon'
+          and table_schema = 'public'
+          and table_name = any($1)
+          and privilege_type in ('SELECT','INSERT','UPDATE','DELETE')
+        order by table_name, privilege_type`,
+      [APP_TABLES]
+    );
+
+    // Postgres also records inert defaults (REFERENCES/TRIGGER/TRUNCATE/
+    // MAINTAIN) for anon. Those cannot read or write data, so the filter
+    // above deliberately ignores them — only the four data privileges matter.
+    expect(rows).toEqual([]);
+  });
+
+  it("has no column-level privileges granted", async () => {
+    // A column grant would not appear in role_table_grants, so a table-level
+    // check alone could be satisfied while `anon` still reads one column.
+    const { rows } = await db.query(
+      `select table_name, column_name, privilege_type
+         from information_schema.column_privileges
+        where grantee = 'anon'
+          and table_schema = 'public'
+          and table_name = any($1)
+          and privilege_type in ('SELECT','INSERT','UPDATE')
+        order by table_name, column_name`,
+      [APP_TABLES]
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it("has no policy targeting it", async () => {
+    // The grant only becomes a leak when paired with a policy that admits
+    // anon. Catch that half too.
+    const { rows } = await db.query(
+      `select tablename, policyname, roles
+         from pg_policies
+        where schemaname = 'public'
+          and 'anon' = any(roles)`
+    );
+    expect(rows).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run both tests**
+
+Run: `npm run test:integration -- anon`
+Expected: PASS — 14 tests from `anon.test.ts`, 3 from `anon-grants.test.ts`.
+
+If any table returns a row to `anon`, that is a live data leak — stop and report it rather than adjusting the test. If `anon-grants.test.ts` fails, a grant or policy has been added that should not exist; report it rather than deleting the assertion.
+
+- [ ] **Step 3: Run the advisors**
 
 ```bash
 supabase db advisors --local
@@ -1397,21 +1668,31 @@ Fix anything reported. Common findings and their correct fixes:
 
 Never resolve a finding by adding `security definer` or by dropping a policy.
 
+- [ ] **Step 4: Confirm the whole integration suite still passes**
+
+```bash
+npm run test:integration
+```
+
+Expected: PASS, including Task 4's isolation tests and the new anon tests.
+
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations
-git commit -m "feat(db): grant Data API access to authenticated, none to anon
+git add src/test/integration/anon.test.ts supabase/migrations
+git commit -m "test(db): pin the anonymous access surface, clear advisors
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
+
+> Include `supabase/migrations` in the `git add` only if clearing an advisor finding required a migration. If the advisors came back clean, this commit is the test alone.
 
 ---
 
 ## Task 6: The proxy — session refresh and route guarding
 
 **Files:**
-- Create: `src/lib/supabase/proxy.ts`, `proxy.ts` (repo root)
+- Create: `src/lib/supabase/proxy.ts`, `src/proxy.ts` (**inside `src/`, not the repo root** — a root-level file is silently never detected under a `src/app` layout)
 
 **Interfaces:**
 - Consumes: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
@@ -1495,7 +1776,9 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
 - [ ] **Step 2: Write the root proxy**
 
-`proxy.ts` at the repo root — **not** `middleware.ts`. Next.js 16 deprecated that name; this file exports `proxy` and runs on the Node.js runtime.
+`src/proxy.ts` — **not** `middleware.ts` (Next.js 16 deprecated that name), and **not** the repo root. This project has a `src/app` layout, and Next.js looks for the proxy at `appDir/..`, i.e. `src/`. A root-level `proxy.ts` is never detected and fails silently: the build shows no `ƒ Proxy (Middleware)` line and every guarded route returns 200 to anonymous visitors.
+
+This file exports `proxy` and runs on the Node.js runtime.
 
 ```ts
 import type { NextRequest } from "next/server";
@@ -1524,7 +1807,7 @@ it still returns correct claims, but falls back to calling the auth server — l
 reason to prefer it over `getUser()`.
 
 ```bash
-curl -s http://127.0.0.1:54321/auth/v1/.well-known/jwks.json
+curl -s http://127.0.0.1:54421/auth/v1/.well-known/jwks.json
 ```
 
 Expected: a JWKS document containing at least one key with `"alg": "ES256"`. If it comes back
@@ -1537,7 +1820,9 @@ Run: `npx tsc --noEmit`
 Expected: no errors.
 
 Run: `npm run build`
-Expected: success, and **no deprecation warning about `middleware.ts`**. If one appears, the old file still exists — delete it.
+Expected: success, **no deprecation warning about `middleware.ts`** (if one appears, the old file still exists — delete it), **and a `ƒ Proxy (Middleware)` line in the route output**.
+
+That last one is not cosmetic: its absence is the only build-time signal that the proxy file is in the wrong place and the auth guard is inert. Do not proceed past this step without it.
 
 - [ ] **Step 5: Verify the redirect by hand**
 
@@ -1556,7 +1841,7 @@ Expected: 455 passed.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add proxy.ts src/lib/supabase/proxy.ts
+git add src/proxy.ts src/lib/supabase/proxy.ts
 git commit -m "feat(auth): proxy.ts session refresh and route guard
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1922,7 +2207,7 @@ npm run dev
 
 1. Visit `http://localhost:3000/brands` signed out → redirected to `/login?next=/brands`.
 2. Enter any email, submit → "Check your inbox".
-3. Open Inbucket, the local mail catcher, at `http://127.0.0.1:54324` and click the link.
+3. Open Inbucket, the local mail catcher, at `http://127.0.0.1:54424` and click the link.
 4. Expected: landed on `/brands`, signed in.
 5. Visit `/login` while signed in → redirected to `/dashboard`.
 
@@ -2117,7 +2402,7 @@ npm run test:integration
 npm run build
 ```
 
-Expected: types clean, zero lint problems, 458 unit tests passing, integration suite passing, build succeeds.
+Expected: types clean, zero lint problems, 472 unit tests passing, integration suite passing, build succeeds.
 
 - [ ] **Step 10: Commit**
 
@@ -2132,13 +2417,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Done when
 
-- [ ] `supabase db reset` replays all five migrations cleanly
+- [ ] `supabase db reset` replays all four migrations cleanly
 - [ ] `supabase db advisors --local` reports zero security findings
 - [ ] Integration suite proves cross-tenant isolation on all seven tables
 - [ ] Anonymous visitors cannot reach any `(app)` route
 - [ ] Magic-link sign-in works end to end against the local stack
 - [ ] The sidebar shows the real signed-in user and sign-out works
-- [ ] 458 unit tests passing, clean build, zero lint problems
+- [ ] 472 unit tests passing, clean build, zero lint problems
 
 ## Explicitly NOT in this plan
 

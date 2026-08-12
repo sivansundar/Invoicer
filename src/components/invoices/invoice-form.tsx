@@ -306,7 +306,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         ? "Draft saved — finish it anytime"
         : `${invoice.invoiceNumber} sent to ${invoice.client.companyName}`
     );
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (
@@ -315,7 +315,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       <div className="flex-[1_1_460px] min-w-0 p-6 flex flex-col gap-6">
         <div>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
           >
             <ChevronLeft className="size-3.5" />

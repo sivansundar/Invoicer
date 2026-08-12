@@ -183,7 +183,7 @@ export default function InvoiceDetailPage() {
     if (!remove(invoice.id)) return;
     setDeleteOpen(false);
     toast(`${invoice.invoiceNumber} deleted`);
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (
@@ -193,7 +193,7 @@ export default function InvoiceDetailPage() {
         <div className="flex-[1_1_460px] min-w-0 p-6 flex flex-col gap-4">
           <div>
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
             >
               <ChevronLeft className="size-3.5" />
