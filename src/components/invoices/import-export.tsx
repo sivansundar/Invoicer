@@ -20,6 +20,7 @@ import {
   validateImportedBackup,
   type CollectionValidation,
 } from "@/lib/import-validation";
+import { remapNonUuidIds } from "@/lib/import-remap";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -83,9 +84,52 @@ interface ImportedCollections {
 
 interface ImportSummary extends ImportedCollections {
   invoices: InvoiceImportSummary;
+  /**
+   * Ids rewritten because Postgres would not accept them — see
+   * `import-remap.ts`. Surfaced rather than silent, because it has a
+   * consequence the user can otherwise only discover by hitting it:
+   * re-importing the same legacy file produces a second copy of those
+   * records instead of skipping them, since their new ids no longer match
+   * what landed the first time.
+   */
+  remappedIds: number;
 }
 
 const EMPTY_COLLECTIONS: ImportedCollections = { brands: null, clients: null, templates: null };
+
+/**
+ * The exported file's contents, separated from downloading it so the format
+ * itself can be asserted rather than inferred from a Blob.
+ *
+ * A full backup, not just invoices: for anyone who has not yet moved to the
+ * hosted app this file is the only copy of a brand's bank details and
+ * follow-up config, every saved client, and every custom email template.
+ * `version`/`exportedAt` let a future format change detect and handle this
+ * shape without guessing; existing `invoices-<date>.json` files (a bare
+ * array, no envelope) predate this and are still read by the legacy path in
+ * `handleFileChange`.
+ *
+ * The shape is unchanged from the pre-Postgres app on purpose. A file
+ * exported then still restores now, and a file exported now still restores
+ * into an older build.
+ */
+export async function buildBackup() {
+  const [brands, clients, templates, invoices] = await Promise.all([
+    getBrands(),
+    getClients(),
+    getTemplates(),
+    getInvoices(),
+  ]);
+
+  return {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    brands,
+    clients,
+    templates,
+    invoices,
+  };
+}
 
 function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
   return (
@@ -168,31 +212,15 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   // the meantime so a multi-step conflict resolution doesn't lose it.
   const [pendingCollections, setPendingCollections] =
     useState<ImportedCollections>(EMPTY_COLLECTIONS);
+  // Held for the same reason as pendingCollections: conflict resolution can
+  // take several dialog round-trips before the summary is built.
+  const [pendingRemapped, setPendingRemapped] = useState(0);
 
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
   const handleExport = async () => {
-    // A full backup, not just invoices — this app has no server and no
-    // other backup, so this file is the only copy of a brand's bank details
-    // and follow-up config, every saved client, and every custom email
-    // template. `version`/`exportedAt` let a future format change detect
-    // and handle this shape without guessing; existing `invoices-<date>.json`
-    // files (a bare array, no envelope) predate this and are still read by
-    // `handleFileChange`'s legacy path below, unaffected by this change.
-    const [brands, clients, templates] = await Promise.all([
-      getBrands(),
-      getClients(),
-      getTemplates(),
-    ]);
-    const backup = {
-      version: 2,
-      exportedAt: new Date().toISOString(),
-      brands,
-      clients,
-      templates,
-      invoices: await getInvoices(),
-    };
+    const backup = await buildBackup();
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json",
     });
@@ -215,10 +243,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   const beginInvoiceReconciliation = async (
     incoming: Invoice[],
     invalidSkipped: number,
-    collections: ImportedCollections
+    collections: ImportedCollections,
+    remappedIds: number
   ) => {
     setPendingInvalidSkipped(invalidSkipped);
     setPendingCollections(collections);
+    setPendingRemapped(remappedIds);
 
     const existing = await getInvoices();
     const existingByNumber = new Map(existing.map((inv) => [inv.invoiceNumber, inv]));
@@ -271,6 +301,11 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           invalidSkipped,
           failed,
         },
+        // The parameter, not the state set moments ago in this same
+        // function — that setter has not been applied yet, so reading it
+        // here would always report zero. Only the conflict-resolution path,
+        // which spans dialog round-trips, needs the state version.
+        remappedIds,
         ...collections,
       });
     }
@@ -296,7 +331,24 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
-    await beginInvoiceReconciliation(incoming, invalidSkipped, EMPTY_COLLECTIONS);
+    // Same uuid problem as the envelope path. There are no brands or clients
+    // in a legacy file to remap against, so this only rewrites an invoice's
+    // own id — its brandId still has to match a brand already in the account,
+    // which is what it meant in the file it came from.
+    const legacyRemap = remapNonUuidIds({
+      brands: [],
+      clients: [],
+      templates: [],
+      invoices: incoming,
+    });
+    const remapped = legacyRemap.collections;
+
+    await beginInvoiceReconciliation(
+      remapped.invoices,
+      invalidSkipped,
+      EMPTY_COLLECTIONS,
+      legacyRemap.remapped
+    );
   };
 
   /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, templates, invoices }`. */
@@ -328,6 +380,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
+    // Every id column is `uuid`, and a backup written by the pre-Postgres
+    // app carries hand-written template ids (`tpl-gentle-nudge`) that
+    // Postgres rejects outright. Remapping happens after validation and
+    // before any write, so the references between records in the file are
+    // rewritten together rather than one collection at a time.
+    const remap = remapNonUuidIds({
+      brands: brands.valid,
+      clients: clients.valid,
+      templates: templates.valid,
+      invoices: invoices.valid,
+    });
+
     // Written before invoices are even looked at, so an imported invoice's
     // brandId/clientId resolve against records that already exist by the
     // time forceMigration (and every screen after it) reads them.
@@ -337,17 +401,17 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       getTemplates(),
     ]);
     const brandsResult = await importCollection(
-      brands,
+      { ...brands, valid: remap.collections.brands },
       new Set(existingBrands.map((b) => b.id)),
       saveBrand
     );
     const clientsResult = await importCollection(
-      clients,
+      { ...clients, valid: remap.collections.clients },
       new Set(existingClients.map((c) => c.id)),
       saveClient
     );
     const templatesResult = await importCollection(
-      templates,
+      { ...templates, valid: remap.collections.templates },
       new Set(existingTemplates.map((t) => t.id)),
       saveTemplate
     );
@@ -370,12 +434,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           invalidSkipped: invoices.skipped,
           failed: 0,
         },
+        remappedIds: remap.remapped,
         ...collections,
       });
       return;
     }
 
-    await beginInvoiceReconciliation(invoices.valid, invoices.skipped, collections);
+    await beginInvoiceReconciliation(
+      remap.collections.invoices,
+      invoices.skipped,
+      collections,
+      remap.remapped
+    );
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -521,6 +591,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           invalidSkipped: pendingInvalidSkipped,
           failed,
         },
+        remappedIds: pendingRemapped,
         ...pendingCollections,
       });
     }
@@ -763,6 +834,14 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           </DialogHeader>
           {summary && (
             <div className="space-y-2 text-xs">
+              {summary.remappedIds > 0 && (
+                <p className="text-muted-foreground border rounded-md p-2 leading-relaxed">
+                  {summary.remappedIds} record
+                  {summary.remappedIds === 1 ? " had its id" : "s had their ids"} rewritten —
+                  this file predates hosted storage. Importing it again would add a second copy
+                  rather than skipping them.
+                </p>
+              )}
               <div className="flex justify-between py-1 border-b">
                 <span className="text-muted-foreground">Invoices imported</span>
                 <span className="font-semibold tabular-nums">

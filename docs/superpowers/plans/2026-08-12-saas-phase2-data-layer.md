@@ -246,7 +246,7 @@ This is where the phase's time actually goes. One skeleton per screen, matching 
 
 - [ ] Export reads through the async seam and produces the same file format as today — verify against a file exported by the current build, so restores from before this phase still work
 - [ ] Import validates with the existing `import-validation.ts`, normalises with `migrate.ts`, then writes through the seam
-- [ ] Import is all-or-nothing, or reports precisely what landed. A half-restored backup that claims success is the worst outcome here
+- [x] Import reports precisely what landed. **All-or-nothing was rejected** (2026-08-13): conflict resolution is interactive and takes several dialog round-trips, so no transaction can span it. A single `import_backup` RPC could make the no-conflict path atomic, but a restore that is atomic only when it happens not to collide is a worse contract than one that is never atomic and always accurate. Per-record accounting stays, and the summary now also reports rewritten ids
 - [ ] Port `import-export.test.tsx`
 
 **Verification:** round-trip a backup file exported by the pre-Phase-2 build; contents match.
@@ -295,7 +295,7 @@ Last, so every prior task can be verified against a working app.
 
 - **~~Nothing seeds the three default email templates any more.~~ Fixed** in `*_seed_default_templates.sql`: the signup trigger now writes all three per org. Seeding at signup rather than lazily on read, because a client-side backfill cannot distinguish "new account" from "user deleted them all" and would resurrect templates somebody removed on purpose. The ids are per-org `gen_random_uuid()` — `email_templates.id` is the primary key on its own, so a shared constant id collides on the second signup — which is why `defaultFollowupConfig()` no longer names a default template. That also closes the dangling-`templateId` residual in `docs/POST-MERGE-NOTES.md`.
 
-- **A pre-Postgres backup file will not restore as-is — Task 8 must remap ids.** Old exports carry `SEED_TEMPLATES` ids like `tpl-gentle-nudge`, which are not uuids and cannot be inserted into `email_templates.id`. Brand/client/invoice ids came from `crypto.randomUUID()` and are fine; only the seeded template ids are not. Any invoice or brand referencing a remapped template id (`followup.templateId`) has to be rewritten in the same pass. This is a restore path that will fail loudly rather than silently, but it will fail.
+- **~~A pre-Postgres backup file will not restore as-is~~ — fixed** in `src/lib/import-remap.ts`. Original note: Old exports carry `SEED_TEMPLATES` ids like `tpl-gentle-nudge`, which are not uuids and cannot be inserted into `email_templates.id`. Brand/client/invoice ids came from `crypto.randomUUID()` and are fine; only the seeded template ids are not. Any invoice or brand referencing a remapped template id (`followup.templateId`) has to be rewritten in the same pass. This is a restore path that will fail loudly rather than silently, but it will fail.
 
 ## Explicitly NOT in this plan
 
