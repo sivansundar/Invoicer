@@ -293,7 +293,9 @@ Last, so every prior task can be verified against a working app.
 
 ## Found during execution — carry into the next phase
 
-- **Nothing seeds the three default email templates any more.** `migrateToV2` wrote them into `localStorage` whenever the templates collection came back empty; templates now live in Postgres, which that migration never touches, so a new account starts with none. Not user-visible while `FEATURES.followups` is off, and not worth a migration until the follow-ups feature is real — but it must be decided before that flag flips, and the natural home is the signup trigger rather than a client-side backfill. Recorded at `import-export.test.tsx`, whose assertion changed because of it.
+- **~~Nothing seeds the three default email templates any more.~~ Fixed** in `*_seed_default_templates.sql`: the signup trigger now writes all three per org. Seeding at signup rather than lazily on read, because a client-side backfill cannot distinguish "new account" from "user deleted them all" and would resurrect templates somebody removed on purpose. The ids are per-org `gen_random_uuid()` — `email_templates.id` is the primary key on its own, so a shared constant id collides on the second signup — which is why `defaultFollowupConfig()` no longer names a default template. That also closes the dangling-`templateId` residual in `docs/POST-MERGE-NOTES.md`.
+
+- **A pre-Postgres backup file will not restore as-is — Task 8 must remap ids.** Old exports carry `SEED_TEMPLATES` ids like `tpl-gentle-nudge`, which are not uuids and cannot be inserted into `email_templates.id`. Brand/client/invoice ids came from `crypto.randomUUID()` and are fine; only the seeded template ids are not. Any invoice or brand referencing a remapped template id (`followup.templateId`) has to be rewritten in the same pass. This is a restore path that will fail loudly rather than silently, but it will fail.
 
 ## Explicitly NOT in this plan
 

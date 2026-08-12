@@ -2,7 +2,15 @@ import type { EmailTemplate, FollowupConfig } from "./types";
 
 export const DEFAULT_TEMPLATE_ID = "tpl-gentle-nudge";
 
-/** Seeded once, on first migration. Users can edit or delete them afterwards. */
+/**
+ * The same three templates the signup trigger writes for every new org
+ * (`*_seed_default_templates.sql`) — kept here for the localStorage
+ * importer, which still has to recognise and normalise them in a backup
+ * file exported by the pre-Postgres app.
+ *
+ * These ids are not uuids, so they cannot be inserted into
+ * `public.email_templates` as they stand. The importer has to remap them.
+ */
 export const SEED_TEMPLATES: EmailTemplate[] = [
   {
     id: DEFAULT_TEMPLATE_ID,
@@ -42,6 +50,20 @@ export const SEED_TEMPLATES: EmailTemplate[] = [
   },
 ];
 
+/**
+ * `templateId` is deliberately empty rather than naming a default.
+ *
+ * Templates are seeded per org with `gen_random_uuid()` (the primary key is
+ * `id` alone, so a shared constant id would collide on the second signup),
+ * which means no template id is knowable client-side. A brand created with a
+ * hardcoded one would carry a reference to a row that does not exist —
+ * the dangling-templateId problem in docs/POST-MERGE-NOTES.md, made
+ * unavoidable rather than merely likely.
+ *
+ * An empty `templateId` is an established, handled state: the follow-ups UI
+ * treats a missing template as "none chosen" and falls back to "Reminder"
+ * wherever a name is needed.
+ */
 export function defaultFollowupConfig(): FollowupConfig {
   return {
     enabled: true,
@@ -49,7 +71,7 @@ export function defaultFollowupConfig(): FollowupConfig {
     weekday: 2,
     time: "09:00",
     repeat: "week",
-    templateId: DEFAULT_TEMPLATE_ID,
+    templateId: "",
     stopAfter: 4,
   };
 }

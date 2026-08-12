@@ -114,6 +114,55 @@ describe("the solo-UX assumption is enforced, not assumed", () => {
   });
 });
 
+describe("default email templates", () => {
+  // Fresh users, not the shared ones: these assert the pristine state right
+  // after signup, and the org_id-default tests above insert a template of
+  // their own as alice.
+  let fresh: TestUser;
+  let alsoFresh: TestUser;
+
+  beforeAll(async () => {
+    [fresh, alsoFresh] = await Promise.all([makeUser(), makeUser()]);
+  });
+
+  it("seeds three templates for a new org", async () => {
+    const { data, error } = await fresh.client
+      .from("email_templates")
+      .select("name, tone, subject, body")
+      .order("name");
+
+    expect(error).toBeNull();
+    expect(data!.map((t) => t.name).sort()).toEqual([
+      "Final notice",
+      "Gentle nudge",
+      "Second reminder",
+    ]);
+    // The body carries the placeholder vocabulary the follow-up filler
+    // expects — a seeded row with the wrong placeholders would render as
+    // literal braces in a real email.
+    expect(data!.every((t) => t.body.includes("{{client}}"))).toBe(true);
+    expect(data!.every((t) => t.tone.length > 0)).toBe(true);
+  });
+
+  it("gives each org its own copies, not shared rows", async () => {
+    // The ids must differ per org: `id` is the primary key on its own, so
+    // seeding a shared constant would collide on the second signup — which
+    // is why nothing client-side can name a default template id.
+    const [{ data: mine }, { data: theirs }] = await Promise.all([
+      fresh.client.from("email_templates").select("id, org_id"),
+      alsoFresh.client.from("email_templates").select("id, org_id"),
+    ]);
+
+    expect(mine).toHaveLength(3);
+    expect(theirs).toHaveLength(3);
+    expect(mine!.every((t) => t.org_id === fresh.orgId)).toBe(true);
+    expect(theirs!.every((t) => t.org_id === alsoFresh.orgId)).toBe(true);
+
+    const overlap = mine!.map((t) => t.id).filter((id) => theirs!.some((t) => t.id === id));
+    expect(overlap).toEqual([]);
+  });
+});
+
 describe("brands.logo_data", () => {
   it("round-trips a base64 data URL", async () => {
     // The bridge column standing in for Storage until logos move there.

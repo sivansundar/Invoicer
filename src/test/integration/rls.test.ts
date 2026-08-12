@@ -124,7 +124,13 @@ describe("cross-tenant reads return nothing", () => {
     it(`${table}: bob sees none of alice's rows`, async () => {
       const { data, error } = await bob.client.from(table).select("*");
       expect(error).toBeNull();
-      // Bob's org is brand new and empty, and alice's rows must be invisible.
+
+      // The invariant is "nothing of alice's is visible", not "the result is
+      // empty" — a new org is no longer blank, since signup seeds three
+      // email templates into it. Asserting emptiness would have to be
+      // relaxed again for every future seeded row; asserting ownership never
+      // does, and is what the policies actually promise.
+      //
       // `orgs` and `org_members` are the two tables where Bob legitimately
       // sees exactly one row: his own org, and his own membership in it.
       // `org_members_select` is the one policy in the set that does not
@@ -135,8 +141,12 @@ describe("cross-tenant reads return nothing", () => {
         expect(data).toEqual([expect.objectContaining({ id: bob.orgId })]);
       } else if (table === "org_members") {
         expect(data).toEqual([expect.objectContaining({ org_id: bob.orgId })]);
-      } else {
+      } else if (table === "invoice_items") {
+        // No org_id of its own — scoped through its invoice, and Bob has none.
         expect(data).toEqual([]);
+      } else {
+        expect(data!.every((row) => row.org_id === bob.orgId)).toBe(true);
+        expect(data!.some((row) => row.org_id === alice.orgId)).toBe(false);
       }
     });
   }
