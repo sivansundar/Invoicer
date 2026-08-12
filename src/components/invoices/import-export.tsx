@@ -13,7 +13,6 @@ import {
   saveClient,
   getTemplates,
   saveTemplate,
-  forceMigration,
 } from "@/lib/storage";
 import {
   validateImportedInvoices,
@@ -21,6 +20,7 @@ import {
   type CollectionValidation,
 } from "@/lib/import-validation";
 import { remapNonUuidIds } from "@/lib/import-remap";
+import { migrateToV2 } from "@/lib/migrate";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -129,14 +129,6 @@ export async function buildBackup() {
     templates,
     invoices,
   };
-}
-
-function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
-  return (
-    (collections.brands?.imported ?? 0) > 0 ||
-    (collections.clients?.imported ?? 0) > 0 ||
-    (collections.templates?.imported ?? 0) > 0
-  );
 }
 
 /**
@@ -290,7 +282,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           failed++;
         }
       }
-      if (saved > 0 || hasAnyCollectionWrite(collections)) forceMigration();
 
       finishImport({
         invoices: {
@@ -380,16 +371,49 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
+    // Normalise, then remap, then write.
+    //
+    // `migrateToV2` is what backfills the fields validation deliberately does
+    // not require — `accentColor`, `followup`, `brandSnapshot`, `currency`,
+    // `reminders`. That used to happen after the import, via `forceMigration`
+    // patching the localStorage keys the records had just been written to.
+    // With the data in Postgres there is no such second pass: a record
+    // missing `currency` now violates a NOT NULL constraint and is dropped.
+    // Normalising before the write is what keeps those records importable.
+    const normalised = migrateToV2({
+      brands: brands.valid,
+      clients: clients.valid,
+      invoices: invoices.valid,
+      templates: templates.valid,
+    });
+
+    // `currency` is the one field neither validation nor migrateToV2 fills.
+    // The app has always tolerated its absence by defaulting at read time
+    // (`invoice.currency ?? "INR"` in reports.ts and invoice-table.ts), which
+    // worked while nothing enforced it. The column is NOT NULL, so an
+    // invoice without one is now rejected outright — applied here, at the
+    // one place unvalidated external JSON enters, rather than in the mapper,
+    // where it would quietly paper over a bug in our own code.
+    const withCurrency = normalised.invoices.map((invoice) =>
+      invoice.currency ? invoice : { ...invoice, currency: "INR" as const }
+    );
+
+    // `migrateToV2` seeds the three default templates when it is handed none
+    // — right for a first-run migration, wrong for an import, where it would
+    // add templates the user's file never contained. Every new account
+    // already gets them from the signup trigger.
+    const normalisedTemplates = templates.valid.length === 0 ? [] : normalised.templates;
+
     // Every id column is `uuid`, and a backup written by the pre-Postgres
     // app carries hand-written template ids (`tpl-gentle-nudge`) that
-    // Postgres rejects outright. Remapping happens after validation and
+    // Postgres rejects outright. Remapping runs after normalisation and
     // before any write, so the references between records in the file are
     // rewritten together rather than one collection at a time.
     const remap = remapNonUuidIds({
-      brands: brands.valid,
-      clients: clients.valid,
-      templates: templates.valid,
-      invoices: invoices.valid,
+      brands: normalised.brands,
+      clients: normalised.clients,
+      templates: normalisedTemplates,
+      invoices: withCurrency,
     });
 
     // Written before invoices are even looked at, so an imported invoice's
@@ -424,7 +448,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     if (invoices.valid.length === 0) {
       // Nothing invoice-shaped in the file — finish here rather than run an
       // empty conflict pipeline.
-      if (hasAnyCollectionWrite(collections)) forceMigration();
       finishImport({
         invoices: {
           imported: 0,
@@ -576,10 +599,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         } else {
           discarded++;
         }
-      }
-
-      if (saved + overwritten + renamed > 0 || hasAnyCollectionWrite(pendingCollections)) {
-        forceMigration();
       }
 
       finishImport({

@@ -1,8 +1,4 @@
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
-import {
-  forceMigration as forceMigrationInternal,
-  runMigration as runMigrationInternal,
-} from "./migrate";
 import { writeLocalStorage } from "./local-storage";
 import { createClient } from "./supabase/client";
 import {
@@ -69,27 +65,6 @@ function notify(): void {
   for (const listener of listeners) listener();
 }
 
-/**
- * Runs the v1→v2 migration over whatever is still in localStorage.
- *
- * Nothing reads those collections any more — they were replaced by Postgres
- * — so this no longer feeds the UI. It is kept because `migrate.ts` is what
- * the localStorage importer will reuse to normalise a legacy file, and
- * because a user's existing local data must not be touched until they have
- * chosen to import it.
- */
-export function runMigration(): void {
-  runMigrationInternal();
-  planSnapshot = null;
-  notify();
-}
-
-/** As `runMigration`, but forced — used when importing a file into an install whose schema version already matches. */
-export function forceMigration(): void {
-  forceMigrationInternal();
-  planSnapshot = null;
-  notify();
-}
 
 // Plan state is a single object, not a collection, so it gets its own
 // one-slot cache rather than sharing `snapshots` — same requirement though:

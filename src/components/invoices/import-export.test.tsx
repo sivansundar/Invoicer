@@ -395,6 +395,57 @@ describe("ImportExport — restoring a backup written before hosted storage", ()
     expect(invoice.invoiceNumber).toBe("SC-2025-014");
   });
 
+  it("backfills the fields validation does not require, instead of dropping the record", async () => {
+    // `currency`, `brandSnapshot`, `reminders` and `followupsPaused` are all
+    // absent from a genuinely old invoice. Validation lets them through on
+    // purpose; migrateToV2 fills them in. Without that step `currency` is
+    // null, which violates a NOT NULL constraint, and the invoice is
+    // silently counted as failed rather than restored.
+    const bare = {
+      id: "e2f4a018-5c33-4b7e-9a61-0d8b2c6f4711",
+      invoiceNumber: "SC-2019-003",
+      brandId: "9f1c7b52-3d44-4a19-9f0e-2b7c1e5a8d33",
+      billDate: "2019-04-01",
+      dueDate: "2019-04-15",
+      client: { companyName: "Harbourline Foods", address: "9 Dock Street" },
+      items: [{ id: "l1", description: "Retainer", amount: 50000, tax: 18 }],
+      subtotal: 50000,
+      totalTax: 9000,
+      total: 59000,
+      status: "paid",
+      createdAt: "2019-04-01T00:00:00.000Z",
+      updatedAt: "2019-04-01T00:00:00.000Z",
+    };
+
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
+    uploadFile(
+      container,
+      { ...LEGACY_BACKUP, invoices: [bare] },
+      "invoicer-backup.json"
+    );
+
+    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
+
+    const [restored] = await storage.getInvoices();
+    expect(restored).toBeDefined();
+    expect(restored.invoiceNumber).toBe("SC-2019-003");
+    expect(restored.currency).toBe("INR");
+    expect(restored.reminders).toEqual([]);
+    expect(restored.followupsPaused).toBe(false);
+    expect(restored.brandSnapshot.invoicePrefix).toBeTruthy();
+  });
+
+  it("does not invent default templates for a file that had none", async () => {
+    // migrateToV2 seeds three when handed an empty template list — correct
+    // for a first-run migration, wrong for an import.
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
+    uploadFile(container, { ...LEGACY_BACKUP, templates: [] }, "invoicer-backup.json");
+
+    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
+
+    expect(await storage.getTemplates()).toHaveLength(0);
+  });
+
   it("tells the user their ids were rewritten, and what that means", async () => {
     const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
     uploadFile(container, LEGACY_BACKUP, "invoicer-backup.json");

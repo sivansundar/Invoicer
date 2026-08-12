@@ -225,14 +225,11 @@ export const savePlan = vi.fn((plan: PlanState): boolean => {
   return true;
 });
 
-// Migration and subscription surface, kept so the fake matches the real
-// module's exports. The migration is a localStorage concern that no longer
-// has anything to do for the collections that moved to Postgres.
+// Kept so the fake matches the real module's exports. `subscribe` now
+// serves only plan state, the last thing still in localStorage.
 export const subscribe = vi.fn((listener: () => void) => {
   void listener;
   return () => {};
 });
-export const runMigration = vi.fn(() => {});
-export const forceMigration = vi.fn(() => {});
 
 export { nextInvoiceNumber } from "@/lib/numbering";

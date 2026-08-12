@@ -271,7 +271,7 @@ From `docs/PHASE2-CARRYOVER.md`.
 
 Last, so every prior task can be verified against a working app.
 
-- [ ] Delete `src/lib/local-storage.ts` and its quota-toast path
+- [x] ~~Delete `src/lib/local-storage.ts`~~ **kept** — it is the quota guard for plan state, which stays local by design (Decisions §2), and for `migrate.ts`. The plan assumed every `localStorage` write would be gone; one is not
 - [ ] Delete the remaining snapshot cache, `getSnapshot`, `invalidate`, and the `runMigration`/`forceMigration` cache wrappers from `storage.ts`
 - [ ] `src/lib/migrate.ts` **stays** — the importer phase reuses it. Add a comment saying why, or someone will delete it as dead code
 - [ ] `savePlan`/`getPlanSnapshot` **stay** on `localStorage` — see Decisions §2
