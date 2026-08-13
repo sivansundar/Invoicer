@@ -574,27 +574,43 @@ Then change `saveBrand` so a fresh data URL is uploaded rather than stored inlin
 
 ```ts
 export async function saveBrand(brand: Brand): Promise<Brand> {
-  // A `logo` that is a data URL is a fresh upload from the form. Convert it
-  // to an object before writing the row, so `logo_data` stops accumulating
-  // base64 — and so `snapshotFromBrand` freezes a path onto every invoice
-  // issued from here on.
+  // CORRECTED DURING EXECUTION — the row must be written BEFORE the upload.
+  // The storage INSERT policy checks `exists (select 1 from public.brands b
+  // where b.id::text = ...)`, and brand ids are generated client-side, so on
+  // a first save there is no row yet and upload-first is denied by RLS.
+  //
+  // The cost is that the write is not atomic: a failure after the first
+  // upsert leaves the row committed — including every unrelated field edited
+  // in the same save — while this function rejects. There is no ordering
+  // that both satisfies the policy and keeps the two writes atomic.
+  //
+  // The base64 written in that first upsert is a deliberate fallback: if the
+  // upload then fails, the brand still renders from `logo_data`.
   //
   // Deliberately NOT clearing `logo_data` for brands that still have one and
   // no new upload: that column is what those brands render from until their
   // owner next touches the logo. Task 9 records the residue.
-  let toWrite = brand;
-  if (brand.logo?.startsWith("data:")) {
-    const logoPath = await uploadBrandLogo(brand.id, brand.logo);
-    toWrite = { ...brand, logoPath, logo: undefined };
-  }
-
   const { data, error } = await createClient()
     .from("brands")
-    .upsert(brandToRow(toWrite))
+    .upsert(brandToRow(brand))
     .select("*")
     .single();
   throwOn(error);
-  return rowToBrand(data as BrandRow);
+  let result = data as BrandRow;
+
+  if (brand.logo?.startsWith("data:")) {
+    const logoPath = await uploadBrandLogo(brand.id, brand.logo);
+    const { data: updated, error: updateError } = await createClient()
+      .from("brands")
+      .update({ logo_path: logoPath, logo_data: null })
+      .eq("id", brand.id)
+      .select("*")
+      .single();
+    throwOn(updateError);
+    result = updated as BrandRow;
+  }
+
+  return rowToBrand(result);
 }
 ```
 
@@ -1798,3 +1814,15 @@ This is why Step 5 exists, and it is worth noting Step 5 as written was *also* i
 **A `storage.buckets` SELECT policy was added, then removed.** `storage.buckets` ships with RLS on and zero policies, so `getBucket()` 404s for everyone — including legitimate owners. The implementer added a narrowly-scoped policy to make the "bucket exists and is private" test pass. Removed on review: no application path needs bucket SELECT (`upload`, `createSignedUrl` and `list` all work without it), so it was production security surface existing only to satisfy a test. The test now asserts the property that actually matters — an object is not readable without a signature — falsified by flipping the bucket public.
 
 **`src/test/integration/helpers.ts` exports `makeUser()`**, returning `{ client, userId, orgId, email }`. The `signInAsNewUser`/`serviceClient` names used in Task 1's test code do not exist. Later tasks referencing integration helpers should check the real exports first.
+
+### Task 2 — the upload ordering above was wrong, and a fourth test was vacuous
+
+**Upload-before-write is denied by RLS.** Task 1's INSERT policy requires the brand row to exist, and brand ids are generated client-side, so creating a brand with a logo failed every time. Unlike Task 1's bug this one would have shipped visibly broken. The ordering above is corrected in place.
+
+**The fix costs atomicity, and that is now pinned rather than assumed.** A failure after the first upsert leaves the row committed — including unrelated fields edited in the same save — while `saveBrand` rejects. An integration test forces an upload failure against real Postgres and asserts the row persisted, `phone` survived, and `logo_data` still holds the base64. `saveBrand` carries a comment explaining why a single upsert cannot be restored.
+
+**The idempotence test could not fail.** `expect(second.logoPath).toBe(first.logoPath)` passes when both are `undefined`, so it was green even with the upload removed entirely. Fixed by asserting `first.logoPath` matches `/\.png$/` before comparing.
+
+It was found only because the fix round re-ran the falsification probe across **all** tests that depend on the upload firing. The previous round's probe reported "3 failing tests" when six depend on it, and that mismatch was the tell — accepting a probe without checking the count against what should have failed is how the vacuous test survived a round.
+
+**Running total: four tests in this project have passed for the wrong reason.** Every one was found by breaking the code, none by reading the test.
