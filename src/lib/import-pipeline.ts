@@ -426,8 +426,8 @@ async function writeInvoices(
  * Brands, clients and templates are written before invoices are even
  * looked at, so an imported invoice's brandId/clientId resolve against
  * records that already exist by the time anything downstream reads them.
- * A caller free of invoice conflicts (Task 8's prompt, or the file
- * importer once it already knows every resolution) makes one call with all
+ * A caller free of invoice conflicts (the local-data import prompt, or the
+ * file importer once it already knows every resolution) makes one call with all
  * four collections; the file importer's dialog instead makes two — one for
  * brands/clients/templates immediately, and a second, invoices-only call
  * once every round of its dialog has an answer — so it can show the

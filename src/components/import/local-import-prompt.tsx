@@ -210,10 +210,24 @@ export function LocalImportPrompt() {
         </DialogHeader>
 
         {stage.name === "failed" && (
-          <p className="text-sm text-destructive">
-            Import failed — {stage.error}. Nothing on this device was changed, so you can try
-            again.
-          </p>
+          <>
+            <p className="text-sm text-destructive">
+              Import failed — {stage.error}. Nothing on this device was changed, so you can try
+              again.
+            </p>
+            {/* `prepareImport` only ever sees `readLocalCollections`'s parsed
+                arrays, never the fact that a key was unreadable in the first
+                place — so a corrupt-only device fails validation with "the
+                file was empty" even though something real was here and just
+                couldn't be read. Shown here too, not just in the `done`
+                stage, so that device isn't told the wrong reason. */}
+            {corrupt && (
+              <p className="text-sm text-muted-foreground">
+                Some local data ({corruptKeys.join(", ")}) couldn&apos;t be read — it may be
+                damaged — so it wasn&apos;t part of this import.
+              </p>
+            )}
+          </>
         )}
 
         {stage.name === "done" && (

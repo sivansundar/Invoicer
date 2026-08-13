@@ -69,12 +69,14 @@ create policy "brand logos are writable by their brand's org"
   );
 
 -- Upsert needs UPDATE as well as INSERT. An `upload(..., { upsert: true })`
--- against an existing path issues an UPDATE against `storage.objects` under
--- the hood; with only the INSERT policy above, RLS denies that UPDATE
--- outright — the call rejects with a `StorageApiError` (`AccessDenied`,
--- HTTP 403), not a silent no-op. Confirmed by `storage.test.ts`, which fails
--- without this policy. Both `using` and `with check` are required: `using`
--- picks the row to update, `with check` validates the result.
+-- against an existing path issues an `INSERT ... ON CONFLICT DO UPDATE`
+-- against `storage.objects` under the hood; with only the INSERT policy
+-- above, RLS denies that upsert outright — the call rejects with a
+-- `StorageApiError` (`AccessDenied`, HTTP 403), not a silent no-op. A plain
+-- denied `UPDATE` would instead return `UPDATE 0`; it's the `ON CONFLICT DO
+-- UPDATE` form specifically that raises `42501` on a policy violation. Both
+-- `using` and `with check` are required: `using` picks the row to update,
+-- `with check` validates the result.
 create policy "brand logos are replaceable by their brand's org"
   on storage.objects for update to authenticated
   using (

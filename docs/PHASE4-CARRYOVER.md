@@ -1,7 +1,7 @@
 # Phase 3 carry-over — read before starting Phase 4
 
 Written at the end of the SaaS Phase 3 branch (`feat/saas-phase3-logos-import`,
-569 unit + 113 integration tests, plus a final whole-branch review pass before merge).
+a green unit + integration suite, plus a final whole-branch review pass before merge).
 Everything here was found during execution, consciously deferred, or decided in a way the next
 phase needs to know about.
 

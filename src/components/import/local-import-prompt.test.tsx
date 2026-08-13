@@ -259,6 +259,23 @@ describe("LocalImportPrompt", () => {
     expect(localStorage.getItem("invoicer_invoices")).toBe(corruptPayload);
   });
 
+  // A device holding nothing BUT a corrupt key still renders the prompt
+  // (`readLocalCollections` returns non-null for it), but `prepareImport`
+  // never sees the corrupt key itself — only the empty arrays it parsed to
+  // — so it fails with "the file was empty." That alone is the wrong
+  // reason: the corrupt-key note must be shown in the `failed` stage too,
+  // not just `done`, so the user also learns a key was unreadable rather
+  // than being left thinking there was nothing here at all.
+  it("tells a corrupt-only device its data was unreadable, alongside the failure", async () => {
+    const corruptPayload = '[{"id":"aaaaaaa1-0000-4000-8000-000000000001","invoiceNumber":"IN';
+    localStorage.setItem("invoicer_invoices", corruptPayload);
+
+    renderWithProviders(<LocalImportPrompt />);
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+
+    expect(await screen.findByText(/couldn.t be read/i)).toBeInTheDocument();
+  });
+
   // The all-clean case must still work — the fix above must not make the
   // gate permanently closed. Duplicates the coverage of the existing test
   // at the top of this file (kept passing, unmodified) as an explicit
