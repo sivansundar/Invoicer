@@ -256,7 +256,7 @@ create policy "brand logos are readable by their brand's org"
     bucket_id = 'brand-logos'
     and exists (
       select 1 from public.brands b
-      where b.id::text = (storage.foldername(name))[1]
+      where b.id::text = (storage.foldername(objects.name))[1]
     )
   );
 
@@ -266,7 +266,7 @@ create policy "brand logos are writable by their brand's org"
     bucket_id = 'brand-logos'
     and exists (
       select 1 from public.brands b
-      where b.id::text = (storage.foldername(name))[1]
+      where b.id::text = (storage.foldername(objects.name))[1]
     )
   );
 
@@ -281,14 +281,14 @@ create policy "brand logos are replaceable by their brand's org"
     bucket_id = 'brand-logos'
     and exists (
       select 1 from public.brands b
-      where b.id::text = (storage.foldername(name))[1]
+      where b.id::text = (storage.foldername(objects.name))[1]
     )
   )
   with check (
     bucket_id = 'brand-logos'
     and exists (
       select 1 from public.brands b
-      where b.id::text = (storage.foldername(name))[1]
+      where b.id::text = (storage.foldername(objects.name))[1]
     )
   );
 
@@ -1785,4 +1785,16 @@ git commit -m "docs: record Phase 3 carry-over for Phase 4"
 
 ## Found during execution
 
-*(Append as you go: anything the plan got wrong, and what was done instead.)*
+### Task 1 — the policy SQL above was wrong, and the guard test was vacuous
+
+**`name` inside the subquery resolved to the wrong table.** As originally written, `where b.id::text = (storage.foldername(name))[1]` sits inside `select 1 from public.brands b`, and `brands` has its own `name` column — so the unqualified reference bound to the brand's *display name*, not the object path. Confirmed by inspecting `pg_policies.qual`, which showed `storage.foldername(b.name)`. Fixed by qualifying `objects.name`; the SQL above has been corrected in place so nobody copies the broken version.
+
+It would have failed *closed*, so the happy-path tests would have caught it. That is luck, not design.
+
+**The `not-a-uuid` test could not have caught what it was named for.** `expect(JSON.stringify(error)).not.toContain("22P02")` still passed 8/8 with the `::uuid` cast reintroduced — the SQLSTATE never reaches the client in a form that assertion can see. Replaced with a `StorageApiError#code` check distinguishing `AccessDenied` from `InvalidParameter`, verified to fail with the cast and pass without it.
+
+This is why Step 5 exists, and it is worth noting Step 5 as written was *also* insufficient: it only falsified the SELECT policy, so this test slipped through and was caught by the reviewer instead. **When a task adds N guards, falsify N guards, not the one the plan happened to name.**
+
+**A `storage.buckets` SELECT policy was added, then removed.** `storage.buckets` ships with RLS on and zero policies, so `getBucket()` 404s for everyone — including legitimate owners. The implementer added a narrowly-scoped policy to make the "bucket exists and is private" test pass. Removed on review: no application path needs bucket SELECT (`upload`, `createSignedUrl` and `list` all work without it), so it was production security surface existing only to satisfy a test. The test now asserts the property that actually matters — an object is not readable without a signature — falsified by flipping the bucket public.
+
+**`src/test/integration/helpers.ts` exports `makeUser()`**, returning `{ client, userId, orgId, email }`. The `signInAsNewUser`/`serviceClient` names used in Task 1's test code do not exist. Later tasks referencing integration helpers should check the real exports first.
