@@ -1862,4 +1862,16 @@ Filed as a Minor about comment accuracy; it is really a fidelity gap. **A fake t
 
 **Rule:** when a seam's failure ordering is load-bearing, the fake must reproduce the ordering, not just the outcome.
 
+### Task 6 — "all tests pass unmodified" did not prove the refactor was faithful
+
+The extraction moved `writeInvoices` from acting on the `existing.id` **captured in `PendingConflict` when the dialog opened** to re-deriving the match from a fresh `getInvoices()` at write time, consulting the user's resolution only `if (match)`. On a lookup miss the invoice fell through to the no-match branch and was created unconditionally — **a user-chosen `discard` created the record, and a `rename` created it under the original number.**
+
+Every pre-existing test passed. They had to: the bug needs the fresh lookup to disagree with the captured one, which cannot happen in a single tab with a synchronous flow.
+
+**That is the limit of "tests pass unmodified" as a refactor criterion.** It proves no *tested* behaviour changed. It cannot prove the code was moved rather than reimplemented, and this was a reimplementation with an extra data dependency — the same class the plan warned about ("a closure now read at a different moment"), one level down: a closure over a captured database row rather than over React state. Only a hunk-by-hunk read of the moved code found it.
+
+Fixed by threading the captured pairing through by object identity, so the resolution applies to the row the user was shown. `overwrite` was the case worth checking hardest — it is the only resolution that needs an id to write to.
+
+**The plan's own `ImportSummary` sketch was fiction.** Brands, clients and templates are never "updated", only skipped-or-added; invoices have four outcomes. `ConflictResolver` did not exist at all. The implementer kept the real shapes over the sketch, which was correct — reshaping real accounting to fit an invented type is exactly the silent behaviour change the task forbade. **Task 8's code in this plan is written against that fiction and must be adapted to the real surface.**
+
 **The plan's `brand-logo.tsx` snippet specified an inline `eslint-disable`** in a repo whose `eslint.config.mjs` explicitly says it does not use them. Corrected above. Note the follow-on: Task 5 routes the brand form's preview through `BrandLogo`, which makes `brand-form.tsx`'s entry in that `files:` list dead the same way the preview entries became dead. **Re-check that list in Task 5.**
