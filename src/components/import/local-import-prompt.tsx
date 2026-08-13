@@ -21,20 +21,23 @@ import {
 } from "@/lib/local-data";
 
 /**
- * Whether any part of a completed import didn't actually persist —
- * per-record write failures `writeImport` counts rather than throws (a full
- * storage quota, a rejected insert). Offering "Clear local copy" here would
- * delete the only surviving copy of a record that never made it to the
- * account, so it's withheld whenever this is true, not just while the stage
- * is "failed" (which only covers a hard rejection before any summary
- * exists).
+ * Whether every record this import touched actually ended up in the
+ * account — nothing discarded because it already had a match there, and
+ * nothing failed to write (a full storage quota, a rejected insert). Both
+ * leave a record that exists ONLY on this device: a discarded invoice was
+ * never written anywhere but here, and a failed write never landed either.
+ * "Clear local copy" is gated on this being true, because it is the one
+ * button in this flow that writes an `invoicer_*` key — offering it any
+ * other time would let the same click that was supposed to be tidy-up
+ * delete the only surviving copy of something that never made it across.
  */
-function hasWriteFailures(summary: ImportSummaryData): boolean {
+function importedEverything(summary: ImportSummaryData): boolean {
   return (
-    summary.invoices.failed > 0 ||
-    (summary.brands?.failed ?? 0) > 0 ||
-    (summary.clients?.failed ?? 0) > 0 ||
-    (summary.templates?.failed ?? 0) > 0
+    summary.invoices.discarded === 0 &&
+    summary.invoices.failed === 0 &&
+    (summary.brands?.failed ?? 0) === 0 &&
+    (summary.clients?.failed ?? 0) === 0 &&
+    (summary.templates?.failed ?? 0) === 0
   );
 }
 
@@ -153,6 +156,19 @@ export function LocalImportPrompt() {
                 {stage.summary.invoices.discarded === 1 ? "it" : "them"} with the local one.
               </p>
             )}
+            {/* Explains the absence of "Clear local copy" below, rather than
+                leaving the user to notice it's just missing. Whatever
+                didn't land — discarded or failed — only ever existed here,
+                so this is deliberately shown for either reason, not just
+                the discard case that made it reachable. */}
+            {!importedEverything(stage.summary) && (
+              <p className="text-sm text-muted-foreground">
+                This device may still be the only place some of that lives, so we haven&apos;t
+                offered to clear your local copy. It isn&apos;t going anywhere on its own — come
+                back and try again, or clear it yourself once you&apos;re sure nothing here is
+                missing from your account.
+              </p>
+            )}
           </>
         )}
 
@@ -179,10 +195,11 @@ export function LocalImportPrompt() {
           {stage.name === "importing" && <Button disabled>Importing…</Button>}
 
           {/* Only offered once the result is on screen, and only when
-              nothing failed to write — deleting someone's only copy on the
-              strength of an upload nobody has looked at (or one that only
-              partly landed) is not a risk worth taking. */}
-          {stage.name === "done" && !cleared && !hasWriteFailures(stage.summary) && (
+              EVERY record made it across — deleting someone's only copy on
+              the strength of an import nobody has looked at (or one that
+              only partly landed, whether discarded or failed) is not a
+              risk worth taking. */}
+          {stage.name === "done" && !cleared && importedEverything(stage.summary) && (
             <Button
               variant="outline"
               onClick={() => {

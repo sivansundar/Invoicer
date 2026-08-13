@@ -142,6 +142,43 @@ describe("LocalImportPrompt", () => {
     expect(screen.getByText(/1 invoice already in your account/i)).toBeInTheDocument();
   });
 
+  // A discarded invoice was never written anywhere but this device — the
+  // discard resolver above only stops it from clobbering the server's copy,
+  // it does nothing to protect the device's own copy of the same record.
+  // "Clear local copy" writes an invoicer_* key (the one thing in this flow
+  // that does), so it must not be offered here: one click later, the only
+  // surviving copy of the discarded invoice would be gone too.
+  it("does not offer Clear local copy when an invoice was discarded, and keeps the local keys intact", async () => {
+    seed({
+      invoices: [
+        validInvoice({
+          id: "aaaaaaa1-0000-4000-8000-000000000001",
+          invoiceNumber: "INV-COLLIDE",
+          total: 5000,
+        }),
+      ],
+    });
+    localStorage.setItem("invoicer_brands", JSON.stringify([validBrand()]));
+    localStorage.setItem(
+      "invoicer_invoices",
+      JSON.stringify([
+        validInvoice({
+          id: "aaaaaaa1-0000-4000-8000-000000000099",
+          invoiceNumber: "INV-COLLIDE",
+          total: 9999,
+        }),
+      ])
+    );
+
+    renderWithProviders(<LocalImportPrompt />);
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+    await screen.findByRole("heading", { name: /imported/i });
+
+    expect(screen.queryByRole("button", { name: /clear local copy/i })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("invoicer_invoices")!)).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem("invoicer_brands")!)).toHaveLength(1);
+  });
+
   it("keeps the local copy when the import fails", async () => {
     seedLocal(2);
     const { failNext } = await import("@/test/fake-seam");
