@@ -291,6 +291,42 @@ describe("snapshotFromBrand — invoiceDesign", () => {
   });
 });
 
+describe("snapshotFromBrand — logoPath", () => {
+  const baseBrand: Brand = {
+    id: "b1",
+    name: "Sivan Studio",
+    address: "44, 100 Feet Rd",
+    email: "billing@sivan.studio",
+    invoicePrefix: "SC",
+    nextInvoiceNumber: 1,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    accentColor: "#2563eb",
+    followup: {
+      enabled: false,
+      mode: "weekly",
+      weekday: 1,
+      time: "09:00",
+      repeat: "week",
+      templateId: "",
+      stopAfter: 0,
+    },
+    bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+    invoiceDesign: "modern",
+  };
+
+  it("snapshotFromBrand carries logoPath", () => {
+    const snapshot = snapshotFromBrand({ ...baseBrand, logoPath: "b1/abc.png", logo: undefined });
+    expect(snapshot.logoPath).toBe("b1/abc.png");
+    expect(snapshot.logo).toBeUndefined();
+  });
+
+  it("snapshotFromBrand still carries base64 for a brand that has not re-uploaded", () => {
+    const snapshot = snapshotFromBrand({ ...baseBrand, logo: "data:image/png;base64,aGk=" });
+    expect(snapshot.logo).toBe("data:image/png;base64,aGk=");
+    expect(snapshot.logoPath).toBeUndefined();
+  });
+});
+
 describe("migrateToV2 — templates", () => {
   it("seeds the three default templates when none exist", () => {
     expect(migrate().templates).toHaveLength(SEED_TEMPLATES.length);

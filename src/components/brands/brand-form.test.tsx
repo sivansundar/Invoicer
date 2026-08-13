@@ -14,6 +14,21 @@ import type { Brand, Invoice } from "@/lib/types";
 // MSW; the real queries are covered by src/test/integration/seam.test.ts.
 vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
+// `downsampleImage` needs a real canvas, which jsdom does not provide. The
+// "BrandForm — logo, phone, PAN" describe block below gives it one via a
+// mocked `Image`/canvas pair, because those tests care that the real
+// downsample pipeline runs. The "BrandForm — logo upload" describe block
+// further down does not — it is about the save path once a data URL exists,
+// which `downsampleImage`'s own behaviour (covered in `brands.test.ts`) is
+// orthogonal to — so it stubs this one function directly via `chooseLogo`.
+// Wrapping the real implementation as the mock's default means every other
+// test in this file keeps exercising the genuine canvas pipeline unless it
+// opts into the stub.
+vi.mock("@/lib/brands", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/brands")>();
+  return { ...actual, downsampleImage: vi.fn(actual.downsampleImage) };
+});
+
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -65,6 +80,27 @@ function imageFile(bytes: number, name = "logo.png", type = "image/png"): File {
 
 function fieldByLabel(label: string): HTMLInputElement {
   return screen.getByText(label).parentElement!.querySelector("input") as HTMLInputElement;
+}
+
+/** Fills in the one field `handleSubmit` actually requires before it will save. */
+async function fillRequiredFields() {
+  await userEvent.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Acme Studio");
+}
+
+/**
+ * Picks a file and resolves it to `dataUrl` without touching jsdom's absent
+ * canvas — `@/lib/brands` is mocked above with `downsampleImage` wrapped in a
+ * `vi.fn`, so this only has to arm its next call rather than fake an `Image`
+ * and a canvas context the way the describe block below does.
+ */
+async function chooseLogo(dataUrl: string) {
+  const { downsampleImage } = await import("@/lib/brands");
+  vi.mocked(downsampleImage).mockResolvedValueOnce(dataUrl);
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  await userEvent.upload(fileInput, imageFile(1024));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Remove logo" })).toBeInTheDocument()
+  );
 }
 
 describe("BrandForm — logo, phone, PAN", () => {
@@ -233,6 +269,106 @@ describe("BrandForm — logo, phone, PAN", () => {
     // The typed name must still be on screen — nothing was actually saved,
     // so nothing should have been lost either.
     expect(screen.getByDisplayValue("Acme Studio")).toBeInTheDocument();
+  });
+});
+
+describe("BrandForm — logo upload", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetFakeSeam();
+    push.mockClear();
+    toast.mockClear();
+    // `resetFakeSeam` wipes the in-memory collections but not each mocked
+    // function's own call history — the id-reuse test below counts
+    // `saveBrand` calls, so a leftover from an earlier test in this file
+    // would inflate it.
+    vi.mocked(storage.saveBrand).mockClear();
+  });
+
+  it("uploads a newly chosen logo and stores the path, not the bytes", async () => {
+    renderForm();
+
+    await fillRequiredFields();
+    await chooseLogo("data:image/png;base64,aGk=");
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+
+    await waitFor(() => expect(storage.uploadBrandLogo).toHaveBeenCalled());
+    const [saved] = await storage.getBrands();
+    expect(saved.logoPath).toBeTruthy();
+    expect(saved.logo).toBeUndefined();
+  });
+
+  it("keeps the form usable when the upload fails, rather than losing the brand", async () => {
+    // Regression coverage for the non-atomic `saveBrand`: the brand row can
+    // commit even though the promise this awaits rejects (see the doc
+    // comment on `saveBrand` in `@/lib/storage`). This file mocks `sonner`
+    // and mounts no `<Toaster />` (see the note at the top of this file), so
+    // — consistent with every other save-failure test here — the surfaced
+    // error is asserted on the `toast` mock rather than `screen.findByText`.
+    failNext("uploadBrandLogo", "upload failed");
+    renderForm();
+
+    await fillRequiredFields();
+    await chooseLogo("data:image/png;base64,aGk=");
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("upload failed"));
+    // Not a success toast, and no navigation away — the same shape as
+    // "does not show a success toast or navigate away when the save itself
+    // fails" above, now exercised through the upload branch specifically.
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.stringContaining("is ready — first invoice will be")
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Create brand" })).toBeEnabled();
+    // What was typed is still there — nothing to re-enter on retry.
+    expect(screen.getByDisplayValue("Acme Studio")).toBeInTheDocument();
+  });
+
+  it("reuses the same brand id when retrying after a failed save, rather than orphaning the first attempt's row", async () => {
+    // `saveBrand` upserts the whole row before it ever touches Storage (see
+    // its doc comment), so a first attempt that fails on the upload step can
+    // still have committed a row under whatever id was sent. If a retry
+    // generated a fresh id instead of reusing it, that first row would be
+    // orphaned — present in Postgres, invisible to the user, holding a
+    // logo_data the failed upload never cleared.
+    failNext("saveBrand", "network unreachable");
+    renderForm();
+
+    await fillRequiredFields();
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("network unreachable"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/brands"));
+
+    const calls = vi.mocked(storage.saveBrand).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[1][0].id).toBe(calls[0][0].id);
+  });
+
+  it("clearing an already-migrated, path-only logo actually clears it, not just the local preview", async () => {
+    // The companion to "clearing a logo actually clears it" above, but for a
+    // brand that has already been migrated to Storage — `logo` is unset and
+    // only `logoPath` carries the object. `handleRemoveLogo` clearing only
+    // `logo` (and leaving `logoPath` behind) would resave the brand with its
+    // old logo still attached; this is the exact bug the two-state design in
+    // the brief exists to prevent.
+    const existing = brand({ logo: undefined, logoPath: "b1/abc.png" });
+    seed({ brands: [existing] });
+    renderForm(existing);
+
+    expect(screen.getByRole("button", { name: "Remove logo" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove logo" }));
+    expect(screen.getByRole("button", { name: "Upload logo" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(async () => {
+      const saved = (await storage.getBrand("b1"))!;
+      expect(saved.logo).toBeUndefined();
+      expect(saved.logoPath).toBeUndefined();
+    });
   });
 });
 

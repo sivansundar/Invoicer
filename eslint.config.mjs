@@ -25,8 +25,8 @@ const eslintConfig = defineConfig([
     "supabase/.temp/**",
   ]),
   {
-    // These files render a user-uploaded brand logo that is stored (and
-    // read back) as either a base64 data URI or a signed Storage URL, not a
+    // This file renders a user-uploaded brand logo that is stored (and read
+    // back) as either a base64 data URI or a signed Storage URL, not a
     // remote/static asset — there is no fixed origin for `next/image` to
     // optimize against, `next/image`'s data-URI support still requires
     // `unoptimized` with none of the usual benefit (no CDN, no responsive
@@ -34,13 +34,11 @@ const eslintConfig = defineConfig([
     // `next/image` would need `remotePatterns` per Supabase project for a
     // ~36px inline thumbnail.
     // `brand-logo.tsx` is the one component that renders a resolved logo
-    // (base64 or a signed Storage URL) — both invoice preview designs route
-    // through it instead of duplicating the element. `brand-form.tsx`
-    // renders its own separate `<img>`, for the picker's live preview of a
-    // file the user just selected, before it's ever uploaded or resolved.
-    // Scoped to exactly these files rather than an inline `eslint-disable`,
-    // which this repo doesn't use.
-    files: ["src/components/brands/brand-form.tsx", "src/components/brands/brand-logo.tsx"],
+    // (base64 or a signed Storage URL) — both invoice preview designs and
+    // `brand-form.tsx`'s own picker preview route through it instead of
+    // duplicating the element. Scoped to exactly this file rather than an
+    // inline `eslint-disable`, which this repo doesn't use.
+    files: ["src/components/brands/brand-logo.tsx"],
     rules: {
       "@next/next/no-img-element": "off",
     },

@@ -18,6 +18,7 @@ import { defaultFollowupConfig } from "@/lib/seed";
 import { BRAND_PALETTE } from "@/lib/palette";
 import { DEFAULT_INVOICE_DESIGN, INVOICE_DESIGN_OPTIONS } from "@/lib/invoice-design";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
+import { BrandLogo } from "@/components/brands/brand-logo";
 import { brandPreviewBody, latestInvoiceForBrand } from "@/lib/brand-preview";
 import { snapshotFromBrand } from "@/lib/migrate";
 import {
@@ -43,9 +44,26 @@ export function BrandForm({ brand }: BrandFormProps) {
   const isEdit = !!brand;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Generated once per mount rather than inline in `handleSubmit`. A brand's
+  // id has to exist before the first save (see `saveBrand`'s doc comment —
+  // the storage INSERT policy checks for the row), so a create form must
+  // pick one before it knows whether the save will succeed. Computing it
+  // fresh on every submit would mint a new id on every retry: the failed
+  // attempt's row (saveBrand upserts the whole row before touching Storage,
+  // so it can commit even though the promise rejects) would then be orphaned
+  // rather than the one a retry updates.
+  const brandIdRef = useRef(brand?.id ?? crypto.randomUUID());
+
   const [name, setName] = useState(brand?.name ?? "");
   const [prefix, setPrefix] = useState(brand?.invoicePrefix ?? "");
+  // A data URL, set only by a NEW upload in this session.
   const [logo, setLogo] = useState(brand?.logo ?? "");
+  // The already-stored object, until a new upload replaces it. Kept as its
+  // own piece of state rather than folded into `logo` with a sentinel value:
+  // the two mean different things, and collapsing them would make "the user
+  // removed the logo" indistinguishable from "the user kept the existing
+  // one" — see `handleRemoveLogo` below.
+  const [logoPath, setLogoPath] = useState(brand?.logoPath);
   const [logoProcessing, setLogoProcessing] = useState(false);
   const [accentColor, setAccentColor] = useState(
     brand?.accentColor ?? nextUnusedAccentColor(brands)
@@ -91,6 +109,12 @@ export function BrandForm({ brand }: BrandFormProps) {
     gstNumber: gstNumber || undefined,
     panNumber: panNumber || undefined,
     logo: logo || undefined,
+    // Carried so the preview resolves an existing Storage logo, and so
+    // saving an untouched, already-migrated brand doesn't blow its path away
+    // — `brandToRow` writes `null` to `logo_path` for whatever is here.
+    // Replaced by `saveBrand` with a fresh path when `logo` above is a new
+    // data URL.
+    logoPath,
     invoicePrefix: effectivePrefix,
     // Dead state (see `nextInvoiceNumber` — the live calculation from
     // `@/lib/storage` is the only source of truth ever read). Carried
@@ -143,6 +167,8 @@ export function BrandForm({ brand }: BrandFormProps) {
       // count, not brand count (see `MAX_LOGO_STORED_BYTES` in `@/lib/brands`).
       const dataUrl = await downsampleImage(file);
       setLogo(dataUrl);
+      // A new upload supersedes whatever was already in Storage.
+      setLogoPath(undefined);
     } catch (err) {
       // Covers both a corrupt/unreadable file and the post-downsample size
       // backstop — either way the failure is loud, not a silently-unset logo.
@@ -152,7 +178,12 @@ export function BrandForm({ brand }: BrandFormProps) {
     }
   };
 
-  const handleRemoveLogo = () => setLogo("");
+  // Clears both pieces of state — leaving `logoPath` behind would resave the
+  // brand still pointing at its old Storage object, which is not a removal.
+  const handleRemoveLogo = () => {
+    setLogo("");
+    setLogoPath(undefined);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,9 +196,9 @@ export function BrandForm({ brand }: BrandFormProps) {
     const savedPrefix = effectivePrefix;
 
     // `draftBrand` already holds every field exactly as the preview rendered
-    // it — only the id is decided here, at the moment a brand first becomes
-    // real.
-    const record: Brand = { ...draftBrand, id: brand?.id ?? crypto.randomUUID() };
+    // it — the id was decided once, at mount (`brandIdRef`), so a retry after
+    // a failed save reuses it rather than minting a new one.
+    const record: Brand = { ...draftBrand, id: brandIdRef.current };
 
     // `save` (from `useBrands`) rejects when the write didn't persist — a
     // network failure, or an RLS policy refusing the row. Toasting success
@@ -235,12 +266,13 @@ export function BrandForm({ brand }: BrandFormProps) {
           <div className="flex gap-3 flex-wrap items-start">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Logo</Label>
-              {logo ? (
+              {logo || logoPath ? (
                 <div className="relative w-fit">
-                  <img
-                    src={logo}
-                    alt={`${name || "Brand"} logo`}
+                  <BrandLogo
+                    source={{ logo, logoPath }}
+                    name={name || "Brand"}
                     className="size-9 rounded-lg object-contain border"
+                    fallbackClassName="size-9 rounded-lg border flex items-center justify-center text-sm font-semibold text-muted-foreground"
                   />
                   <button
                     type="button"
