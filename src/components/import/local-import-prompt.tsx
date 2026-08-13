@@ -81,12 +81,20 @@ export function LocalImportPrompt() {
     }
 
     try {
-      // No `onConflict`: this device's own local data importing into a
-      // fresh account is not expected to collide with anything already
-      // there. See the report for what `writeImport` does with no resolver
-      // when it does collide.
+      // This prompt is not a first-run migration — it stays offered until
+      // the user dismisses or accepts it, so the account it's importing
+      // into is often not fresh: invoices created since signup can already
+      // occupy the same numbers this device's local data used. `discard`
+      // (never `overwrite`) is the only resolution that can't destroy
+      // something real: a discarded invoice is still on this device,
+      // untouched, because this flow never deletes the local copy on its
+      // own — the same guarantee that makes "Clear local copy" safe to
+      // offer only once the user has seen the result. Overwriting would
+      // instead let an old browser tab silently clobber an invoice the
+      // account has genuinely moved on with.
       const summary = await writeImport(prepared.collections, {
         remappedIds: prepared.remappedIds,
+        onConflict: () => ({ action: "discard" }),
       });
       setStage({ name: "done", summary });
     } catch (err) {
@@ -127,7 +135,26 @@ export function LocalImportPrompt() {
           </p>
         )}
 
-        {stage.name === "done" && <ImportSummaryView summary={stage.summary} />}
+        {stage.name === "done" && (
+          <>
+            <ImportSummaryView summary={stage.summary} />
+            {/* `writeImport` never overwrites an existing invoice for this
+                flow (see the `onConflict` resolver above) — a non-zero
+                `discarded` count means some local invoices already have a
+                match in the account and were left out, not that anything
+                failed. Named explicitly so "Imported" (the dialog title)
+                doesn't read as "everything imported" when it wasn't. */}
+            {stage.summary.invoices.discarded > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {stage.summary.invoices.discarded} invoice
+                {stage.summary.invoices.discarded === 1 ? "" : "s"} already in your account —
+                kept your existing cop{stage.summary.invoices.discarded === 1 ? "y" : "ies"}
+                rather than replacing{" "}
+                {stage.summary.invoices.discarded === 1 ? "it" : "them"} with the local one.
+              </p>
+            )}
+          </>
+        )}
 
         <DialogFooter>
           {stage.name === "asking" && (

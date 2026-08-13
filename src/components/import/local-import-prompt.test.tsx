@@ -5,6 +5,7 @@ import { renderWithProviders } from "@/test/render";
 import { LocalImportPrompt } from "./local-import-prompt";
 import { resetFakeSeam } from "@/test/fake-seam";
 import { validBrand, validInvoice } from "@/test/factories";
+import { seed } from "@/test/fake-seam";
 
 vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
@@ -95,6 +96,50 @@ describe("LocalImportPrompt", () => {
     renderWithProviders(<LocalImportPrompt />);
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  // This flow persists until dismissed, so the account it imports into is
+  // often not fresh — an invoice number this device's local data used can
+  // already belong to a real, server-side invoice created since signup.
+  // Overwriting it would destroy something real; the local copy, by
+  // contrast, is never deleted by this flow on its own, so discarding costs
+  // nothing. The load-bearing assertion is `total`, not just the count: a
+  // silent overwrite would still leave exactly one invoice under this
+  // number, so length alone can't tell overwrite and discard apart.
+  it("keeps the server's invoice untouched when a local one collides by number, and reports it discarded", async () => {
+    seed({
+      invoices: [
+        validInvoice({
+          id: "aaaaaaa1-0000-4000-8000-000000000001",
+          invoiceNumber: "INV-COLLIDE",
+          total: 5000,
+        }),
+      ],
+    });
+    localStorage.setItem("invoicer_brands", JSON.stringify([validBrand()]));
+    localStorage.setItem(
+      "invoicer_invoices",
+      JSON.stringify([
+        validInvoice({
+          id: "aaaaaaa1-0000-4000-8000-000000000099",
+          invoiceNumber: "INV-COLLIDE",
+          total: 9999,
+        }),
+      ])
+    );
+    const { getInvoices } = await import("@/test/fake-seam");
+
+    renderWithProviders(<LocalImportPrompt />);
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+    await screen.findByRole("heading", { name: /imported/i });
+
+    const serverInvoices = await getInvoices();
+    expect(serverInvoices).toHaveLength(1);
+    // Still the server's own total, not the local device's — an overwrite
+    // would have replaced it with 9999.
+    expect(serverInvoices[0].total).toBe(5000);
+
+    expect(screen.getByText(/1 invoice already in your account/i)).toBeInTheDocument();
   });
 
   it("keeps the local copy when the import fails", async () => {
