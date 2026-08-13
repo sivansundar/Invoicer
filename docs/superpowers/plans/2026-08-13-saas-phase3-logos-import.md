@@ -1840,4 +1840,14 @@ Ruled: swap to `renderWithProviders`. The constraint targets **assertions** — 
 
 **Any test asserting a post-failure state that looks like its loading state has this bug.** That is a shape to check for, not an incident that was closed.
 
+### Task 4 — the mock had to grow, and the trap did not recur
+
+**The `@react-pdf/renderer` mock in this plan was too small to type-check.** The design components call `Font.register` and `StyleSheet.create` at *module load*, so the mock needs `Font`, `StyleSheet` and inert component exports. Reviewed and cleared as necessary rather than test-defeating: because `pdf()` is itself mocked, `<InvoicePDF>` is never rendered, so `pdf.mock.calls[0][0].props.snapshot` reads the exact object `handleDownload` built.
+
+**The `waitFor` trap did not recur, and it was checked rather than assumed.** Carrying the mechanism into this task's dispatch was the point — the reviewer reproduced falsification 1 itself and confirmed test 3 fails on `expect(pdf).toHaveBeenCalled()`, i.e. on the real post-rejection state. There is no `waitFor` here; `await userEvent.click(...)` settles the promise chain.
+
+**All four failure modes converge by construction**, not by four tests: a non-ok response is an explicit early return, and `getLogoUrl` rejecting, `fetch` rejecting and `arrayBuffer()`/`btoa` throwing all fall into one `catch`. Each returns a snapshot with `logo: undefined` and `pdf()` is still called.
+
+**`docs/POST-MERGE-NOTES.md` is now stale** — it claims two stray `alert()` calls where only `summary-report-dialog.tsx:147` remains. Task 9 fixes the line.
+
 **The plan's `brand-logo.tsx` snippet specified an inline `eslint-disable`** in a repo whose `eslint.config.mjs` explicitly says it does not use them. Corrected above. Note the follow-on: Task 5 routes the brand form's preview through `BrandLogo`, which makes `brand-form.tsx`'s entry in that `files:` list dead the same way the preview entries became dead. **Re-check that list in Task 5.**
