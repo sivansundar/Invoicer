@@ -20,11 +20,12 @@ interface BrandLogoProps {
 export function BrandLogo({ source, name, className, fallbackClassName }: BrandLogoProps) {
   const src = useLogoSrc(source);
 
+  // Suppressing `@next/next/no-img-element` for this `<img>` is done via the
+  // `files` entry in `eslint.config.mjs`, not an inline `eslint-disable` —
+  // see that file's comment for why (signed URLs are short-lived and
+  // host-specific; next/image would need remotePatterns per Supabase
+  // project, for a 32px mark).
   if (src) {
-    // Signed URLs are short-lived and host-specific; next/image would need
-    // remotePatterns for every Supabase project and buys nothing for a 32px
-    // mark.
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={name} className={className} />;
   }
 
