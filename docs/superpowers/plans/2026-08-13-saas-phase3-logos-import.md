@@ -850,9 +850,12 @@ export function BrandLogo({ source, name, className, fallbackClassName }: BrandL
   const src = useLogoSrc(source);
 
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element -- signed URLs are
-    // short-lived and host-specific; next/image would need remotePatterns for
-    // every Supabase project and buys nothing for a 32px mark.
+    // CORRECTED DURING EXECUTION — no inline eslint-disable. This repo
+    // suppresses `@next/next/no-img-element` through a `files:` list in
+    // `eslint.config.mjs`, whose own comment says inline disables are not
+    // used here. Add `brand-logo.tsx` to that list, and remove the two
+    // preview files from it — after this refactor neither contains an
+    // `<img>` and their entries are dead.
     return <img src={src} alt={name} className={className} />;
   }
 
@@ -1826,3 +1829,15 @@ This is why Step 5 exists, and it is worth noting Step 5 as written was *also* i
 It was found only because the fix round re-ran the falsification probe across **all** tests that depend on the upload firing. The previous round's probe reported "3 failing tests" when six depend on it, and that mismatch was the tell — accepting a probe without checking the count against what should have failed is how the vacuous test survived a round.
 
 **Running total: four tests in this project have passed for the wrong reason.** Every one was found by breaking the code, none by reading the test.
+
+### Task 3 — "must pass unmodified" needed one exception, and a fifth vacuous test
+
+**The two preview test files did need editing, but not their assertions.** Wiring `BrandLogo` in crashed all 16 of their tests with the identical `No QueryClient set`, because they use plain `render` and the component now reads through `useQuery`. The implementer escalated rather than editing, which was right.
+
+Ruled: swap to `renderWithProviders`. The constraint targets **assertions** — an assertion needing to change would have proven the rendering changed. Nothing became asynchronous, because a base64 snapshot leaves `logoPath` unset and `useLogoSrc` returns `source.logo` without enabling the query. The edit was fenced to imports and the render call, with `await`/`waitFor`/`findBy*` forbidden as a tripwire: if any had been needed, the ruling would not have held.
+
+**A fifth test could not fail, and the mechanism generalises.** The "shows the initial rather than a broken image when signing fails" test passed even with the error path broken, because `waitFor` evaluates its condition **synchronously first** and the fallback initial renders identically during loading and after an error — so the assertion was satisfied before the rejection could be observed. Fixed by awaiting the mocked rejection before asserting.
+
+**Any test asserting a post-failure state that looks like its loading state has this bug.** That is a shape to check for, not an incident that was closed.
+
+**The plan's `brand-logo.tsx` snippet specified an inline `eslint-disable`** in a repo whose `eslint.config.mjs` explicitly says it does not use them. Corrected above. Note the follow-on: Task 5 routes the brand form's preview through `BrandLogo`, which makes `brand-form.tsx`'s entry in that `files:` list dead the same way the preview entries became dead. **Re-check that list in Task 5.**
