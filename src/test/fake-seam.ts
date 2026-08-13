@@ -116,12 +116,31 @@ export const getBrand = vi.fn(async (id: string): Promise<Brand | null> => {
 
 export const saveBrand = vi.fn(async (brand: Brand): Promise<Brand> => {
   maybeFail("saveBrand");
+  if (brand.logo?.startsWith("data:")) {
+    const logoPath = await uploadBrandLogo(brand.id, brand.logo);
+    return upsert(state.brands, { ...brand, logoPath, logo: undefined });
+  }
   return upsert(state.brands, brand);
 });
 
 export const deleteBrand = vi.fn(async (id: string): Promise<void> => {
   maybeFail("deleteBrand");
   state.brands = state.brands.filter((b) => b.id !== id);
+});
+
+export const LOGO_URL_TTL_SECONDS = 3600;
+
+export const uploadBrandLogo = vi.fn(async (brandId: string, dataUrl: string): Promise<string> => {
+  maybeFail("uploadBrandLogo");
+  // Deterministic but not a real digest — component tests care that a path
+  // is produced and threaded through, not that it hashes correctly. The real
+  // hashing has its own unit tests in `logo-storage.test.ts`.
+  return `${brandId}/${dataUrl.length}.png`;
+});
+
+export const getLogoUrl = vi.fn(async (path: string): Promise<string> => {
+  maybeFail("getLogoUrl");
+  return `https://signed.test/${path}`;
 });
 
 // Clients

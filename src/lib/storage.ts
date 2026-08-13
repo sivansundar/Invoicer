@@ -1,6 +1,7 @@
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
 import { writeLocalStorage } from "./local-storage";
 import { createClient } from "./supabase/client";
+import { dataUrlToBytes, logoObjectPath, sha256Hex } from "./logo-storage";
 import {
   brandToRow,
   clientToRow,
@@ -135,18 +136,83 @@ export async function saveBrand(brand: Brand): Promise<Brand> {
   // Upsert rather than insert-or-update: the form generates the id with
   // crypto.randomUUID() before it knows whether this is a create or an
   // edit, so both paths are the same write.
+  //
+  // Written BEFORE any upload, deliberately: the bucket's policy checks
+  // `exists (select 1 from public.brands where id = ...)`, so on a brand's
+  // FIRST save the row has to exist before an object can land under its id.
+  // (The brief's original ordering — upload, then write the row — fails RLS
+  // for exactly that case; caught by the integration suite, not by
+  // inspection. See the task report.) A fresh data URL is written into
+  // `logo_data` as-is on this first pass; if the subsequent upload fails,
+  // the brand is left rendering from that base64 rather than from nothing.
   const { data, error } = await createClient()
     .from("brands")
     .upsert(brandToRow(brand))
     .select("*")
     .single();
   throwOn(error);
-  return rowToBrand(data as BrandRow);
+  let result = rowToBrand(data as BrandRow);
+
+  // A `logo` that is a data URL is a fresh upload from the form. Convert it
+  // to an object and record the path in a second write, so `logo_data`
+  // stops accumulating base64 — and so `snapshotFromBrand` freezes a path
+  // onto every invoice issued from here on.
+  //
+  // Deliberately NOT clearing `logo_data` for brands that still have one and
+  // no new upload: that column is what those brands render from until their
+  // owner next touches the logo. Task 9 records the residue.
+  if (brand.logo?.startsWith("data:")) {
+    const logoPath = await uploadBrandLogo(result.id, brand.logo);
+    const { data: updated, error: updateError } = await createClient()
+      .from("brands")
+      .update({ logo_path: logoPath, logo_data: null })
+      .eq("id", result.id)
+      .select("*")
+      .single();
+    throwOn(updateError);
+    result = rowToBrand(updated as BrandRow);
+  }
+
+  return result;
 }
 
 export async function deleteBrand(id: string): Promise<void> {
   const { error } = await createClient().from("brands").delete().eq("id", id);
   throwOn(error);
+}
+
+const LOGO_BUCKET = "brand-logos";
+
+/** How long a signed logo URL is valid. Paired with a shorter `staleTime` in
+ *  `useLogoSrc` so a URL is refetched before it expires on screen. */
+export const LOGO_URL_TTL_SECONDS = 3600;
+
+/**
+ * Uploads a logo and returns its object path.
+ *
+ * Content-addressed, so uploading the same image twice is idempotent and
+ * lands on the same path — `upsert` makes that a no-op write rather than a
+ * conflict, which is why the bucket needs an UPDATE policy as well as
+ * INSERT.
+ */
+export async function uploadBrandLogo(brandId: string, dataUrl: string): Promise<string> {
+  const bytes = dataUrlToBytes(dataUrl);
+  const path = logoObjectPath(brandId, await sha256Hex(bytes));
+
+  const { error } = await createClient()
+    .storage.from(LOGO_BUCKET)
+    .upload(path, bytes as BufferSource, { contentType: "image/png", upsert: true });
+  throwOn(error);
+  return path;
+}
+
+/** A signed URL for a logo object. The bucket is private; there is no public URL. */
+export async function getLogoUrl(path: string): Promise<string> {
+  const { data, error } = await createClient()
+    .storage.from(LOGO_BUCKET)
+    .createSignedUrl(path, LOGO_URL_TTL_SECONDS);
+  throwOn(error);
+  return data!.signedUrl;
 }
 
 // Clients

@@ -133,7 +133,10 @@ describe("BrandForm — logo, phone, PAN", () => {
     expect(saved.phone).toBe("+91 90000 00000");
     // Uppercased to match every other PAN/GST/prefix field in this form.
     expect(saved.panNumber).toBe("ABCDE1234F");
-    expect(saved.logo).toMatch(/^data:image\/png;base64,/);
+    // saveBrand uploads a fresh data URL and stores the object path instead
+    // of the inline base64 — see `@/lib/storage`'s upload branch.
+    expect(saved.logo).toBeUndefined();
+    expect(saved.logoPath).toMatch(/\.png$/);
   });
 
   it("preserves logo, phone and PAN when editing without touching them", async () => {
@@ -148,11 +151,16 @@ describe("BrandForm — logo, phone, PAN", () => {
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
+    // The form still only carries `logo` (this task did not touch the UI,
+    // see the Phase 3 plan), so re-saving an unmigrated brand submits the
+    // same data URL again — which `saveBrand` uploads and migrates to a
+    // path, same as a fresh upload would.
     await waitFor(async () => {
       const saved = (await storage.getBrand("b1"))!;
       expect(saved.phone).toBe("+91 80000 00000");
       expect(saved.panNumber).toBe("ZYXWV9876G");
-      expect(saved.logo).toBe("data:image/png;base64,AAAA");
+      expect(saved.logo).toBeUndefined();
+      expect(saved.logoPath).toMatch(/\.png$/);
     });
   });
 

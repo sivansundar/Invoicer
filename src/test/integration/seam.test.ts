@@ -12,6 +12,12 @@ import type { Brand, Client, EmailTemplate, Invoice } from "@/lib/types";
  * back as undefined, whether RLS hides another tenant's row.
  */
 
+// A valid 1x1 transparent PNG, base64-encoded — real bytes, so
+// `dataUrlToBytes`/`sha256Hex` exercise the actual decode-and-hash path
+// rather than an arbitrary string standing in for one.
+const TINY_PNG_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
 let alice: TestUser;
 let bob: TestUser;
 
@@ -92,13 +98,17 @@ describe("brands through the seam", () => {
   it("round-trips every field, including the jsonb ones", async () => {
     const original = brand();
 
+    // The fixture's default `logo` is a fresh data URL, which `saveBrand`
+    // uploads and replaces with a path rather than round-tripping verbatim
+    // — see the dedicated logo tests below for that behaviour on its own.
     const saved = await storage.saveBrand(original);
-    expect(saved).toEqual(original);
+    expect(saved).toEqual({ ...original, logo: undefined, logoPath: saved.logoPath });
+    expect(saved.logoPath).toMatch(/\.png$/);
 
     const read = await storage.getBrand(original.id);
     // bank_details and followup are jsonb — this is what proves they survive
     // the trip as structured values rather than stringified blobs.
-    expect(read).toEqual(original);
+    expect(read).toEqual(saved);
     expect(read!.bankDetails.ifscCode).toBe("HDFC0001234");
     expect(read!.followup.weekday).toBe(3);
   });
@@ -149,6 +159,22 @@ describe("brands through the seam", () => {
 
   it("returns null for an id that does not exist", async () => {
     expect(await storage.getBrand(crypto.randomUUID())).toBeNull();
+  });
+
+  it("uploads a logo and reads it back as a signed URL", async () => {
+    const created = brand({ logo: TINY_PNG_DATA_URL });
+    const saved = await storage.saveBrand(created);
+
+    expect(saved.logoPath).toMatch(new RegExp(`^${saved.id}/[0-9a-f]{64}\\.png$`));
+    expect(saved.logo).toBeUndefined();
+    await expect(storage.getLogoUrl(saved.logoPath!)).resolves.toContain(saved.logoPath);
+  });
+
+  it("re-uploading identical bytes is idempotent, not a conflict", async () => {
+    const first = await storage.saveBrand(brand({ logo: TINY_PNG_DATA_URL }));
+    const second = await storage.saveBrand({ ...first, logo: TINY_PNG_DATA_URL });
+
+    expect(second.logoPath).toBe(first.logoPath);
   });
 
   it("never returns another org's brands", async () => {

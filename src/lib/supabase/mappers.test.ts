@@ -98,11 +98,22 @@ describe("brand mapping", () => {
     expect("gst_number" in row).toBe(true);
   });
 
-  it("carries the logo through logo_data, not logo_path", () => {
+  it("carries the base64 logo through logo_data", () => {
     const row = brandToRow(brand({ logo: "data:image/png;base64,AAAA" }));
 
     expect(row.logo_data).toBe("data:image/png;base64,AAAA");
-    expect("logo_path" in row).toBe(false);
+  });
+
+  it("carries logo_path in both directions", () => {
+    const row = brandToRow(brand({ logoPath: "b/abc.png" }));
+    expect(row.logo_path).toBe("b/abc.png");
+    expect(rowToBrand({ ...(row as BrandRow), logo_path: "b/abc.png" }).logoPath).toBe(
+      "b/abc.png"
+    );
+  });
+
+  it("nulls logo_path when the brand has none, so the column can be cleared", () => {
+    expect(brandToRow(brand({ logoPath: undefined })).logo_path).toBeNull();
   });
 
   it("never writes org_id — the column default owns tenancy", () => {

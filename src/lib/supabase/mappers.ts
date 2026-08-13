@@ -35,6 +35,7 @@ export interface BrandRow {
   gst_number: string | null;
   pan_number: string | null;
   logo_data: string | null;
+  logo_path: string | null;
   bank_details: BankDetails;
   invoice_prefix: string;
   accent_color: string;
@@ -93,6 +94,7 @@ export function rowToBrand(row: BrandRow): Brand {
     gstNumber: orUndefined(row.gst_number),
     panNumber: orUndefined(row.pan_number),
     logo: orUndefined(row.logo_data),
+    logoPath: orUndefined(row.logo_path),
     bankDetails: row.bank_details,
     invoicePrefix: row.invoice_prefix,
     accentColor: row.accent_color,
@@ -122,6 +124,7 @@ export function brandToRow(brand: Brand): Omit<BrandRow, "created_at"> & { creat
     gst_number: orNull(brand.gstNumber),
     pan_number: orNull(brand.panNumber),
     logo_data: orNull(brand.logo),
+    logo_path: orNull(brand.logoPath),
     bank_details: brand.bankDetails,
     invoice_prefix: brand.invoicePrefix,
     accent_color: brand.accentColor,
