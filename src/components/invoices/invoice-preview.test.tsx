@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { renderWithProviders as render } from "@/test/render";
 import { InvoicePreview } from "./invoice-preview";
 import type { BrandSnapshot, InvoiceClient } from "@/lib/types";
 

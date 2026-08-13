@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { computeTotals, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
+import { BrandLogo } from "@/components/brands/brand-logo";
 import type { InvoicePreviewProps } from "./props";
 
 function formatDate(value: string): string {
@@ -36,17 +37,12 @@ export function ClassicInvoicePreview({
       {/* Header */}
       <div className="flex justify-between items-start">
         <div className="flex items-center gap-3">
-          {snapshot.logo ? (
-            <img
-              src={snapshot.logo}
-              alt={snapshot.name}
-              className="h-10 w-10 object-contain"
-            />
-          ) : (
-            <div className="h-10 w-10 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0">
-              {snapshot.name.trim().charAt(0).toUpperCase() || "?"}
-            </div>
-          )}
+          <BrandLogo
+            source={snapshot}
+            name={snapshot.name}
+            className="h-10 w-10 object-contain"
+            fallbackClassName="h-10 w-10 rounded bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0"
+          />
           <div>
             <h2 className="text-sm font-bold">{snapshot.name}</h2>
             <p className="text-[10px] text-muted-foreground whitespace-pre-line">
