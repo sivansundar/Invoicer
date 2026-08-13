@@ -53,8 +53,9 @@ summary report correctly stays on bill dates. Full design in
   only blocks removing a template a brand *currently* uses, so deleting "Gentle nudge" while
   unused leaves every later-created brand pointing at a template that no longer exists.
   Degrades quietly to "—", no crash.
-- **Native `alert()` survives in two places** (`pdf-download-button.tsx`,
-  `summary-report-dialog.tsx`) in an app that otherwise standardised on toasts.
+- **Native `alert()` survives in one place** (`summary-report-dialog.tsx`) in an
+  app that otherwise standardised on toasts. `pdf-download-button.tsx`'s was
+  replaced with a toast during the Phase 3 logos work.
 - **Four save-failure guards are unpinned by tests** — `handleMarkSent`, `handleTogglePause`,
   `handleSendNow`, `handleDelete`. Guarded in code; only `handleMarkPaid` has a test.
 - **`import-export.tsx` has no component test harness**, so the `deleteInvoice`-result fix in

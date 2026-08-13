@@ -213,9 +213,9 @@ Two things are still kept in your browser, deliberately, because they are per-de
 
 Nothing is migrated automatically, and your local data is not touched. Earlier builds stored everything under `invoicer_*` keys in the browser; opening the hosted app leaves all of it exactly where it is.
 
-To bring it across, export a backup from the old version and import it here (**Reports → Import**). The importer normalises older record shapes on the way in and rewrites any record id the database will not accept — the three built-in follow-up templates shipped with hand-written ids, and every brand pointing at one is updated to match. Invoice numbers are never rewritten: an invoice already sitting in a client's inbox keeps the number it was issued with.
+If the app finds `invoicer_*` data in your browser after you sign in, it offers a one-time prompt — "We found *N* invoices on this device. Import them into your account?" — rather than asking you to export and re-import a backup by hand. Accepting normalises older record shapes on the way in and rewrites any record id the database will not accept, the same way a backup import does. Your local copy is left untouched either way: declining just dismisses the prompt, and accepting only offers to clear it afterward, once you've seen the result. The manual route (**Reports → Import**) still exists for a backup file exported from the old version, and behaves the same way.
 
-One consequence worth knowing: because those ids are rewritten, importing the same old backup a second time adds a second copy of the affected records rather than skipping them. The import summary tells you when this applies.
+One consequence worth knowing, true of both paths: because rewritten ids can't be matched against on a second pass, importing the same old data a second time adds a second copy of the affected records rather than skipping them. The import summary tells you when this applies.
 
 ### The v1 → v2 migration
 
