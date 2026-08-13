@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, render, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderWithProviders } from "@/test/render";
 import { LocalImportPrompt } from "./local-import-prompt";
 import { resetFakeSeam } from "@/test/fake-seam";
@@ -190,5 +191,140 @@ describe("LocalImportPrompt", () => {
     await screen.findByText(/could not|failed/i);
     expect(JSON.parse(localStorage.getItem("invoicer_invoices")!)).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /clear local copy/i })).not.toBeInTheDocument();
+  });
+
+  // Reproduction 1 from the final-review finding: a record dropped by
+  // `prepareImport`'s validation (never even reaches `writeImport`) is
+  // invisible to a gate built only from `writeImport`'s own result. A line
+  // item missing `tax` fails `isValidLineItem`, so the whole invoice is
+  // skipped during validation — "Invoices imported" ends up smaller than
+  // "we found N invoices," and the rejected invoice exists nowhere but this
+  // device's `invoicer_invoices` key.
+  it("withholds Clear local copy when prepareImport skipped a record during validation, and keeps the local keys intact", async () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([validBrand()]));
+    localStorage.setItem(
+      "invoicer_invoices",
+      JSON.stringify([
+        validInvoice({
+          id: "aaaaaaa1-0000-4000-8000-000000000001",
+          invoiceNumber: "INV-OK",
+        }),
+        validInvoice({
+          id: "aaaaaaa1-0000-4000-8000-000000000002",
+          invoiceNumber: "INV-BAD",
+          // Missing `tax` on the line item — fails `isValidLineItem`, so
+          // this whole invoice is dropped by `prepareImport`, before
+          // `writeImport` ever sees it.
+          items: [{ id: "li1", description: "Broken line item", amount: 1000 } as never],
+        }),
+      ])
+    );
+    const { getInvoices } = await import("@/test/fake-seam");
+
+    renderWithProviders(<LocalImportPrompt />);
+    expect(await screen.findByText(/2 invoices on this device/i)).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+    await screen.findByRole("heading", { name: /imported/i });
+
+    // Only the valid one was ever written through.
+    expect(await getInvoices()).toHaveLength(1);
+    // The button is withheld...
+    expect(screen.queryByRole("button", { name: /clear local copy/i })).not.toBeInTheDocument();
+    // ...and — the load-bearing assertion — both local records, including
+    // the rejected one, are still sitting in the key untouched.
+    expect(JSON.parse(localStorage.getItem("invoicer_invoices")!)).toHaveLength(2);
+  });
+
+  // Reproduction 2: a truncated write (e.g. from the old build hitting its
+  // localStorage quota mid-save) leaves `invoicer_invoices` holding bytes
+  // that are not valid JSON. `readArray`'s never-throws fallback returns
+  // `[]` for it, which a gate built only from array length cannot tell
+  // apart from "there was nothing here" — the prompt would report "we found
+  // 0 invoices," offer the button anyway (because brands imported cleanly),
+  // and delete the one copy of whatever those truncated bytes used to be.
+  it("withholds Clear local copy when a local key is corrupt, and keeps the corrupt key's bytes intact", async () => {
+    const corruptPayload = '[{"id":"aaaaaaa1-0000-4000-8000-000000000001","invoiceNumber":"IN';
+    localStorage.setItem("invoicer_brands", JSON.stringify([validBrand()]));
+    localStorage.setItem("invoicer_invoices", corruptPayload);
+
+    renderWithProviders(<LocalImportPrompt />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+    await screen.findByRole("heading", { name: /imported/i });
+
+    expect(screen.queryByRole("button", { name: /clear local copy/i })).not.toBeInTheDocument();
+    // The load-bearing assertion: the corrupt key's raw bytes are still
+    // there, verbatim — not re-parsed to "[]" and not deleted.
+    expect(localStorage.getItem("invoicer_invoices")).toBe(corruptPayload);
+  });
+
+  // The all-clean case must still work — the fix above must not make the
+  // gate permanently closed. Duplicates the coverage of the existing test
+  // at the top of this file (kept passing, unmodified) as an explicit
+  // contrast to the two tests above.
+  it("still offers Clear local copy for a clean import with nothing skipped, discarded, corrupt or failed", async () => {
+    seedLocal(2);
+    renderWithProviders(<LocalImportPrompt />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+    await screen.findByRole("heading", { name: /imported/i });
+
+    expect(screen.getByRole("button", { name: /clear local copy/i })).toBeInTheDocument();
+  });
+
+  // The title must reflect what was actually found, not just the invoice
+  // count — a device holding brands or clients but no invoices otherwise
+  // gets a modal headed "We found 0 invoices on this device," which reads
+  // as if there was nothing to import at all.
+  it("does not claim zero invoices were found when the device has other local data", async () => {
+    localStorage.setItem("invoicer_brands", JSON.stringify([validBrand()]));
+    renderWithProviders(<LocalImportPrompt />);
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByText(/0 invoices/i)).not.toBeInTheDocument();
+  });
+
+  // Closing mid-import (ESC, the overlay, or the close button all route
+  // through the same `onOpenChange`) must not permanently dismiss the
+  // prompt — nothing is deleted, but the result (including any failures)
+  // would otherwise never be shown, with no way to bring it back.
+  it("does not dismiss the prompt when closed while an import is in flight", () => {
+    seedLocal(2);
+    renderWithProviders(<LocalImportPrompt />);
+
+    fireEvent.click(screen.getByRole("button", { name: /import them/i }));
+    // Still synchronous here — `handleImport` sets "importing" before its
+    // first `await`, so this assertion pins that the click really did
+    // leave the component mid-import, not already past it.
+    expect(screen.getByRole("button", { name: /importing/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+
+    expect(localStorage.getItem("invoicer_import_prompt")).not.toBe("dismissed");
+  });
+
+  // The cache-invalidation gap: this writes through `writeImport` directly,
+  // bypassing the `useBrands`/`useInvoices`/`useClients`/`useTemplates`
+  // mutation layer that owns invalidation. Without it, a screen already
+  // rendered from a stale (or empty) cache keeps showing that for up to
+  // `staleTime` after the import completes.
+  it("invalidates the query cache after a successful import", async () => {
+    seedLocal(2);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 0 }, mutations: { retry: false } },
+    });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <LocalImportPrompt />
+      </QueryClientProvider>
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: /import them/i }));
+    await screen.findByRole("heading", { name: /imported/i });
+
+    expect(invalidateSpy).toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { SummaryReportDialog } from "@/components/reports/summary-report-dialog";
 import { ReportsSkeleton } from "@/components/ui/page-skeletons";
 import { ImportExport } from "@/components/invoices/import-export";
@@ -11,6 +12,7 @@ export default function ReportsPage() {
 }
 
 function ReportsPageContent() {
+  const queryClient = useQueryClient();
   const { brands, loading: brandsLoading } = useBrands();
   const { invoices, loading: invoicesLoading } = useInvoices();
 
@@ -44,7 +46,13 @@ function ReportsPageContent() {
           Back up your brands, clients, templates and invoices — or bring them back.
         </p>
         <div className="mt-4 flex gap-2">
-          <ImportExport onImportDone={() => {}} />
+          {/* `ImportExport` writes through `writeImport` directly, bypassing
+              the `useBrands`/`useInvoices`/`useClients`/`useTemplates`
+              mutation layer that owns cache invalidation — same gap as the
+              one-time local-data prompt. Without this, a screen already
+              holding a cached (possibly stale-empty) list keeps showing it
+              after "Import Complete" is dismissed, for up to `staleTime`. */}
+          <ImportExport onImportDone={() => queryClient.invalidateQueries()} />
         </div>
       </div>
     </div>
