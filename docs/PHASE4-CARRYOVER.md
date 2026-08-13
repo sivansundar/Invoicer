@@ -103,6 +103,56 @@ copy" gate had never had to account for.
 
 ---
 
+## Decisions Phase 2 made that Phase 4 should not silently reverse
+
+Phase 3 didn't touch most of this ground, which is an argument for carrying it forward, not
+dropping it — these constrain phases that haven't happened yet, and two of the five were
+materially exercised this phase.
+
+- **`org_id` never appears in application code.** It's filled by a column default
+  (`private.current_org_id()`), and RLS is the only read filter. Passing it explicitly is a bug
+  even when it produces the right answer. This is the exact reasoning recorded in
+  `supabase/migrations/20260813084629_brand_logos_bucket.sql`'s own comments for why the logo
+  object path is keyed by `brand_id` rather than `org_id` — and it's what this phase's
+  DPDP-erasure carry-over item (above) depends on staying true: there is no `org_id` to filter or
+  prefix by, by design, so erasure has to go through each brand instead.
+- **The seam throws; it does not return `false`.** `tsc` can't catch a regression here —
+  `if (!save(x))` on a promise is never true — so a caller that branches on a boolean fails
+  silently. Convert callers by hand, not by trusting the typechecker.
+- **`createInvoice` is separate from `saveInvoice`.** Dispatching internally would need a round
+  trip to learn whether the row exists, and guessing wrong either renumbers a sent invoice or
+  fails an edit. The import pipeline's `createInvoice`/`saveInvoice` calls depend on this staying
+  two functions.
+- **Creating an invoice is not optimistic**, unlike every other mutation: the server allocates the
+  number, so an optimistic insert shows a number the invoice doesn't have.
+- **Unit tests drive an in-memory fake of the seam** (`src/test/fake-seam.ts`), not MSW.
+  `fake-seam.test.ts` asserts the fake exports exactly what the real module does — keep it
+  passing when the seam changes, or every test that mocks storage starts calling `undefined`.
+  This phase found the fake actively lying: `src/lib/storage.ts` upserts a brand's row before
+  uploading its logo, so a failed upload leaves the row committed; `src/test/fake-seam.ts` did
+  the reverse; a throwing upload never reached `upsert`, so the row was absent. Two test comments
+  described a committed-row mechanism their tests couldn't reach. Fixed to mirror the real
+  three-step ordering exactly — but it's a reminder that a fake whose failure ordering diverges
+  from the real seam's is a false-confidence generator, and the import pipeline (Tasks 6 and 8)
+  builds directly on this fake for brand-writing paths. When a seam's failure ordering is
+  load-bearing, the fake has to reproduce the ordering, not just the outcome.
+
+---
+
+## Test gaps worth closing
+
+- **No test covers two *browsers* creating invoices at once.** `src/test/integration/rpc.test.ts`
+  (see `"issues distinct, gapless numbers under concurrent calls"`) fires concurrent RPCs from
+  one client, which exercises the lock, but the end-to-end path — two tabs, each with its own
+  provisional number, both saving — is only reasoned about.
+- **`/reports` and `/invoices/[id]` have skeletons but no loading-state test.**
+  `src/app/(app)/loading-states.test.tsx` covers `/clients`, `/brands`, and the brand/client/
+  invoice **edit** screens; `/reports` has no test file at all, and `/invoices/[id]`'s
+  `page.test.tsx` covers save-failure guards, not its loading state. Both are still wired by hand
+  and checked only by eye.
+
+---
+
 ## Operational
 
 - **`supabase/config.toml` is production-unsafe as committed.** `enable_signup = true` with
