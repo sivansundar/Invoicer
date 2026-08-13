@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeImport, type PendingConflict } from "./import-pipeline";
-import { resetFakeSeam, getInvoices } from "@/test/fake-seam";
+import { resetFakeSeam, getInvoices, getBrands, getClients, getTemplates } from "@/test/fake-seam";
 import type { Invoice } from "./types";
 
 // Same fake as `import-export.test.tsx` — this exercises `writeImport`
@@ -85,5 +85,86 @@ describe("writeImport — a resolved conflict is applied to the row the caller c
       failed: 0,
     });
     expect(await getInvoices()).toHaveLength(0);
+  });
+});
+
+describe("writeImport — skips the lookup for a collection with nothing incoming", () => {
+  beforeEach(() => {
+    resetFakeSeam();
+    // `resetFakeSeam` wipes the in-memory data and the fake's own
+    // failure-arming state, but not each export's `vi.fn()` call history —
+    // these tests assert on that history directly.
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * `import-export.tsx`'s backup-envelope path calls `writeImport` with
+   * `invoices: []` while brands/clients/templates are the real, non-empty
+   * collections — brands/clients/templates get their own invoice-conflict-
+   * free write, and the invoice conflict dialog (if there is one) runs
+   * separately. `getInvoices()` has nothing to match against in that call,
+   * so it must not run at all: beyond the wasted round trip, a failure of
+   * it would reject the whole import after brands/clients/templates had
+   * already landed, and the caller would report "Import failed" with no
+   * summary of what actually made it in.
+   */
+  it("does not call getInvoices() when the incoming invoices collection is empty", async () => {
+    await writeImport(
+      { brands: [], clients: [], templates: [], invoices: [] },
+      { remappedIds: 0 }
+    );
+
+    expect(getInvoices).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The mirror image — the local-data prompt's invoices-only call (and the
+   * file importer's, once conflicts are resolved) passes empty
+   * brands/clients/templates. Each of those collections' existing-id
+   * lookups is pointless when nothing incoming could possibly match it.
+   */
+  it("does not call getBrands/getClients/getTemplates when their incoming collections are empty", async () => {
+    const incoming: Invoice = {
+      id: "aaaaaaa1-0000-4000-8000-000000000001",
+      invoiceNumber: "INV-001",
+      brandId: "b1",
+      currency: "INR",
+      status: "sent",
+      billDate: "2026-06-01",
+      dueDate: "2026-06-15",
+      client: { companyName: "Acme Studio", address: "" },
+      items: [],
+      subtotal: 0,
+      totalTax: 0,
+      total: 0,
+      createdAt: "2026-06-01T00:00:00.000Z",
+      updatedAt: "2026-06-01T00:00:00.000Z",
+      brandSnapshot: {
+        name: "Sivan Studio",
+        address: "",
+        invoicePrefix: "SC",
+        accentColor: "#2563eb",
+        invoiceDesign: "modern",
+        bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+      },
+      clientId: null,
+      reminders: [],
+      followupsPaused: false,
+    };
+
+    await writeImport(
+      { brands: [], clients: [], templates: [], invoices: [incoming] },
+      { remappedIds: 0 }
+    );
+
+    expect(getBrands).not.toHaveBeenCalled();
+    expect(getClients).not.toHaveBeenCalled();
+    expect(getTemplates).not.toHaveBeenCalled();
+    // The one lookup that IS needed here still ran.
+    expect(getInvoices).toHaveBeenCalledTimes(1);
   });
 });

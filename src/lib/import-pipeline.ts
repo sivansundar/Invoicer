@@ -280,7 +280,13 @@ async function writeCollection<T extends { id: string }>(
 
   // Sequential rather than Promise.all: a rejected write must be counted,
   // not abort the batch, and the failure count is what the summary reports.
-  // Task 8 revisits this whole path for all-or-nothing semantics.
+  // Not all-or-nothing, and deliberately so, permanently — see
+  // `docs/PHASE4-CARRYOVER.md`, "Import is not all-or-nothing": conflict
+  // resolution already spans several dialog round-trips (the file importer)
+  // or is resolved automatically (the local-data prompt), so no transaction
+  // could span the whole operation anyway. Per-record accounting is
+  // accurate instead of a transaction that's only atomic when it happens
+  // not to collide.
   for (const item of items) {
     if (existingIds.has(item.id) || seenThisBatch.has(item.id)) {
       skippedExisting++;
@@ -324,16 +330,23 @@ async function writeInvoices(
   //   incoming invoice with no entry here was already determined
   //   non-conflicting by the caller and is written with no lookup at all.
   //
-  // - With no `knownConflicts` (Task 8's prompt, and any other caller with
-  //   no detection pass of its own), this fetches `getInvoices()` once and
-  //   matches by invoice number itself — the only case where self-detection
-  //   is correct, because nothing upstream has done it yet.
+  // - With no `knownConflicts` (the local-data prompt, and any other caller
+  //   with no detection pass of its own), this fetches `getInvoices()` once
+  //   and matches by invoice number itself — the only case where
+  //   self-detection is correct, because nothing upstream has done it yet.
+  //   Skipped entirely when there is nothing to match: `writeImport` calls
+  //   this with `invoices: []` for its brands/clients/templates-only pass,
+  //   and a caller with no incoming invoices has nothing this lookup could
+  //   ever match against — an unguarded call would still make the round
+  //   trip, and a failure of it would reject the whole import after
+  //   brands/clients/templates had already been written successfully.
   const matchByIdentity = knownConflicts
     ? new Map(knownConflicts.map((c) => [c.incoming, c.existing]))
     : null;
-  const matchByNumber = knownConflicts
-    ? null
-    : new Map((await getInvoices()).map((inv) => [inv.invoiceNumber, inv] as const));
+  const matchByNumber =
+    knownConflicts || invoices.length === 0
+      ? null
+      : new Map((await getInvoices()).map((inv) => [inv.invoiceNumber, inv] as const));
 
   const findMatch = (incoming: Invoice): Invoice | null =>
     matchByIdentity
@@ -406,7 +419,7 @@ async function writeInvoices(
 }
 
 /**
- * Writes through the seam. NOT atomic — see `docs/PHASE3-CARRYOVER.md` for
+ * Writes through the seam. NOT atomic — see `docs/PHASE4-CARRYOVER.md` for
  * why per-record accounting was chosen over a transaction that only spans
  * the no-conflict case.
  *
@@ -428,10 +441,17 @@ export async function writeImport(
   collections: ImportCollections,
   options: { remappedIds: number; onConflict?: ConflictResolver; conflicts?: PendingConflict[] }
 ): Promise<ImportSummary> {
+  // Each fetch feeds `writeCollection`'s `existingIds` set for exactly one
+  // collection, and an empty incoming collection has nothing to check that
+  // set against — `writeCollection`'s loop wouldn't run either way. Both
+  // callers in `import-export.tsx` make a call with three of these four
+  // collections empty (the invoices-only pass, and the
+  // brands/clients/templates-only pass), so skipping the corresponding
+  // fetch is a real, not theoretical, saving.
   const [existingBrands, existingClients, existingTemplates] = await Promise.all([
-    getBrands(),
-    getClients(),
-    getTemplates(),
+    collections.brands.length > 0 ? getBrands() : Promise.resolve([]),
+    collections.clients.length > 0 ? getClients() : Promise.resolve([]),
+    collections.templates.length > 0 ? getTemplates() : Promise.resolve([]),
   ]);
 
   // Sequential across collections, matching the sequential write loop
