@@ -1892,4 +1892,16 @@ Fixed by threading the captured pairing through by object identity, so the resol
 
 **The plan's own `ImportSummary` sketch was fiction.** Brands, clients and templates are never "updated", only skipped-or-added; invoices have four outcomes. `ConflictResolver` did not exist at all. The implementer kept the real shapes over the sketch, which was correct — reshaping real accounting to fit an invented type is exactly the silent behaviour change the task forbade. **Task 8's code in this plan is written against that fiction and must be adapted to the real surface.**
 
+### Tasks 7-8 — a fix armed the bug it was written to prevent
+
+**`writeImport` with no resolver overwrites.** The plan had the prompt call it without `onConflict`, and that treats every invoice-number collision as an overwrite. The prompt persists until dismissed, so a user can work for weeks, create server invoices, then accept the import and silently clobber one. Ruled: pass an explicit resolver that **discards**. Overwrite destroys server data; discard destroys nothing, because this flow never deletes the local copy.
+
+**That ruling then created a new data-loss path.** Discard made a previously-unreachable state live: an invoice that is on the device, not in the account, and nowhere else. The "Clear local copy" gate had been written when `discarded` was structurally always 0, so it kept offering the button — and the dialog reassured the user their *server* copy was safe while saying nothing about the local one about to be deleted. Fixed by withholding the button whenever anything was discarded or failed, with the predicate renamed from `hasWriteFailures` to `importedEverything` because the old name no longer described what it gated.
+
+**Rule: when a fix makes a dormant path reachable, re-examine the guards around that path, not just the path.** This phase hit that twice — Task 5's brand-id bug was armed by Task 2's non-atomicity, and this one was armed by my own ruling one round earlier.
+
+**A "button is absent" assertion is the third vacuity shape.** It holds identically whether the gate is correct or permanently closed. The re-review caught this by stubbing the gate to always-`false` and confirming the *all-clean* test broke — proving the button-appears path was covered too. Pair every "absent" assertion with a "present" one, and assert the data survived rather than only that the control vanished.
+
+**Conflict detection is global, not per-brand** — `writeInvoices` builds its match map from `getInvoices()` with no brand filter. Since numbering is per-brand, two brands both starting at `INV-001` collide spuriously. Pre-existing, moved verbatim in Task 6, affects the file importer too. Left unchanged deliberately and carried to Phase 4: bounded here by discard, and user-visible in the file importer's dialog.
+
 **The plan's `brand-logo.tsx` snippet specified an inline `eslint-disable`** in a repo whose `eslint.config.mjs` explicitly says it does not use them. Corrected above. Note the follow-on: Task 5 routes the brand form's preview through `BrandLogo`, which makes `brand-form.tsx`'s entry in that `files:` list dead the same way the preview entries became dead. **Re-check that list in Task 5.**
