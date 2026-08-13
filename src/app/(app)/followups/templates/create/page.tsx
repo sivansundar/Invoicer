@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Shell } from "@/components/layout/shell";
 import { TemplateForm } from "@/components/followups/template-form";
 import { FEATURES } from "@/lib/features";
 
@@ -16,9 +15,5 @@ export default function CreateTemplatePage() {
 
   if (!FEATURES.followups) return null;
 
-  return (
-    <Shell>
-      <TemplateForm />
-    </Shell>
-  );
+  return <TemplateForm />;
 }

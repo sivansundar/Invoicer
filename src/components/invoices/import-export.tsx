@@ -5,21 +5,22 @@ import { toast } from "sonner";
 import { Invoice } from "@/lib/types";
 import {
   getInvoices,
+  createInvoice,
   saveInvoice,
-  deleteInvoice,
   getBrands,
   saveBrand,
   getClients,
   saveClient,
   getTemplates,
   saveTemplate,
-  forceMigration,
 } from "@/lib/storage";
 import {
   validateImportedInvoices,
   validateImportedBackup,
   type CollectionValidation,
 } from "@/lib/import-validation";
+import { remapNonUuidIds } from "@/lib/import-remap";
+import { migrateToV2 } from "@/lib/migrate";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -83,16 +84,51 @@ interface ImportedCollections {
 
 interface ImportSummary extends ImportedCollections {
   invoices: InvoiceImportSummary;
+  /**
+   * Ids rewritten because Postgres would not accept them — see
+   * `import-remap.ts`. Surfaced rather than silent, because it has a
+   * consequence the user can otherwise only discover by hitting it:
+   * re-importing the same legacy file produces a second copy of those
+   * records instead of skipping them, since their new ids no longer match
+   * what landed the first time.
+   */
+  remappedIds: number;
 }
 
 const EMPTY_COLLECTIONS: ImportedCollections = { brands: null, clients: null, templates: null };
 
-function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
-  return (
-    (collections.brands?.imported ?? 0) > 0 ||
-    (collections.clients?.imported ?? 0) > 0 ||
-    (collections.templates?.imported ?? 0) > 0
-  );
+/**
+ * The exported file's contents, separated from downloading it so the format
+ * itself can be asserted rather than inferred from a Blob.
+ *
+ * A full backup, not just invoices: for anyone who has not yet moved to the
+ * hosted app this file is the only copy of a brand's bank details and
+ * follow-up config, every saved client, and every custom email template.
+ * `version`/`exportedAt` let a future format change detect and handle this
+ * shape without guessing; existing `invoices-<date>.json` files (a bare
+ * array, no envelope) predate this and are still read by the legacy path in
+ * `handleFileChange`.
+ *
+ * The shape is unchanged from the pre-Postgres app on purpose. A file
+ * exported then still restores now, and a file exported now still restores
+ * into an older build.
+ */
+export async function buildBackup() {
+  const [brands, clients, templates, invoices] = await Promise.all([
+    getBrands(),
+    getClients(),
+    getTemplates(),
+    getInvoices(),
+  ]);
+
+  return {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    brands,
+    clients,
+    templates,
+    invoices,
+  };
 }
 
 /**
@@ -105,24 +141,31 @@ function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
  * an export into a populated app never clobbers a local edit. Every skip and
  * every failed write is counted, never silently dropped.
  */
-function importCollection<T extends { id: string }>(
+async function importCollection<T extends { id: string }>(
   validation: CollectionValidation<T>,
   existingIds: Set<string>,
-  save: (item: T) => boolean
-): CollectionImportResult {
+  save: (item: T) => Promise<unknown>
+): Promise<CollectionImportResult> {
   const seenThisBatch = new Set<string>();
   let imported = 0;
   let skippedExisting = 0;
   let failed = 0;
 
+  // Sequential rather than Promise.all: a rejected write must be counted,
+  // not abort the batch, and the failure count is what the summary reports.
+  // Task 8 revisits this whole path for all-or-nothing semantics.
   for (const item of validation.valid) {
     if (existingIds.has(item.id) || seenThisBatch.has(item.id)) {
       skippedExisting++;
       continue;
     }
     seenThisBatch.add(item.id);
-    if (save(item)) imported++;
-    else failed++;
+    try {
+      await save(item);
+      imported++;
+    } catch {
+      failed++;
+    }
   }
 
   return {
@@ -161,26 +204,15 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   // the meantime so a multi-step conflict resolution doesn't lose it.
   const [pendingCollections, setPendingCollections] =
     useState<ImportedCollections>(EMPTY_COLLECTIONS);
+  // Held for the same reason as pendingCollections: conflict resolution can
+  // take several dialog round-trips before the summary is built.
+  const [pendingRemapped, setPendingRemapped] = useState(0);
 
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
-  const handleExport = () => {
-    // A full backup, not just invoices — this app has no server and no
-    // other backup, so this file is the only copy of a brand's bank details
-    // and follow-up config, every saved client, and every custom email
-    // template. `version`/`exportedAt` let a future format change detect
-    // and handle this shape without guessing; existing `invoices-<date>.json`
-    // files (a bare array, no envelope) predate this and are still read by
-    // `handleFileChange`'s legacy path below, unaffected by this change.
-    const backup = {
-      version: 2,
-      exportedAt: new Date().toISOString(),
-      brands: getBrands(),
-      clients: getClients(),
-      templates: getTemplates(),
-      invoices: getInvoices(),
-    };
+  const handleExport = async () => {
+    const backup = await buildBackup();
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json",
     });
@@ -200,15 +232,17 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
    * exactly the invoice conflict-detection and dialog flow this component
    * had before full backups existed, untouched in behaviour either way.
    */
-  const beginInvoiceReconciliation = (
+  const beginInvoiceReconciliation = async (
     incoming: Invoice[],
     invalidSkipped: number,
-    collections: ImportedCollections
+    collections: ImportedCollections,
+    remappedIds: number
   ) => {
     setPendingInvalidSkipped(invalidSkipped);
     setPendingCollections(collections);
+    setPendingRemapped(remappedIds);
 
-    const existing = getInvoices();
+    const existing = await getInvoices();
     const existingByNumber = new Map(existing.map((inv) => [inv.invoiceNumber, inv]));
 
     const newConflicts: PendingConflict[] = [];
@@ -237,10 +271,17 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       let saved = 0;
       let failed = 0;
       for (const inv of newNonConflicting) {
-        if (saveInvoice(inv)) saved++;
-        else failed++;
+        // preserveNumber: a restored invoice is not a new document. It may
+        // already be in a client's inbox under the number it was issued
+        // with, so allocating a fresh one would put the app's records and
+        // the customer's out of step.
+        try {
+          await createInvoice(inv, { preserveNumber: true });
+          saved++;
+        } catch {
+          failed++;
+        }
       }
-      if (saved > 0 || hasAnyCollectionWrite(collections)) forceMigration();
 
       finishImport({
         invoices: {
@@ -251,13 +292,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           invalidSkipped,
           failed,
         },
+        // The parameter, not the state set moments ago in this same
+        // function — that setter has not been applied yet, so reading it
+        // here would always report zero. Only the conflict-resolution path,
+        // which spans dialog round-trips, needs the state version.
+        remappedIds,
         ...collections,
       });
     }
   };
 
   /** The legacy shape: a bare `Invoice[]` array, exactly what every existing `invoices-<date>.json` file on disk already is. */
-  const importLegacyInvoiceArray = (parsed: unknown[]) => {
+  const importLegacyInvoiceArray = async (parsed: unknown[]) => {
     const result = validateImportedInvoices(parsed);
     if (!result.ok) {
       toast(
@@ -276,11 +322,28 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
-    beginInvoiceReconciliation(incoming, invalidSkipped, EMPTY_COLLECTIONS);
+    // Same uuid problem as the envelope path. There are no brands or clients
+    // in a legacy file to remap against, so this only rewrites an invoice's
+    // own id — its brandId still has to match a brand already in the account,
+    // which is what it meant in the file it came from.
+    const legacyRemap = remapNonUuidIds({
+      brands: [],
+      clients: [],
+      templates: [],
+      invoices: incoming,
+    });
+    const remapped = legacyRemap.collections;
+
+    await beginInvoiceReconciliation(
+      remapped.invoices,
+      invalidSkipped,
+      EMPTY_COLLECTIONS,
+      legacyRemap.remapped
+    );
   };
 
   /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, templates, invoices }`. */
-  const importBackupEnvelope = (parsed: unknown) => {
+  const importBackupEnvelope = async (parsed: unknown) => {
     const result = validateImportedBackup(parsed);
     if (!result.ok) {
       toast(
@@ -308,22 +371,72 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
+    // Normalise, then remap, then write.
+    //
+    // `migrateToV2` is what backfills the fields validation deliberately does
+    // not require — `accentColor`, `followup`, `brandSnapshot`, `currency`,
+    // `reminders`. That used to happen after the import, via `forceMigration`
+    // patching the localStorage keys the records had just been written to.
+    // With the data in Postgres there is no such second pass: a record
+    // missing `currency` now violates a NOT NULL constraint and is dropped.
+    // Normalising before the write is what keeps those records importable.
+    const normalised = migrateToV2({
+      brands: brands.valid,
+      clients: clients.valid,
+      invoices: invoices.valid,
+      templates: templates.valid,
+    });
+
+    // `currency` is the one field neither validation nor migrateToV2 fills.
+    // The app has always tolerated its absence by defaulting at read time
+    // (`invoice.currency ?? "INR"` in reports.ts and invoice-table.ts), which
+    // worked while nothing enforced it. The column is NOT NULL, so an
+    // invoice without one is now rejected outright — applied here, at the
+    // one place unvalidated external JSON enters, rather than in the mapper,
+    // where it would quietly paper over a bug in our own code.
+    const withCurrency = normalised.invoices.map((invoice) =>
+      invoice.currency ? invoice : { ...invoice, currency: "INR" as const }
+    );
+
+    // `migrateToV2` seeds the three default templates when it is handed none
+    // — right for a first-run migration, wrong for an import, where it would
+    // add templates the user's file never contained. Every new account
+    // already gets them from the signup trigger.
+    const normalisedTemplates = templates.valid.length === 0 ? [] : normalised.templates;
+
+    // Every id column is `uuid`, and a backup written by the pre-Postgres
+    // app carries hand-written template ids (`tpl-gentle-nudge`) that
+    // Postgres rejects outright. Remapping runs after normalisation and
+    // before any write, so the references between records in the file are
+    // rewritten together rather than one collection at a time.
+    const remap = remapNonUuidIds({
+      brands: normalised.brands,
+      clients: normalised.clients,
+      templates: normalisedTemplates,
+      invoices: withCurrency,
+    });
+
     // Written before invoices are even looked at, so an imported invoice's
     // brandId/clientId resolve against records that already exist by the
     // time forceMigration (and every screen after it) reads them.
-    const brandsResult = importCollection(
-      brands,
-      new Set(getBrands().map((b) => b.id)),
+    const [existingBrands, existingClients, existingTemplates] = await Promise.all([
+      getBrands(),
+      getClients(),
+      getTemplates(),
+    ]);
+    const brandsResult = await importCollection(
+      { ...brands, valid: remap.collections.brands },
+      new Set(existingBrands.map((b) => b.id)),
       saveBrand
     );
-    const clientsResult = importCollection(
-      clients,
-      new Set(getClients().map((c) => c.id)),
+    const clientsResult = await importCollection(
+      { ...clients, valid: remap.collections.clients },
+      new Set(existingClients.map((c) => c.id)),
       saveClient
     );
-    const templatesResult = importCollection(
-      templates,
-      new Set(getTemplates().map((t) => t.id)),
+    const templatesResult = await importCollection(
+      { ...templates, valid: remap.collections.templates },
+      new Set(existingTemplates.map((t) => t.id)),
       saveTemplate
     );
     const collections: ImportedCollections = {
@@ -335,7 +448,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     if (invoices.valid.length === 0) {
       // Nothing invoice-shaped in the file — finish here rather than run an
       // empty conflict pipeline.
-      if (hasAnyCollectionWrite(collections)) forceMigration();
       finishImport({
         invoices: {
           imported: 0,
@@ -345,12 +457,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           invalidSkipped: invoices.skipped,
           failed: 0,
         },
+        remappedIds: remap.remapped,
         ...collections,
       });
       return;
     }
 
-    beginInvoiceReconciliation(invoices.valid, invoices.skipped, collections);
+    await beginInvoiceReconciliation(
+      remap.collections.invoices,
+      invoices.skipped,
+      collections,
+      remap.remapped
+    );
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -371,11 +489,19 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       // already is — routed to the untouched invoices-only pipeline below so
       // those files keep working exactly as they always have. Anything else
       // is validated as a full-backup envelope.
-      if (Array.isArray(parsed)) {
-        importLegacyInvoiceArray(parsed);
-      } else {
-        importBackupEnvelope(parsed);
-      }
+      // Caught rather than left floating: this runs inside FileReader's
+      // onload, so nothing above it can await the result, and a rejected
+      // write would otherwise surface only as an unhandled rejection.
+      const run = Array.isArray(parsed)
+        ? importLegacyInvoiceArray(parsed)
+        : importBackupEnvelope(parsed);
+      run.catch((err: unknown) => {
+        toast(
+          err instanceof Error
+            ? `Import failed — ${err.message}`
+            : "Import failed. Nothing was changed."
+        );
+      });
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -413,7 +539,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     onImportDone();
   };
 
-  const applyResolution = (resolution: ConflictResolution) => {
+  const applyResolution = async (resolution: ConflictResolution) => {
     const newResolutions = [...resolutions, resolution];
 
     if (conflictIndex < conflicts.length - 1) {
@@ -427,8 +553,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       let saved = 0;
       let failed = 0;
       for (const inv of nonConflicting) {
-        if (saveInvoice(inv)) saved++;
-        else failed++;
+        try {
+          await createInvoice(inv, { preserveNumber: true });
+          saved++;
+        } catch {
+          failed++;
+        }
       }
 
       let overwritten = 0;
@@ -440,36 +570,35 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         const res = newResolutions[i];
 
         if (res.action === "overwrite") {
-          // Save the incoming record before touching the existing one — if
-          // the write fails (e.g. a full quota), the existing invoice is
-          // still there rather than being deleted out from under a save
-          // that never landed.
-          if (!saveInvoice(incoming)) {
+          // Overwrite the existing row in place, keeping its id, rather than
+          // inserting the incoming record and deleting the old one.
+          //
+          // The conflict was detected BY invoice number, so both rows carry
+          // the same one — and `invoices_number_unique` will not hold two.
+          // Insert-then-delete is therefore impossible, and delete-then-
+          // insert would leave nothing at all if the insert failed. Updating
+          // in place is a single transaction with no window where the
+          // invoice is missing. Nothing references an invoice's id, so
+          // discarding the incoming one costs nothing.
+          try {
+            await saveInvoice({ ...incoming, id: existing.id });
+            overwritten++;
+          } catch {
             failed++;
-            continue;
           }
-          // If the old record under a different id can't be deleted (e.g. a
-          // full quota mid-import), both records now sit in storage under
-          // the same invoiceNumber — that's a failed overwrite, not a clean
-          // one, even though the new invoice did persist.
-          if (existing.id !== incoming.id && !deleteInvoice(existing.id)) {
-            failed++;
-            continue;
-          }
-          overwritten++;
         } else if (res.action === "rename") {
-          if (saveInvoice({ ...incoming, invoiceNumber: res.newNumber })) {
+          try {
+            await createInvoice(
+              { ...incoming, invoiceNumber: res.newNumber },
+              { preserveNumber: true }
+            );
             renamed++;
-          } else {
+          } catch {
             failed++;
           }
         } else {
           discarded++;
         }
-      }
-
-      if (saved + overwritten + renamed > 0 || hasAnyCollectionWrite(pendingCollections)) {
-        forceMigration();
       }
 
       finishImport({
@@ -481,6 +610,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           invalidSkipped: pendingInvalidSkipped,
           failed,
         },
+        remappedIds: pendingRemapped,
         ...pendingCollections,
       });
     }
@@ -536,7 +666,15 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         variant="outline"
         size="sm"
         className="text-xs gap-1.5"
-        onClick={handleExport}
+        onClick={() => {
+          handleExport().catch((err: unknown) => {
+            toast(
+              err instanceof Error
+                ? `Export failed — ${err.message}`
+                : "Export failed. Nothing was downloaded."
+            );
+          });
+        }}
       >
         <Download className="h-3.5 w-3.5" />
         Export
@@ -715,6 +853,14 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           </DialogHeader>
           {summary && (
             <div className="space-y-2 text-xs">
+              {summary.remappedIds > 0 && (
+                <p className="text-muted-foreground border rounded-md p-2 leading-relaxed">
+                  {summary.remappedIds} record
+                  {summary.remappedIds === 1 ? " had its id" : "s had their ids"} rewritten —
+                  this file predates hosted storage. Importing it again would add a second copy
+                  rather than skipping them.
+                </p>
+              )}
               <div className="flex justify-between py-1 border-b">
                 <span className="text-muted-foreground">Invoices imported</span>
                 <span className="font-semibold tabular-nums">

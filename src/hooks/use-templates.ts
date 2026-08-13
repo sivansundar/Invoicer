@@ -1,20 +1,49 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmailTemplate } from "@/lib/types";
+import { queryKeys } from "@/lib/query-client";
+import { optimisticRemove, optimisticUpsert } from "./optimistic";
 import * as storage from "@/lib/storage";
 
 const EMPTY: EmailTemplate[] = [];
 
+/** See use-brands.ts for the contract these four hooks share. */
 export function useTemplates() {
-  const templates = useSyncExternalStore(
-    storage.subscribe,
-    storage.getTemplatesSnapshot,
-    () => EMPTY
+  const queryClient = useQueryClient();
+
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.templates,
+    queryFn: storage.getTemplates,
+  });
+
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.templates }),
+    [queryClient]
   );
 
-  const save = useCallback((template: EmailTemplate) => storage.saveTemplate(template), []);
-  const remove = useCallback((id: string) => storage.deleteTemplate(id), []);
+  const saveMutation = useMutation({
+    mutationFn: storage.saveTemplate,
+    ...optimisticUpsert<EmailTemplate>(queryClient, queryKeys.templates),
+  });
 
-  return { templates, loading: false, save, remove, refresh: () => {} };
+  const removeMutation = useMutation({
+    mutationFn: storage.deleteTemplate,
+    ...optimisticRemove<EmailTemplate>(queryClient, queryKeys.templates),
+  });
+
+  const save = useCallback(
+    (template: EmailTemplate) => saveMutation.mutateAsync(template),
+    [saveMutation]
+  );
+  const remove = useCallback((id: string) => removeMutation.mutateAsync(id), [removeMutation]);
+
+  return {
+    templates: data ?? EMPTY,
+    loading: isPending,
+    save,
+    remove,
+    refresh: invalidate,
+  };
 }

@@ -1,11 +1,18 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BrandForm } from "./brand-form";
 import { BrandFilterProvider } from "@/components/brand-filter/brand-filter-provider";
+import { renderWithProviders } from "@/test/render";
+import { failNext, resetFakeSeam, seed } from "@/test/fake-seam";
 import * as storage from "@/lib/storage";
 import { MAX_LOGO_SOURCE_BYTES } from "@/lib/brands";
 import type { Brand, Invoice } from "@/lib/types";
+
+// Brands live in Postgres now, so this drives the in-memory fake of the seam
+// rather than localStorage. See src/test/fake-seam.ts for why a fake and not
+// MSW; the real queries are covered by src/test/integration/seam.test.ts.
+vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -20,7 +27,7 @@ vi.mock("sonner", () => ({
 }));
 
 function renderForm(brand?: Brand) {
-  return render(
+  return renderWithProviders(
     <BrandFilterProvider>
       <BrandForm brand={brand} />
     </BrandFilterProvider>
@@ -84,7 +91,7 @@ describe("BrandForm — logo, phone, PAN", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
-    storage.runMigration();
+    resetFakeSeam();
     push.mockClear();
     toast.mockClear();
 
@@ -118,7 +125,11 @@ describe("BrandForm — logo, phone, PAN", () => {
 
     await user.click(screen.getByRole("button", { name: "Create brand" }));
 
-    const saved = storage.getBrands()[0];
+    const saved = await waitFor(async () => {
+      const [first] = await storage.getBrands();
+      expect(first).toBeDefined();
+      return first;
+    });
     expect(saved.phone).toBe("+91 90000 00000");
     // Uppercased to match every other PAN/GST/prefix field in this form.
     expect(saved.panNumber).toBe("ABCDE1234F");
@@ -126,28 +137,30 @@ describe("BrandForm — logo, phone, PAN", () => {
   });
 
   it("preserves logo, phone and PAN when editing without touching them", async () => {
-    storage.saveBrand(
-      brand({
-        phone: "+91 80000 00000",
-        panNumber: "ZYXWV9876G",
-        logo: "data:image/png;base64,AAAA",
-      })
-    );
+    const existing = brand({
+      phone: "+91 80000 00000",
+      panNumber: "ZYXWV9876G",
+      logo: "data:image/png;base64,AAAA",
+    });
+    seed({ brands: [existing] });
     const user = userEvent.setup();
-    renderForm(storage.getBrand("b1")!);
+    renderForm(existing);
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    const saved = storage.getBrand("b1")!;
-    expect(saved.phone).toBe("+91 80000 00000");
-    expect(saved.panNumber).toBe("ZYXWV9876G");
-    expect(saved.logo).toBe("data:image/png;base64,AAAA");
+    await waitFor(async () => {
+      const saved = (await storage.getBrand("b1"))!;
+      expect(saved.phone).toBe("+91 80000 00000");
+      expect(saved.panNumber).toBe("ZYXWV9876G");
+      expect(saved.logo).toBe("data:image/png;base64,AAAA");
+    });
   });
 
   it("clearing a logo actually clears it, not just the preview", async () => {
-    storage.saveBrand(brand({ logo: "data:image/png;base64,AAAA" }));
+    const existing = brand({ logo: "data:image/png;base64,AAAA" });
+    seed({ brands: [existing] });
     const user = userEvent.setup();
-    renderForm(storage.getBrand("b1")!);
+    renderForm(existing);
 
     expect(screen.getByRole("button", { name: "Remove logo" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Remove logo" }));
@@ -155,8 +168,9 @@ describe("BrandForm — logo, phone, PAN", () => {
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    const saved = storage.getBrand("b1")!;
-    expect(saved.logo).toBeUndefined();
+    await waitFor(async () => {
+      expect((await storage.getBrand("b1"))!.logo).toBeUndefined();
+    });
   });
 
   it("rejects a non-image file with a toast and leaves the logo unset", () => {
@@ -192,17 +206,18 @@ describe("BrandForm — logo, phone, PAN", () => {
 
   it("does not show a success toast or navigate away when the save itself fails", async () => {
     // Regression coverage for a bug this fix round's own browser check
-    // caught: `storage.saveBrand` returning `false` (e.g. a full quota,
-    // already toasted by `storage.ts` itself) used to be ignored here —
-    // `handleSubmit` toasted success and navigated to `/brands` regardless,
-    // which told the user their brand was created when it silently wasn't.
-    vi.spyOn(storage, "saveBrand").mockReturnValue(false);
+    // caught: a failed `saveBrand` used to be ignored here — `handleSubmit`
+    // toasted success and navigated to `/brands` regardless, which told the
+    // user their brand was created when it silently wasn't. The failure is a
+    // rejected promise now rather than a `false`, and the handler catches it.
+    failNext("saveBrand", "network unreachable");
     const user = userEvent.setup();
     renderForm();
 
     await user.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Acme Studio");
     await user.click(screen.getByRole("button", { name: "Create brand" }));
 
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("network unreachable"));
     expect(toast).not.toHaveBeenCalledWith(
       expect.stringContaining("is ready — first invoice will be")
     );
@@ -216,7 +231,7 @@ describe("BrandForm — logo, phone, PAN", () => {
 describe("BrandForm — invoice preview", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    storage.runMigration();
+    resetFakeSeam();
     push.mockClear();
     toast.mockClear();
   });
@@ -257,7 +272,7 @@ describe("BrandForm — invoice preview", () => {
       followupsPaused: false,
       ...overrides,
     };
-    storage.saveInvoice(invoice);
+    seed({ invoices: [invoice] });
     return invoice;
   }
 
@@ -312,11 +327,13 @@ describe("BrandForm — invoice preview", () => {
     expect(screen.getByText("Northwind Studio")).toBeInTheDocument();
   });
 
-  it("previews the brand's latest invoice when it has one", () => {
+  it("previews the brand's latest invoice when it has one", async () => {
     seedInvoice();
     renderForm(brand());
 
-    expect(screen.getByText("Harbourline Foods")).toBeInTheDocument();
+    // The invoice list is fetched now, so the preview swaps from sample data
+    // to the real invoice only once that query resolves.
+    expect(await screen.findByText("Harbourline Foods")).toBeInTheDocument();
     // Twice over: the pane's subtitle names which invoice is being shown, and
     // the document itself carries the number.
     expect(screen.getByText(/Your latest invoice, SDC-2026-007/)).toBeInTheDocument();

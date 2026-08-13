@@ -1,20 +1,46 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Client } from "@/lib/types";
+import { queryKeys } from "@/lib/query-client";
+import { optimisticRemove, optimisticUpsert } from "./optimistic";
 import * as storage from "@/lib/storage";
 
 const EMPTY: Client[] = [];
 
+/** See use-brands.ts for the contract these four hooks share. */
 export function useClients() {
-  const clients = useSyncExternalStore(
-    storage.subscribe,
-    storage.getClientsSnapshot,
-    () => EMPTY
+  const queryClient = useQueryClient();
+
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.clients,
+    queryFn: storage.getClients,
+  });
+
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.clients }),
+    [queryClient]
   );
 
-  const save = useCallback((client: Client) => storage.saveClient(client), []);
-  const remove = useCallback((id: string) => storage.deleteClient(id), []);
+  const saveMutation = useMutation({
+    mutationFn: storage.saveClient,
+    ...optimisticUpsert<Client>(queryClient, queryKeys.clients),
+  });
 
-  return { clients, loading: false, save, remove, refresh: () => {} };
+  const removeMutation = useMutation({
+    mutationFn: storage.deleteClient,
+    ...optimisticRemove<Client>(queryClient, queryKeys.clients),
+  });
+
+  const save = useCallback((client: Client) => saveMutation.mutateAsync(client), [saveMutation]);
+  const remove = useCallback((id: string) => removeMutation.mutateAsync(id), [removeMutation]);
+
+  return {
+    clients: data ?? EMPTY,
+    loading: isPending,
+    save,
+    remove,
+    refresh: invalidate,
+  };
 }

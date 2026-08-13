@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEMA_VERSION, forceMigration, migrateToV2, runMigration, snapshotFromBrand } from "./migrate";
-import { DEFAULT_TEMPLATE_ID, SEED_TEMPLATES } from "./seed";
+import { SEED_TEMPLATES } from "./seed";
 import { BRAND_PALETTE } from "./palette";
 import type { Brand } from "./types";
 
@@ -73,11 +73,14 @@ describe("migrateToV2 — brands", () => {
     expect(migrate().brands[0].accentColor).toBe(BRAND_PALETTE[0]);
   });
 
-  it("gives every brand a default follow-up config", () => {
+  it("gives every brand a default follow-up config, with no template chosen", () => {
     const followup = migrate().brands[0].followup;
     expect(followup.enabled).toBe(true);
     expect(followup.mode).toBe("weekly");
-    expect(followup.templateId).toBe(DEFAULT_TEMPLATE_ID);
+    // Empty rather than DEFAULT_TEMPLATE_ID: templates are seeded per org
+    // with server-generated uuids, so no id is knowable client-side and a
+    // hardcoded one would be a dangling reference. See defaultFollowupConfig.
+    expect(followup.templateId).toBe("");
   });
 
   it("preserves every existing brand field", () => {

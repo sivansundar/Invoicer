@@ -1,9 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import InvoiceDetailPage from "./page";
 import { ThemeProvider } from "@/components/theme/theme-provider";
-import * as storage from "@/lib/storage";
+import { renderWithProviders } from "@/test/render";
+import { resetFakeSeam, seed } from "@/test/fake-seam";
 import type { Brand, Invoice } from "@/lib/types";
+
+// Brands are in Postgres now; invoices are not yet. The fake mirrors both.
+vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
 // Deliberately does *not* mock "@/lib/features" — this exercises the real
 // production default (FEATURES.followups: false) to prove the follow-ups
@@ -77,7 +81,7 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
 describe("InvoiceDetailPage with follow-ups hidden (default flag state)", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    storage.runMigration();
+    resetFakeSeam();
     vi.stubGlobal(
       "matchMedia",
       vi.fn().mockImplementation((query: string) => ({
@@ -98,10 +102,9 @@ describe("InvoiceDetailPage with follow-ups hidden (default flag state)", () => 
   });
 
   it("does not render the follow-ups card even with reminder history", () => {
-    storage.saveBrand(brand());
-    storage.saveInvoice(invoice());
+    seed({ brands: [brand()], invoices: [invoice()] });
 
-    render(
+    renderWithProviders(
       <ThemeProvider>
         <InvoiceDetailPage />
       </ThemeProvider>
@@ -112,17 +115,18 @@ describe("InvoiceDetailPage with follow-ups hidden (default flag state)", () => 
     expect(screen.queryByRole("button", { name: "Send one now" })).not.toBeInTheDocument();
   });
 
-  it("still renders status actions, dates and delete without the card", () => {
-    storage.saveBrand(brand());
-    storage.saveInvoice(invoice({ status: "sent" }));
+  it("still renders status actions, dates and delete without the card", async () => {
+    seed({ brands: [brand()], invoices: [invoice({ status: "sent" })] });
 
-    render(
+    renderWithProviders(
       <ThemeProvider>
         <InvoiceDetailPage />
       </ThemeProvider>
     );
 
-    expect(screen.getByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
+    // findBy, not getBy: the invoice is fetched, so nothing is on screen
+    // until that query resolves.
+    expect(await screen.findByRole("button", { name: "Mark as paid" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
     expect(screen.getByText("Preview")).toBeInTheDocument();
   });

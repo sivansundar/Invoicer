@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Shell } from "@/components/layout/shell";
 import { Button } from "@/components/ui/button";
+import { ListPageSkeleton } from "@/components/ui/page-skeletons";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
 import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
@@ -10,16 +10,17 @@ import { Plus } from "lucide-react";
 import type { Client, Invoice } from "@/lib/types";
 
 export default function ClientsPage() {
-  return (
-    <Shell>
-      <ClientsPageContent />
-    </Shell>
-  );
+  return <ClientsPageContent />;
 }
 
 function ClientsPageContent() {
-  const { clients } = useClients();
+  const { clients, loading } = useClients();
   const { invoices } = useInvoices();
+
+  // Guarded before the "No clients yet" branch below — that copy is a
+  // statement about the account, and showing it mid-fetch tells a user with
+  // fifty clients that they have none.
+  if (loading) return <ListPageSkeleton />;
 
   return (
     <div className="p-6 max-w-[1000px] flex flex-col gap-5">

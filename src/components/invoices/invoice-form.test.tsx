@@ -1,9 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvoiceForm } from "./invoice-form";
+import { renderWithProviders } from "@/test/render";
+import { failNext, resetFakeSeam, seed } from "@/test/fake-seam";
 import * as storage from "@/lib/storage";
 import type { Brand, Client, Invoice, InvoiceStatus } from "@/lib/types";
+
+// Brands and clients are in Postgres now; invoices are not yet.
+vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
 // jsdom implements neither the Pointer Capture API nor scrollIntoView, both
 // of which Radix's Select uses internally when opened via a real pointer
@@ -95,16 +100,8 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
 
 describe("InvoiceForm", () => {
   beforeEach(() => {
-    // Restores any `vi.spyOn` from a previous test — most importantly the
-    // `localStorage.setItem` quota-failure spy below, which would otherwise
-    // silently break every `storage.save*` call in every test that runs
-    // after it.
-    vi.restoreAllMocks();
     window.localStorage.clear();
-    // Fully resets the storage module's snapshot cache (not just the
-    // underlying localStorage mock) so no fixture from a previous test can
-    // leak into this one — see runMigration's cache-clearing contract.
-    storage.runMigration();
+    resetFakeSeam();
     push.mockClear();
     toast.mockClear();
   });
@@ -113,74 +110,63 @@ describe("InvoiceForm", () => {
     "editing a %s invoice",
     (status) => {
       it(`preserves "${status}" when the primary save button is clicked`, async () => {
-        storage.saveBrand(brand({ name: "New Brand Name" }));
-        // Fully populated, so this also proves "Save changes" runs the same
-        // mandatory-field gate as "Create invoice" without being blocked by
-        // it — the fixture below satisfies it, `status` is the only thing
-        // under test here.
-        storage.saveClient(client());
+        seed({ brands: [brand({ name: "New Brand Name" })], clients: [client()] });
         const existing = invoice({ status });
-        storage.saveInvoice(existing);
+        seed({ invoices: [existing] });
 
         const user = userEvent.setup();
-        render(<InvoiceForm existingInvoice={existing} />);
+        renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
         expect(push).toHaveBeenCalledWith("/dashboard");
-        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        const saved = (await storage.getInvoices()).find((i) => i.id === "i1");
         expect(saved?.status).toBe(status);
       });
     }
   );
 
   it('"Save as draft" explicitly sets status to draft, even from paid', async () => {
-    storage.saveBrand(brand());
-    storage.saveClient(client());
+    seed({ brands: [brand()], clients: [client()] });
     const existing = invoice({ status: "paid" });
-    storage.saveInvoice(existing);
+    seed({ invoices: [existing] });
 
     const user = userEvent.setup();
-    render(<InvoiceForm existingInvoice={existing} />);
+    renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
     await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
-    const saved = storage.getInvoices().find((i) => i.id === "i1");
+    const saved = (await storage.getInvoices()).find((i) => i.id === "i1");
     expect(saved?.status).toBe("draft");
   });
 
   it("does not reset reminders, followupsPaused, or brandSnapshot when editing", async () => {
     // The brand record has since changed name — proves the saved invoice
     // keeps its originally frozen snapshot rather than re-deriving it.
-    storage.saveBrand(brand({ name: "New Brand Name" }));
-    storage.saveClient(client());
+    seed({ brands: [brand({ name: "New Brand Name" })], clients: [client()] });
     const existing = invoice({
       status: "sent",
       reminders: ["2026-06-05", "2026-06-12"],
       followupsPaused: true,
     });
-    storage.saveInvoice(existing);
+    seed({ invoices: [existing] });
 
     const user = userEvent.setup();
-    render(<InvoiceForm existingInvoice={existing} />);
+    renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    const saved = storage.getInvoices().find((i) => i.id === "i1");
+    const saved = (await storage.getInvoices()).find((i) => i.id === "i1");
     expect(saved?.reminders).toEqual(["2026-06-05", "2026-06-12"]);
     expect(saved?.followupsPaused).toBe(true);
     expect(saved?.brandSnapshot.name).toBe("Old Brand Name");
   });
 
   it("a new invoice starts \"sent\" via the primary button", async () => {
-    storage.saveBrand(brand());
-    // Fully populated, so selecting it satisfies company/contact/address —
-    // "Create invoice" now requires all three, plus a due date, on top of
-    // what this test already exercised.
-    storage.saveClient(client());
+    seed({ brands: [brand()], clients: [client()] });
 
     const user = userEvent.setup();
-    render(<InvoiceForm />);
+    renderWithProviders(<InvoiceForm />);
 
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -199,16 +185,15 @@ describe("InvoiceForm", () => {
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
     expect(push).toHaveBeenCalledWith("/dashboard");
-    const saved = storage.getInvoices()[0];
+    const saved = (await storage.getInvoices())[0];
     expect(saved.status).toBe("sent");
   });
 
   it('a new invoice starts "draft" via the secondary button', async () => {
-    storage.saveBrand(brand());
-    storage.saveClient(client());
+    seed({ brands: [brand()], clients: [client()] });
 
     const user = userEvent.setup();
-    render(<InvoiceForm />);
+    renderWithProviders(<InvoiceForm />);
 
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -216,18 +201,15 @@ describe("InvoiceForm", () => {
     await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
     expect(push).toHaveBeenCalledWith("/dashboard");
-    const saved = storage.getInvoices()[0];
+    const saved = (await storage.getInvoices())[0];
     expect(saved.status).toBe("draft");
   });
 
   it('saves with clientId: null and a typed client snapshot when "Enter manually…" is used', async () => {
-    storage.saveBrand(brand());
-    // A saved client also exists, to prove manual entry is additive rather
-    // than replacing the select.
-    storage.saveClient(client());
+    seed({ brands: [brand()], clients: [client()] });
 
     const user = userEvent.setup();
-    render(<InvoiceForm />);
+    renderWithProviders(<InvoiceForm />);
 
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -254,7 +236,7 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
-    const saved = storage.getInvoices()[0];
+    const saved = (await storage.getInvoices())[0];
     expect(saved.clientId).toBeNull();
     expect(saved.client.companyName).toBe("One-off Client Ltd");
     // The GSTIN is what lets a registered client claim input tax credit on an
@@ -268,30 +250,30 @@ describe("InvoiceForm", () => {
     // guard, unlike the primary button, so this used to hit an early
     // `return` with no feedback whatsoever.
     const user = userEvent.setup();
-    render(<InvoiceForm />);
+    renderWithProviders(<InvoiceForm />);
 
     await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
     expect(toast).toHaveBeenCalledWith("Select a brand first");
     expect(push).not.toHaveBeenCalled();
-    expect(storage.getInvoices()).toHaveLength(0);
+    expect((await storage.getInvoices())).toHaveLength(0);
   });
 
   it("does not show the success toast or navigate away when the save itself fails", async () => {
     // Regression coverage for the same false-success gap fix round 2 closed
-    // in brand-form.tsx: a full `localStorage` quota must not be reported as
-    // a successful save. `storage.ts` toasts its own "Storage is full…"
-    // failure message; `InvoiceForm` must neither toast its own success copy
-    // on top of that nor navigate away from the unsaved invoice.
-    storage.saveBrand(brand());
-    storage.saveClient(client());
-
-    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
-      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
-    });
+    // in brand-form.tsx: a failed write must not be reported as a successful
+    // save. Invoices are still localStorage-backed, so `storage.ts` toasts
+    // its own "Storage is full…" message; `InvoiceForm` must neither toast
+    // its own success copy on top of that nor navigate away from the unsaved
+    // invoice. Armed through the fake rather than by spying on
+    // localStorage.setItem, which the brand/client fixtures no longer touch.
+    seed({ brands: [brand()], clients: [client()] });
+    // createInvoice, not saveInvoice: a new invoice goes through the create
+    // RPC, which is what allocates its number.
+    failNext("createInvoice", "network unreachable");
 
     const user = userEvent.setup();
-    render(<InvoiceForm />);
+    renderWithProviders(<InvoiceForm />);
 
     await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -309,10 +291,10 @@ describe("InvoiceForm", () => {
 
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
-    expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("network unreachable"));
     expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("sent to"));
     expect(push).not.toHaveBeenCalled();
-    expect(storage.getInvoices()).toHaveLength(0);
+    expect((await storage.getInvoices())).toHaveLength(0);
   });
 
   describe("mandatory-field validation on save (create and edit, identically)", () => {
@@ -320,13 +302,13 @@ describe("InvoiceForm", () => {
       // "Create invoice" is disabled with no brand at all, so the earliest
       // this can actually be exercised is right after a brand is chosen —
       // everything after it (Billed to, dates, line items) is still empty.
-      storage.saveBrand(brand());
+      seed({ brands: [brand()] });
       const scrollIntoView = vi
         .spyOn(Element.prototype, "scrollIntoView")
         .mockImplementation(() => {});
 
       const user = userEvent.setup();
-      render(<InvoiceForm />);
+      renderWithProviders(<InvoiceForm />);
 
       await user.click(screen.getAllByRole("combobox")[0]);
       await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -344,7 +326,7 @@ describe("InvoiceForm", () => {
         "Who's this invoice for? Choose a client or enter one manually — a few other required fields need it too"
       );
       expect(push).not.toHaveBeenCalled();
-      expect(storage.getInvoices()).toHaveLength(0);
+      expect((await storage.getInvoices())).toHaveLength(0);
 
       const clientTrigger = document
         .getElementById("field-client")!
@@ -366,13 +348,10 @@ describe("InvoiceForm", () => {
     });
 
     it("lets a client selected with no saved contact name be completed inline, without touching the saved record", async () => {
-      storage.saveBrand(brand());
-      // No `name` at all — exactly what the client form allows by marking
-      // it Optional, and the dead end this task exists to avoid.
-      storage.saveClient(client({ name: undefined }));
+      seed({ brands: [brand()], clients: [client({ name: undefined })] });
 
       const user = userEvent.setup();
-      render(<InvoiceForm />);
+      renderWithProviders(<InvoiceForm />);
 
       await user.click(screen.getAllByRole("combobox")[0]);
       await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -398,22 +377,21 @@ describe("InvoiceForm", () => {
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
       expect(push).toHaveBeenCalledWith("/dashboard");
-      const saved = storage.getInvoices()[0];
+      const saved = (await storage.getInvoices())[0];
       expect(saved.clientId).toBe("c1");
       expect(saved.client.name).toBe("Priya Nair");
       // This invoice's snapshot gained a contact name — the saved client
       // record itself must not have been silently rewritten.
-      expect(storage.getClients().find((c) => c.id === "c1")?.name).toBeUndefined();
+      expect((await storage.getClients()).find((c) => c.id === "c1")?.name).toBeUndefined();
     });
 
     it("creates the invoice with the contact-name nudge left unanswered", async () => {
       // The nudge is a nudge: a client with no contact name gets the panel
       // and the field, but ignoring both must still produce an invoice.
-      storage.saveBrand(brand());
-      storage.saveClient(client({ name: undefined }));
+      seed({ brands: [brand()], clients: [client({ name: undefined })] });
 
       const user = userEvent.setup();
-      render(<InvoiceForm />);
+      renderWithProviders(<InvoiceForm />);
 
       await user.click(screen.getAllByRole("combobox")[0]);
       await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -433,16 +411,16 @@ describe("InvoiceForm", () => {
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
       expect(push).toHaveBeenCalledWith("/dashboard");
-      const saved = storage.getInvoices()[0];
+      const saved = (await storage.getInvoices())[0];
       expect(saved.client.companyName).toBe("Acme Studio");
       expect(saved.client.name).toBeUndefined();
     });
 
     it('"Save as draft" still saves an otherwise-empty invoice — only a brand is required', async () => {
-      storage.saveBrand(brand());
+      seed({ brands: [brand()] });
 
       const user = userEvent.setup();
-      render(<InvoiceForm />);
+      renderWithProviders(<InvoiceForm />);
 
       await user.click(screen.getAllByRole("combobox")[0]);
       await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -452,19 +430,17 @@ describe("InvoiceForm", () => {
       await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
       expect(push).toHaveBeenCalledWith("/dashboard");
-      const saved = storage.getInvoices()[0];
+      const saved = (await storage.getInvoices())[0];
       expect(saved.status).toBe("draft");
       expect(saved.dueDate).toBe("");
       expect(saved.clientId).toBeNull();
     });
 
     it("never blocks creation on a missing email", async () => {
-      storage.saveBrand(brand());
-      // The saved client has no `email` field at all.
-      storage.saveClient(client({ email: undefined }));
+      seed({ brands: [brand()], clients: [client({ email: undefined })] });
 
       const user = userEvent.setup();
-      render(<InvoiceForm />);
+      renderWithProviders(<InvoiceForm />);
 
       await user.click(screen.getAllByRole("combobox")[0]);
       await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
@@ -482,46 +458,43 @@ describe("InvoiceForm", () => {
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
       expect(push).toHaveBeenCalledWith("/dashboard");
-      expect(storage.getInvoices()).toHaveLength(1);
+      expect((await storage.getInvoices())).toHaveLength(1);
     });
 
     describe("editing", () => {
       it('"Save changes" is never blocked by a missing contact name, but still offers the field', async () => {
-        storage.saveBrand(brand());
-        // No `name` at all — an older client record, or simply one billed
-        // without ever naming a person.
-        storage.saveClient(client({ name: undefined }));
+        seed({ brands: [brand()], clients: [client({ name: undefined })] });
         const existing = invoice({ status: "sent" });
-        storage.saveInvoice(existing);
+        seed({ invoices: [existing] });
 
         const user = userEvent.setup();
-        render(<InvoiceForm existingInvoice={existing} />);
+        renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
-        // The nudge is on screen from the start — an editable field, no
-        // asterisk, no error.
-        const contactField = screen.getByPlaceholderText("Optional — e.g. Priya Nair");
+        // The nudge appears as soon as the client record loads — an editable
+        // field, no asterisk, no error. `findBy` rather than `getBy` because
+        // the gaps panel depends on the clients query having resolved.
+        const contactField = await screen.findByPlaceholderText("Optional — e.g. Priya Nair");
         expect(contactField).not.toHaveAttribute("aria-invalid", "true");
 
         await user.type(contactField, "Priya Nair");
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
         expect(push).toHaveBeenCalledWith("/dashboard");
-        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        const saved = (await storage.getInvoices()).find((i) => i.id === "i1");
         expect(saved?.status).toBe("sent");
         expect(saved?.client.name).toBe("Priya Nair");
         // This invoice's own snapshot gained the contact name — the saved
         // client record itself must not have been silently rewritten.
-        expect(storage.getClients().find((c) => c.id === "c1")?.name).toBeUndefined();
+        expect((await storage.getClients()).find((c) => c.id === "c1")?.name).toBeUndefined();
       });
 
       it('"Save changes" goes through with the contact name left blank', async () => {
-        storage.saveBrand(brand());
-        storage.saveClient(client({ name: undefined }));
+        seed({ brands: [brand()], clients: [client({ name: undefined })] });
         const existing = invoice({ status: "sent" });
-        storage.saveInvoice(existing);
+        seed({ invoices: [existing] });
 
         const user = userEvent.setup();
-        render(<InvoiceForm existingInvoice={existing} />);
+        renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -529,17 +502,16 @@ describe("InvoiceForm", () => {
           expect.stringContaining("contact name")
         );
         expect(push).toHaveBeenCalledWith("/dashboard");
-        expect(storage.getInvoices().find((i) => i.id === "i1")?.status).toBe("sent");
+        expect((await storage.getInvoices()).find((i) => i.id === "i1")?.status).toBe("sent");
       });
 
       it('"Save changes" persists an edit when the invoice is already complete', async () => {
-        storage.saveBrand(brand());
-        storage.saveClient(client());
+        seed({ brands: [brand()], clients: [client()] });
         const existing = invoice({ status: "sent", notes: "Original notes" });
-        storage.saveInvoice(existing);
+        seed({ invoices: [existing] });
 
         const user = userEvent.setup();
-        render(<InvoiceForm existingInvoice={existing} />);
+        renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
         const notesField = screen.getByPlaceholderText("Payment terms, a thank-you, anything.");
         await user.clear(notesField);
@@ -548,18 +520,17 @@ describe("InvoiceForm", () => {
         await user.click(screen.getByRole("button", { name: "Save changes" }));
 
         expect(push).toHaveBeenCalledWith("/dashboard");
-        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        const saved = (await storage.getInvoices()).find((i) => i.id === "i1");
         expect(saved?.notes).toBe("Updated notes");
       });
 
       it('"Save as draft" from the edit screen still saves with fields missing', async () => {
-        storage.saveBrand(brand());
-        storage.saveClient(client());
+        seed({ brands: [brand()], clients: [client()] });
         const existing = invoice({ status: "sent" });
-        storage.saveInvoice(existing);
+        seed({ invoices: [existing] });
 
         const user = userEvent.setup();
-        render(<InvoiceForm existingInvoice={existing} />);
+        renderWithProviders(<InvoiceForm existingInvoice={existing} />);
 
         // Clear the due date and the only line item's description — both
         // mandatory for "Save changes", neither should matter for a draft.
@@ -572,7 +543,7 @@ describe("InvoiceForm", () => {
         await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
         expect(push).toHaveBeenCalledWith("/dashboard");
-        const saved = storage.getInvoices().find((i) => i.id === "i1");
+        const saved = (await storage.getInvoices()).find((i) => i.id === "i1");
         expect(saved?.status).toBe("draft");
         expect(saved?.dueDate).toBe("");
       });

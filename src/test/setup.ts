@@ -17,6 +17,23 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+// jsdom does not implement matchMedia. `useIsMobile` (src/hooks/use-mobile.ts)
+// calls it in an effect, so any test that renders the sidebar — i.e. anything
+// mounting Shell — throws without this. Reports "not mobile", which is the
+// desktop layout the assertions in those tests are written against.
+Object.defineProperty(window, "matchMedia", {
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+  writable: true,
+  configurable: true,
+});
+
 const storage = new Map<string, string>();
 
 Object.defineProperty(window, "localStorage", {

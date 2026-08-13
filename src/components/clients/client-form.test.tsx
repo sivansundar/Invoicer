@@ -1,9 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientForm } from "./client-form";
+import { renderWithProviders } from "@/test/render";
+import { failNext, failOnCall, resetFakeSeam, seed } from "@/test/fake-seam";
 import * as storage from "@/lib/storage";
 import type { Client, Invoice } from "@/lib/types";
+
+// Clients live in Postgres now; invoices do not yet, so `saveInvoice` below
+// is still synchronous and boolean-returning. See src/test/fake-seam.ts.
+vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -61,119 +67,125 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
 describe("ClientForm", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    storage.runMigration();
+    resetFakeSeam();
     push.mockClear();
     toast.mockClear();
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it("toasts and does not save when the company name is blank", async () => {
     const user = userEvent.setup();
-    render(<ClientForm />);
+    renderWithProviders(<ClientForm />);
 
     await user.click(screen.getByRole("button", { name: "Add client" }));
 
     expect(toast).toHaveBeenCalledWith("Who are we billing? Add a company name");
     expect(push).not.toHaveBeenCalled();
-    expect(storage.getClients()).toHaveLength(0);
+    expect(await storage.getClients()).toHaveLength(0);
   });
 
   it("does not show a success toast or navigate away when the save itself fails", async () => {
-    vi.spyOn(storage, "saveClient").mockReturnValue(false);
+    failNext("saveClient", "network unreachable");
     const user = userEvent.setup();
-    render(<ClientForm />);
+    renderWithProviders(<ClientForm />);
 
     await user.type(screen.getByPlaceholderText("e.g. Acme Studio"), "Acme Studio");
     await user.click(screen.getByRole("button", { name: "Add client" }));
 
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("network unreachable"));
     expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("added to your client book"));
     expect(push).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue("Acme Studio")).toBeInTheDocument();
   });
 
   it("toasts a distinct message on create vs. on editing an existing client", async () => {
-    storage.saveClient(client());
+    seed({ clients: [client()] });
     const user = userEvent.setup();
-    render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
+    renderWithProviders(<ClientForm client={client()} />);
 
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(toast).toHaveBeenCalledWith(
-      expect.stringContaining("Acme Studio updated")
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.stringContaining("Acme Studio updated"))
     );
     expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("added to your client book"));
   });
 
   describe("deleting a client", () => {
     it("nulls clientId (and refreshes updatedAt) on every referencing invoice, leaving unrelated ones alone", async () => {
-      storage.saveClient(client());
-      storage.saveInvoice(invoice({ id: "i1", clientId: "c1" }));
-      storage.saveInvoice(invoice({ id: "i2", clientId: "c1" }));
-      storage.saveInvoice(invoice({ id: "i3", clientId: "c2" })); // different client
-      storage.saveInvoice(invoice({ id: "i4", clientId: null })); // already unlinked
+      seed({
+        clients: [client()],
+        invoices: [
+          invoice({ id: "i1", clientId: "c1" }),
+          invoice({ id: "i2", clientId: "c1" }),
+          invoice({ id: "i3", clientId: "c2" }), // different client
+          invoice({ id: "i4", clientId: null }), // already unlinked
+        ],
+      });
 
       const user = userEvent.setup();
-      render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
+      renderWithProviders(<ClientForm client={client()} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
 
-      expect(storage.getClients()).toHaveLength(0);
-      expect(storage.getInvoices().find((i) => i.id === "i1")?.clientId).toBeNull();
-      expect(storage.getInvoices().find((i) => i.id === "i2")?.clientId).toBeNull();
-      expect(storage.getInvoices().find((i) => i.id === "i1")?.updatedAt).not.toBe("2026-06-01T00:00:00.000Z");
+      await waitFor(() => expect(push).toHaveBeenCalledWith("/clients"));
+
+      expect(await storage.getClients()).toHaveLength(0);
+      expect((await storage.getInvoices()).find((i) => i.id === "i1")?.clientId).toBeNull();
+      expect((await storage.getInvoices()).find((i) => i.id === "i2")?.clientId).toBeNull();
+      expect((await storage.getInvoices()).find((i) => i.id === "i1")?.updatedAt).not.toBe("2026-06-01T00:00:00.000Z");
       // Untouched: different client, and already-null.
-      expect(storage.getInvoices().find((i) => i.id === "i3")?.clientId).toBe("c2");
-      expect(storage.getInvoices().find((i) => i.id === "i4")?.clientId).toBeNull();
+      expect((await storage.getInvoices()).find((i) => i.id === "i3")?.clientId).toBe("c2");
+      expect((await storage.getInvoices()).find((i) => i.id === "i4")?.clientId).toBeNull();
 
       expect(toast).toHaveBeenCalledWith("Acme Studio removed");
-      expect(push).toHaveBeenCalledWith("/clients");
     });
 
     it("does not touch any invoice when the client record itself fails to delete", async () => {
-      storage.saveClient(client());
-      storage.saveInvoice(invoice({ id: "i1", clientId: "c1" }));
-      vi.spyOn(storage, "deleteClient").mockReturnValue(false);
-      const saveInvoiceSpy = vi.spyOn(storage, "saveInvoice");
+      seed({ clients: [client()], invoices: [invoice({ id: "i1", clientId: "c1" })] });
+      failNext("deleteClient", "network unreachable");
 
       const user = userEvent.setup();
-      render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
+      renderWithProviders(<ClientForm client={client()} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
 
       // Order matters: nulling references before confirming the delete
       // persisted would risk unlinking invoices from a client that's still
       // there. A failed `remove` must short-circuit the whole cascade.
-      expect(saveInvoiceSpy).not.toHaveBeenCalled();
+      await waitFor(() => expect(toast).toHaveBeenCalledWith("network unreachable"));
+      expect(storage.saveInvoice).not.toHaveBeenCalled();
       expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("removed"));
       expect(push).not.toHaveBeenCalled();
     });
 
     it("reports a partial failure honestly instead of claiming full success", async () => {
-      storage.saveClient(client());
-      storage.saveInvoice(invoice({ id: "i1", clientId: "c1" }));
-      storage.saveInvoice(invoice({ id: "i2", clientId: "c1" }));
-      storage.saveInvoice(invoice({ id: "i3", clientId: "c1" }));
-
-      // Let the client delete and the 1st/3rd invoice writes through; fail
-      // only the 2nd invoice write (simulating a quota exhausted partway
-      // through the cascade).
-      const realSaveInvoice = storage.saveInvoice;
-      let invoiceWriteCount = 0;
-      vi.spyOn(storage, "saveInvoice").mockImplementation((inv) => {
-        invoiceWriteCount += 1;
-        if (invoiceWriteCount === 2) return false;
-        return realSaveInvoice(inv);
+      seed({
+        clients: [client()],
+        invoices: [
+          invoice({ id: "i1", clientId: "c1" }),
+          invoice({ id: "i2", clientId: "c1" }),
+          invoice({ id: "i3", clientId: "c1" }),
+        ],
       });
 
+      // Let the client delete and the 1st/3rd invoice writes through; fail
+      // only the 2nd invoice write (a failure striking partway through the
+      // cascade, which is the case the summary wording exists for).
+      failOnCall("saveInvoice", 2);
+
       const user = userEvent.setup();
-      render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
+      renderWithProviders(<ClientForm client={client()} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
 
       // The client itself is still gone — that write succeeded and isn't
       // undone — but the summary must name the shortfall, not claim a plain
       // "removed" the way it would if the failed write were ignored.
-      expect(storage.getClients()).toHaveLength(0);
+      await waitFor(() =>
+        expect(toast).toHaveBeenCalledWith(expect.stringContaining("couldn't be re-linked"))
+      );
+      expect(await storage.getClients()).toHaveLength(0);
       expect(toast).not.toHaveBeenCalledWith("Acme Studio removed");
       expect(toast).toHaveBeenCalledWith(expect.stringContaining("1 of 3"));
       expect(toast).toHaveBeenCalledWith(expect.stringContaining("couldn't be re-linked"));

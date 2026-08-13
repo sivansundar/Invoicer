@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Shell } from "@/components/layout/shell";
 import { TemplateForm } from "@/components/followups/template-form";
+import { FormSkeleton } from "@/components/ui/page-skeletons";
 import { useTemplates } from "@/hooks/use-templates";
 import { FEATURES } from "@/lib/features";
 
 export default function EditTemplatePage() {
   const params = useParams();
   const router = useRouter();
-  const { templates } = useTemplates();
+  const { templates, loading } = useTemplates();
 
   // See app/followups/page.tsx for why this redirects rather than 404s.
   useEffect(() => {
@@ -22,17 +22,12 @@ export default function EditTemplatePage() {
 
   if (!FEATURES.followups) return null;
 
+  // See brands/[id]/edit for why this precedes the not-found check.
+  if (loading) return <FormSkeleton fields={4} />;
+
   if (!template) {
-    return (
-      <Shell>
-        <p className="text-sm text-muted-foreground p-6">Template not found.</p>
-      </Shell>
-    );
+    return <p className="text-sm text-muted-foreground p-6">Template not found.</p>;
   }
 
-  return (
-    <Shell>
-      <TemplateForm template={template} />
-    </Shell>
-  );
+  return <TemplateForm template={template} />;
 }

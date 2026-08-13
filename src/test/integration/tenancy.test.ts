@@ -30,6 +30,46 @@ describe("signup trigger", () => {
   });
 
   it("cascades the membership away when the user is deleted", async () => {
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email: uniqueEmail(),
+      password: "integration-test-password-1",
+      email_confirm: true,
+    });
+    expect(createError).toBeNull();
+    const userId = created!.user!.id;
+
+    // Asserted before the delete, not just after. Without this the test
+    // passes just as happily when the signup trigger never created a
+    // membership at all — "it is gone now" is only meaningful if it was
+    // there a moment ago.
+    const { data: before } = await admin
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", userId);
+    expect(before).toHaveLength(1);
+
+    // `deleteUser` reports a failure in its result rather than throwing, so
+    // an unchecked call can leave the user in place and turn the assertion
+    // below into a check on a delete that never happened.
+    const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
+    expect(deleteError).toBeNull();
+
+    const { data: after } = await admin
+      .from("org_members")
+      .select("org_id")
+      .eq("user_id", userId);
+
+    expect(after).toEqual([]);
+  });
+
+  it("leaves the org behind when its only member is deleted", async () => {
+    // Deliberate, and worth pinning: `org_members.user_id` cascades from
+    // `auth.users`, but `orgs` does not cascade from `org_members`. Deleting
+    // an account therefore orphans its org and every row hanging off it
+    // rather than destroying the data. That is the right default while
+    // account deletion is not a built product — the DPDP erasure path will
+    // have to remove it deliberately, and it should be a decision made
+    // there rather than a side effect discovered here.
     const { data: created } = await admin.auth.admin.createUser({
       email: uniqueEmail(),
       password: "integration-test-password-1",
@@ -37,13 +77,17 @@ describe("signup trigger", () => {
     });
     const userId = created!.user!.id;
 
-    await admin.auth.admin.deleteUser(userId);
-
-    const { data: memberships } = await admin
+    const { data: membership } = await admin
       .from("org_members")
       .select("org_id")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .single();
+    const orgId = membership!.org_id;
 
-    expect(memberships).toEqual([]);
+    await admin.auth.admin.deleteUser(userId);
+
+    const { data: org } = await admin.from("orgs").select("id").eq("id", orgId).maybeSingle();
+
+    expect(org).not.toBeNull();
   });
 });
