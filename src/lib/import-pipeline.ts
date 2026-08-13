@@ -300,20 +300,45 @@ async function writeCollection<T extends { id: string }>(
 
 /**
  * Writes every incoming invoice, resolving a number collision through
- * `onConflict` — or, with none supplied, by treating it as an update. The
- * caller has already fetched `getInvoices()` once (to detect conflicts and
- * drive a dialog) if it needed to; this re-fetches, which is deliberately
- * cheap rather than threading a snapshot through the options — the two
- * calls a full-backup import makes (collections, then invoices) are far
- * enough apart in wall-clock terms that reusing a stale one is not worth
- * the extra parameter.
+ * `onConflict` — or, with none supplied, by treating it as an update. See
+ * `matchByIdentity`/`matchByNumber` below for how a conflict is found —
+ * deliberately two different strategies rather than one.
  */
 async function writeInvoices(
   invoices: Invoice[],
-  onConflict?: ConflictResolver
+  options: { onConflict?: ConflictResolver; knownConflicts?: PendingConflict[] } = {}
 ): Promise<InvoiceWriteResult> {
-  const existing = await getInvoices();
-  const existingByNumber = new Map(existing.map((inv) => [inv.invoiceNumber, inv]));
+  const { onConflict, knownConflicts } = options;
+
+  // Two different ways to find "the row this incoming invoice conflicts
+  // with", deliberately not merged into one lookup:
+  //
+  // - `knownConflicts`, when supplied, is the caller's own earlier
+  //   detection — each entry's `existing` is the exact row it showed the
+  //   user before asking how to resolve it. Matched by identity, never by
+  //   re-fetching: a fresh `getInvoices()` lookup could disagree with what
+  //   the caller already decided (nothing else writes invoices in this app
+  //   today, but "currently unreachable" isn't a property this function
+  //   should rely on), and disagreeing in the direction of "no match
+  //   found" would silently turn a user's `discard` into a create. An
+  //   incoming invoice with no entry here was already determined
+  //   non-conflicting by the caller and is written with no lookup at all.
+  //
+  // - With no `knownConflicts` (Task 8's prompt, and any other caller with
+  //   no detection pass of its own), this fetches `getInvoices()` once and
+  //   matches by invoice number itself — the only case where self-detection
+  //   is correct, because nothing upstream has done it yet.
+  const matchByIdentity = knownConflicts
+    ? new Map(knownConflicts.map((c) => [c.incoming, c.existing]))
+    : null;
+  const matchByNumber = knownConflicts
+    ? null
+    : new Map((await getInvoices()).map((inv) => [inv.invoiceNumber, inv] as const));
+
+  const findMatch = (incoming: Invoice): Invoice | null =>
+    matchByIdentity
+      ? (matchByIdentity.get(incoming) ?? null)
+      : (matchByNumber!.get(incoming.invoiceNumber) ?? null);
 
   let saved = 0;
   let overwritten = 0;
@@ -322,7 +347,7 @@ async function writeInvoices(
   let failed = 0;
 
   for (const incoming of invoices) {
-    const match = existingByNumber.get(incoming.invoiceNumber);
+    const match = findMatch(incoming);
 
     if (!match) {
       // preserveNumber: a restored invoice is not a new document. It may
@@ -394,10 +419,14 @@ async function writeInvoices(
  * brands/clients/templates immediately, and a second, invoices-only call
  * once every round of its dialog has an answer — so it can show the
  * conflict UI in between without this function knowing that happened.
+ *
+ * `conflicts`, when the caller already detected them (the file importer's
+ * dialog always does), must be the exact `PendingConflict[]` shown to the
+ * user — see `writeInvoices` for why this can't be re-derived instead.
  */
 export async function writeImport(
   collections: ImportCollections,
-  options: { remappedIds: number; onConflict?: ConflictResolver }
+  options: { remappedIds: number; onConflict?: ConflictResolver; conflicts?: PendingConflict[] }
 ): Promise<ImportSummary> {
   const [existingBrands, existingClients, existingTemplates] = await Promise.all([
     getBrands(),
@@ -423,7 +452,10 @@ export async function writeImport(
     saveTemplate
   );
 
-  const invoices = await writeInvoices(collections.invoices, options.onConflict);
+  const invoices = await writeInvoices(collections.invoices, {
+    onConflict: options.onConflict,
+    knownConflicts: options.conflicts,
+  });
 
   return { brands, clients, templates, invoices, remappedIds: options.remappedIds };
 }

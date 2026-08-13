@@ -425,6 +425,11 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         {
           remappedIds: pendingRemapped,
           onConflict: ({ incoming }) => resolutionByInvoice.get(incoming)!,
+          // The exact pairing shown in the dialog — `existing` included —
+          // rather than something `writeImport` re-derives from a fresh
+          // `getInvoices()` call. See `writeInvoices` for why: a re-derived
+          // match could disagree with what the user actually resolved.
+          conflicts,
         }
       );
 
