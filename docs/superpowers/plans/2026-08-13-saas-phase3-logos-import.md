@@ -1850,4 +1850,16 @@ Ruled: swap to `renderWithProviders`. The constraint targets **assertions** — 
 
 **`docs/POST-MERGE-NOTES.md` is now stale** — it claims two stray `alert()` calls where only `summary-report-dialog.tsx:147` remains. Task 9 fixes the line.
 
+### Task 5 — Task 2's non-atomicity turned a dormant quirk into a data bug
+
+**The create form regenerated its brand id on every submit**, not once per form. That was harmless while `saveBrand` was atomic — a failed save wrote nothing. After Task 2 it is not: a failed upload commits the row and then rejects, so retrying with a fresh id orphans the first attempt's row where the user can never reach it. Fixed with a per-mount `useRef`.
+
+This is the shape worth remembering: **a change in one task can arm a bug that has been sitting harmlessly in another file for months.** It surfaced only because a Task 2 reviewer flagged the interaction as unverifiable from its own diff and it was carried forward two tasks.
+
+**The fake seam was lying about failure ordering.** `src/lib/storage.ts` upserts the row first, so a failed upload leaves it committed with base64 intact. `src/test/fake-seam.ts` did the reverse — a throwing upload never reached `upsert`, so the row was absent. Two test comments described a committed-row mechanism their tests could not reach.
+
+Filed as a Minor about comment accuracy; it is really a fidelity gap. **A fake that diverges from the real seam's failure semantics is a false-confidence generator**, and Tasks 6 and 8 build the importer on this fake — which writes brands. The fake now mirrors the three-step ordering exactly.
+
+**Rule:** when a seam's failure ordering is load-bearing, the fake must reproduce the ordering, not just the outcome.
+
 **The plan's `brand-logo.tsx` snippet specified an inline `eslint-disable`** in a repo whose `eslint.config.mjs` explicitly says it does not use them. Corrected above. Note the follow-on: Task 5 routes the brand form's preview through `BrandLogo`, which makes `brand-form.tsx`'s entry in that `files:` list dead the same way the preview entries became dead. **Re-check that list in Task 5.**
