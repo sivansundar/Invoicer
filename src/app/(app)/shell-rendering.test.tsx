@@ -73,4 +73,25 @@ describe("Shell is owned by the layout, not by pages", () => {
     expect(screen.getByText("second route")).toBeInTheDocument();
     expect(screen.queryByText("first route")).not.toBeInTheDocument();
   });
+
+  // Every current user is in this state: nothing under `invoicer_*` on this
+  // device. `Shell` now also mounts `LocalImportPrompt`, and it must cost
+  // nothing more than the one `localStorage` read that decides there's
+  // nothing to offer.
+  it("renders without an import prompt when localStorage is empty", () => {
+    localStorage.clear();
+
+    render(
+      <ThemeProvider>
+        <QueryProvider>
+          <Shell>
+            <p>dashboard</p>
+          </Shell>
+        </QueryProvider>
+      </ThemeProvider>
+    );
+
+    expect(screen.getByText("dashboard")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

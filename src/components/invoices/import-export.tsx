@@ -12,6 +12,11 @@ import {
   type PendingConflict,
   type ConflictResolution,
 } from "@/lib/import-pipeline";
+import {
+  ImportSummaryView,
+  type CollectionSummaryData,
+  type ImportSummaryData,
+} from "@/components/import/import-summary-view";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,37 +31,16 @@ import { Label } from "@/components/ui/label";
 import { Download, Upload } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
-interface InvoiceImportSummary {
-  /** Invoices actually persisted this run — new writes, overwrites, and renames combined. */
-  imported: number;
-  overwritten: number;
-  renamed: number;
-  /** User chose "Discard" on a conflicting invoice number. */
-  discarded: number;
-  /** Records in the file that were not objects, or lacked a field a rendering screen depends on. */
-  invalidSkipped: number;
-  /** A write that was attempted but did not persist (e.g. a full localStorage quota). */
-  failed: number;
-}
-
 /**
- * Brands, clients and templates have no per-record conflict dialog (see the
- * design note above `writeCollection` in `@/lib/import-pipeline`) — this is
- * the whole result for one of those three collections. `null` (not this
- * shape) is how the summary distinguishes "this was a legacy invoices-only
- * import" from "this was a full backup with zero of this collection in it"
- * — the former hides the section entirely, the latter would show a row of
- * zeroes.
+ * The dialog's own summary types, built on the shared `ImportSummaryView`'s
+ * — this adds the invalid/legacy-hiding wrinkles a caller with an
+ * interactive conflict dialog needs and a headless caller (the one-time
+ * local-data prompt) does not: `null` (not a zeroed-out shape) is how the
+ * summary distinguishes "this was a legacy invoices-only import" from "this
+ * was a full backup with zero of this collection in it" — the former hides
+ * the section entirely, the latter would show a row of zeroes.
  */
-interface CollectionImportResult {
-  imported: number;
-  /** Already present locally by `id` (or a duplicate `id` within the file itself) — never overwritten. */
-  skippedExisting: number;
-  invalidSkipped: number;
-  /** The collection's value in the file wasn't an array at all — the whole section, not one record. */
-  invalidShape: boolean;
-  failed: number;
-}
+type CollectionImportResult = CollectionSummaryData;
 
 interface ImportedCollections {
   brands: CollectionImportResult | null;
@@ -64,24 +48,7 @@ interface ImportedCollections {
   templates: CollectionImportResult | null;
 }
 
-/**
- * The dialog's own summary shape, distinct from `import-pipeline.ts`'s
- * `ImportSummary` — this one adds the invalid/legacy-hiding wrinkles a
- * caller with an interactive conflict dialog needs and a headless caller
- * (Task 8's prompt) does not.
- */
-interface DialogSummary extends ImportedCollections {
-  invoices: InvoiceImportSummary;
-  /**
-   * Ids rewritten because Postgres would not accept them — see
-   * `import-remap.ts`. Surfaced rather than silent, because it has a
-   * consequence the user can otherwise only discover by hitting it:
-   * re-importing the same legacy file produces a second copy of those
-   * records instead of skipping them, since their new ids no longer match
-   * what landed the first time.
-   */
-  remappedIds: number;
-}
+type DialogSummary = ImportSummaryData;
 
 const EMPTY_COLLECTIONS: ImportedCollections = { brands: null, clients: null, templates: null };
 
@@ -676,60 +643,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
               Here&apos;s a summary of what was imported.
             </DialogDescription>
           </DialogHeader>
-          {summary && (
-            <div className="space-y-2 text-xs">
-              {summary.remappedIds > 0 && (
-                <p className="text-muted-foreground border rounded-md p-2 leading-relaxed">
-                  {summary.remappedIds} record
-                  {summary.remappedIds === 1 ? " had its id" : "s had their ids"} rewritten —
-                  this file predates hosted storage. Importing it again would add a second copy
-                  rather than skipping them.
-                </p>
-              )}
-              <div className="flex justify-between py-1 border-b">
-                <span className="text-muted-foreground">Invoices imported</span>
-                <span className="font-semibold tabular-nums">
-                  {summary.invoices.imported}
-                </span>
-              </div>
-              {summary.invoices.overwritten > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Overwritten</span>
-                  <span className="tabular-nums">{summary.invoices.overwritten}</span>
-                </div>
-              )}
-              {summary.invoices.renamed > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Renamed</span>
-                  <span className="tabular-nums">{summary.invoices.renamed}</span>
-                </div>
-              )}
-              {summary.invoices.discarded > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Discarded (duplicate)</span>
-                  <span className="tabular-nums">{summary.invoices.discarded}</span>
-                </div>
-              )}
-              {summary.invoices.invalidSkipped > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Skipped (invalid)</span>
-                  <span className="tabular-nums">{summary.invoices.invalidSkipped}</span>
-                </div>
-              )}
-              {summary.invoices.failed > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-destructive">Failed to save</span>
-                  <span className="tabular-nums text-destructive">
-                    {summary.invoices.failed}
-                  </span>
-                </div>
-              )}
-
-              <CollectionSummaryRows label="Brands" result={summary.brands} />
-              <CollectionSummaryRows label="Clients" result={summary.clients} />
-              <CollectionSummaryRows label="Templates" result={summary.templates} />
-            </div>
-          )}
+          {summary && <ImportSummaryView summary={summary} />}
           <DialogFooter>
             <Button
               size="sm"
@@ -741,66 +655,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
-  );
-}
-
-/**
- * One collection's rows in the import summary dialog. Renders nothing for a
- * legacy invoices-only import (`result === null`) and nothing for a full
- * backup that genuinely had zero of this collection *and* nothing rejected
- * either — every other outcome (imported, skipped for any reason, or an
- * unreadable section) gets an explicit, honest line.
- */
-function CollectionSummaryRows({
-  label,
-  result,
-}: {
-  label: string;
-  result: CollectionImportResult | null;
-}) {
-  if (!result) return null;
-
-  const hasAnythingToShow =
-    result.imported > 0 ||
-    result.skippedExisting > 0 ||
-    result.invalidSkipped > 0 ||
-    result.invalidShape ||
-    result.failed > 0;
-  if (!hasAnythingToShow) return null;
-
-  return (
-    <>
-      <div className="flex justify-between py-1 border-b">
-        <span className="text-muted-foreground">{label} imported</span>
-        <span className="font-semibold tabular-nums">{result.imported}</span>
-      </div>
-      {result.skippedExisting > 0 && (
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">
-            {label} skipped (already exist)
-          </span>
-          <span className="tabular-nums">{result.skippedExisting}</span>
-        </div>
-      )}
-      {result.invalidSkipped > 0 && (
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">{label} skipped (invalid)</span>
-          <span className="tabular-nums">{result.invalidSkipped}</span>
-        </div>
-      )}
-      {result.invalidShape && (
-        <div className="flex justify-between">
-          <span className="text-destructive">{label} section unreadable</span>
-          <span className="tabular-nums text-destructive">skipped</span>
-        </div>
-      )}
-      {result.failed > 0 && (
-        <div className="flex justify-between">
-          <span className="text-destructive">{label} failed to save</span>
-          <span className="tabular-nums text-destructive">{result.failed}</span>
-        </div>
-      )}
     </>
   );
 }

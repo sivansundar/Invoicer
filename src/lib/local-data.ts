@@ -69,3 +69,13 @@ export function dismissImportPrompt(): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(DISMISSED_KEY, "dismissed");
 }
+
+/**
+ * Removes the local-only build's data. Called from exactly one place: the
+ * button the user presses AFTER seeing what was imported. Never automatic,
+ * never on success — see the doc comment at the top of this file.
+ */
+export function clearLocalCollections(): void {
+  if (typeof window === "undefined") return;
+  for (const key of Object.values(KEYS)) localStorage.removeItem(key);
+}

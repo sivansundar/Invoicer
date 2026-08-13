@@ -4,8 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ImportExport, buildBackup } from "./import-export";
 import { renderWithProviders } from "@/test/render";
 import { resetFakeSeam, seed } from "@/test/fake-seam";
+import {
+  validInvoice as invoice,
+  validBrand as brand,
+  validClient as client,
+  validTemplate as template,
+} from "@/test/factories";
 import * as storage from "@/lib/storage";
-import type { Brand, Client, EmailTemplate, Invoice } from "@/lib/types";
 
 // Brands, clients and templates are in Postgres now; invoices are not yet.
 vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
@@ -14,84 +19,6 @@ const toast = vi.fn();
 vi.mock("sonner", () => ({
   toast: (...args: unknown[]) => toast(...args),
 }));
-
-function invoice(overrides: Partial<Invoice> = {}): Invoice {
-  return {
-    id: "aaaaaaa1-0000-4000-8000-000000000001",
-    invoiceNumber: "INV-001",
-    brandId: "b1",
-    currency: "INR",
-    status: "sent",
-    billDate: "2026-06-01",
-    dueDate: "2026-06-15",
-    client: { companyName: "Acme Studio", address: "" },
-    items: [{ id: "li1", description: "Design work", amount: 1000, tax: 18 }],
-    subtotal: 1000,
-    totalTax: 180,
-    total: 1180,
-    createdAt: "2026-06-01T00:00:00.000Z",
-    updatedAt: "2026-06-01T00:00:00.000Z",
-    brandSnapshot: {
-      name: "Sivan Studio",
-      address: "",
-      invoicePrefix: "SC",
-      accentColor: "#2563eb",
-      invoiceDesign: "modern",
-      bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
-    },
-    clientId: null,
-    reminders: [],
-    followupsPaused: false,
-    ...overrides,
-  };
-}
-
-function brand(overrides: Partial<Brand> = {}): Brand {
-  return {
-    id: "bbbbbbb1-0000-4000-8000-000000000001",
-    name: "Sivan Studio",
-    address: "12 MG Road, Bengaluru",
-    email: "hello@sivanstudio.com",
-    invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    accentColor: "#2563eb",
-    followup: {
-      enabled: false,
-      mode: "weekly",
-      weekday: 2,
-      time: "09:00",
-      repeat: "week",
-      templateId: "tpl-gentle-nudge",
-      stopAfter: 0,
-    },
-    bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
-    invoiceDesign: "modern",
-    ...overrides,
-  };
-}
-
-function client(overrides: Partial<Client> = {}): Client {
-  return {
-    id: "ccccccc1-0000-4000-8000-000000000001",
-    companyName: "Acme Studio",
-    address: "12 Residency Rd, Bengaluru 560025",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function template(overrides: Partial<EmailTemplate> = {}): EmailTemplate {
-  return {
-    id: "ddddddd1-0000-4000-8000-000000000001",
-    name: "Gentle nudge",
-    subject: "Following up on {{invoiceNumber}}",
-    tone: "Friendly",
-    body: "Hi {{clientName}}, just a friendly nudge...",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
 
 function jsonFile(payload: unknown, name = "invoices.json"): File {
   return new File([JSON.stringify(payload)], name, { type: "application/json" });
