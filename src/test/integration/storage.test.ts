@@ -2,10 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { makeUser } from "./helpers";
 import { StorageApiError, type SupabaseClient } from "@supabase/supabase-js";
 
-// The brief's spec assumes `signInAsNewUser` returning a bare client; the
-// real helper is `makeUser`, which returns { client, userId, orgId, email }.
-// We only need `.client` here.
-
 const BUCKET = "brand-logos";
 const PNG = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" });
 

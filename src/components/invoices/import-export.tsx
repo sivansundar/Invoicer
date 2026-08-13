@@ -87,19 +87,14 @@ export async function buildBackup() {
 }
 
 /**
- * Writes one collection (brands, clients, or templates) from an imported
- * backup. Deliberately has no conflict dialog the way invoices do — see the
- * design note in the backup-feature report for the full trade — instead an
- * imported record whose `id` already exists locally (or repeats one already
- * seen earlier in this same file) is skipped, never overwritten. Restoring
- * into an empty app (nothing to conflict with) imports everything; merging
- * an export into a populated app never clobbers a local edit. Every skip and
- * every failed write is counted, never silently dropped.
- *
- * The write itself now happens in `writeImport` (`@/lib/import-pipeline`) —
- * this just reattaches the validation-time counts (`invalidSkipped`,
- * `invalidShape`) that `writeImport` has no way to know, since it is only
- * ever handed records that already passed validation.
+ * Reattaches the validation-time counts (`invalidSkipped`, `invalidShape`)
+ * a single `CollectionWriteResult` from `writeImport` (`@/lib/import-pipeline`)
+ * has no way to know, since it is only ever handed records that already
+ * passed `prepareImport`'s validation. The write itself — including the
+ * skip-rather-than-overwrite behaviour for a record whose `id` already
+ * exists — happens in `writeImport`, not here; this is purely a shape
+ * conversion so the shared `ImportSummaryView` can render both counts
+ * together.
  */
 function toCollectionResult(
   write: CollectionWriteResult,

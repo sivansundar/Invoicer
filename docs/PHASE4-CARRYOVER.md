@@ -1,8 +1,9 @@
 # Phase 3 carry-over — read before starting Phase 4
 
-Written at the end of the SaaS Phase 3 branch (`feat/saas-phase3-logos-import`, 25 commits,
-569 unit + 113 integration tests). Everything here was found during execution, consciously
-deferred, or decided in a way the next phase needs to know about.
+Written at the end of the SaaS Phase 3 branch (`feat/saas-phase3-logos-import`,
+569 unit + 113 integration tests, plus a final whole-branch review pass before merge).
+Everything here was found during execution, consciously deferred, or decided in a way the next
+phase needs to know about.
 
 Phase 3 moved brand logos out of `brands.logo_data` (a base64 bridge column, itself a Phase 2
 stopgap) into a private, content-addressed Storage bucket, and built the one-time prompt that
@@ -84,11 +85,20 @@ copy" gate had never had to account for.
   offering the button anyway would let one click delete the only copy of something that never
   made it across. Don't simplify either half of this back; they were both made deliberately and
   the second was found only after the first was live.
-- **`prepareImport`'s validation-time skips are not surfaced in the prompt's summary.** Records
-  dropped for `skipped`/`invalidShape` reasons are counted by the file importer's dialog but not
-  by `LocalImportPrompt`'s. No data-safety impact — nothing is lost silently, since the same
-  validation and quarantine machinery runs either way — but the number the prompt reports can be
-  smaller than what the user expects from "we found N invoices on this device."
+- **`prepareImport`'s validation-time skips were not surfaced in the prompt's summary, and this
+  was a real data-safety bug, not a cosmetic one — corrected in the final pre-merge review.**
+  `LocalImportPrompt`'s "Clear local copy" gate (`importedEverything`) was built only from
+  `writeImport`'s result, which has no visibility into anything `prepareImport` had already
+  dropped (`skipped`/`invalidShape`) or that `readLocalCollections` couldn't even parse (a
+  corrupt `invoicer_*` key). A local invoice with, say, a malformed line item was silently
+  skipped during validation, the summary reported a smaller "imported" count than "we found N
+  invoices" had promised, and the button was still offered — one click deleted the only copy of
+  the very record that had just been rejected. Fixed by threading `prepareImport`'s
+  `skipped`/`invalidShape` and `readLocalCollections`'s new `corruptKeys` into both the gate and
+  the summary. **The rule this leaves for Phase 4:** any gate that decides whether it's safe to
+  delete a local/source copy must account for everything dropped *before* the write step, not
+  only what the write step itself reports — a write function has no way to know what it was
+  never handed.
 - **No test covers a signed URL actually expiring.** `LOGO_URL_TTL_SECONDS` and the shorter
   `staleTime` in `useLogoSrc` that is supposed to refetch before it lapses are reasoned about, not
   proven against a real expiry.
@@ -97,9 +107,19 @@ copy" gate had never had to account for.
 - **Deferred minors:**
   - `BrandLogo`'s `<img>` has no `loading="lazy"` or width/height attributes. Matches the previous
     inline implementation it replaced — not a regression, just never fixed.
-  - The new storage policy names (`select for org-owned brands`, etc.) are full sentences with
-    spaces, where this repo's convention elsewhere is short snake_case (`brands_select`). It
-    originated in the plan's own SQL and nobody renamed it on review.
+  - The new storage policy names (`"brand logos are readable by their brand's org"`, and its
+    writable/replaceable siblings) are full sentences with spaces, where this repo's convention
+    elsewhere is short snake_case (`brands_select`). It originated in the plan's own SQL and
+    nobody renamed it on review.
+- **Neither import entry point invalidated the query cache — fixed in the final pre-merge
+  review.** Both `LocalImportPrompt` and `ImportExport` write through `writeImport`/`writeCollection`
+  directly, bypassing the `useBrands`/`useInvoices`/`useClients`/`useTemplates` mutation layer
+  that owns `onSettled` invalidation (`src/hooks/optimistic.ts`). With `refetchOnWindowFocus:
+  false` and a 60-second `staleTime`, a screen that had already rendered from an empty or stale
+  cache before the import ran kept showing that stale data for up to a minute afterward — a user
+  could accept the local-data prompt, see "Invoices imported 14," click Done, and land on a
+  dashboard still reporting zero invoices. Both call sites now call `queryClient.invalidateQueries()`
+  once the import completes.
 
 ---
 
