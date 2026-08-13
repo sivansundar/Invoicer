@@ -12,16 +12,16 @@ insert into storage.buckets (id, name, public)
 values ('brand-logos', 'brand-logos', false)
 on conflict (id) do nothing;
 
--- `storage.buckets` has row level security enabled with no policies of its
--- own, so with no policy here `getBucket`/`listBuckets` 404 for every
--- authenticated caller regardless of what they own — bucket *metadata* isn't
--- tenant data, only the objects inside are, so this is a fixed, public-shaped
--- fact ("brand-logos exists and is private"), not a widening of the object
--- policies below.
-create policy "the brand-logos bucket is visible to authenticated users"
-  on storage.buckets for select to authenticated
-  using (id = 'brand-logos');
-
+-- No policy on `storage.buckets`. It ships with RLS enabled and no policies,
+-- so `getBucket()`/`listBuckets()` 404 for every authenticated caller
+-- regardless of what they own — but no application code path calls either:
+-- `upload`, `createSignedUrl`, and `list` all work against `storage.objects`
+-- without it. Adding one just to make a test introspect bucket metadata
+-- would be production security surface with no caller, and the next bucket
+-- would inherit the pattern by copy-paste without anyone re-deriving whether
+-- it was needed. Privacy is instead asserted the way the app actually
+-- depends on it: that an object is unreadable without a signature.
+--
 -- Tenancy without `org_id`.
 --
 -- The spec originally keyed the path by org_id and called
