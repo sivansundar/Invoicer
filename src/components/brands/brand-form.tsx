@@ -51,8 +51,12 @@ export function BrandForm({ brand }: BrandFormProps) {
   // fresh on every submit would mint a new id on every retry: the failed
   // attempt's row (saveBrand upserts the whole row before touching Storage,
   // so it can commit even though the promise rejects) would then be orphaned
-  // rather than the one a retry updates.
-  const brandIdRef = useRef(brand?.id ?? crypto.randomUUID());
+  // rather than the one a retry updates. `useRef` alone still evaluates its
+  // argument on every render (and discards it after mount), which would call
+  // `crypto.randomUUID()` on every keystroke for nothing — the `??`
+  // short-circuits that after the first render, only ever assigning once.
+  const brandIdRef = useRef<string | undefined>(undefined);
+  const brandId = brandIdRef.current ?? (brandIdRef.current = brand?.id ?? crypto.randomUUID());
 
   const [name, setName] = useState(brand?.name ?? "");
   const [prefix, setPrefix] = useState(brand?.invoicePrefix ?? "");
@@ -196,9 +200,9 @@ export function BrandForm({ brand }: BrandFormProps) {
     const savedPrefix = effectivePrefix;
 
     // `draftBrand` already holds every field exactly as the preview rendered
-    // it — the id was decided once, at mount (`brandIdRef`), so a retry after
+    // it — the id was decided once, at mount (`brandId`), so a retry after
     // a failed save reuses it rather than minting a new one.
-    const record: Brand = { ...draftBrand, id: brandIdRef.current };
+    const record: Brand = { ...draftBrand, id: brandId };
 
     // `save` (from `useBrands`) rejects when the write didn't persist — a
     // network failure, or an RLS policy refusing the row. Toasting success

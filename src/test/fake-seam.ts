@@ -116,11 +116,22 @@ export const getBrand = vi.fn(async (id: string): Promise<Brand | null> => {
 
 export const saveBrand = vi.fn(async (brand: Brand): Promise<Brand> => {
   maybeFail("saveBrand");
+  // Mirrors the real seam's non-atomic, two-write ordering (see the doc
+  // comment on `saveBrand` in `@/lib/storage.ts`): the whole row — a fresh
+  // data URL included, verbatim — commits FIRST, before the upload is even
+  // attempted. Only once that row exists does the upload run, followed by a
+  // second write that swaps the base64 for the path. A `uploadBrandLogo`
+  // failure after this point therefore leaves the row committed with its
+  // base64 intact, exactly like a caller of the real seam would see —
+  // upserting only after a successful upload (an earlier version of this
+  // fake) would instead lose the row entirely on that failure, which the
+  // real seam never does.
+  let result = upsert(state.brands, brand);
   if (brand.logo?.startsWith("data:")) {
     const logoPath = await uploadBrandLogo(brand.id, brand.logo);
-    return upsert(state.brands, { ...brand, logoPath, logo: undefined });
+    result = upsert(state.brands, { ...brand, logoPath, logo: undefined });
   }
-  return upsert(state.brands, brand);
+  return result;
 });
 
 export const deleteBrand = vi.fn(async (id: string): Promise<void> => {

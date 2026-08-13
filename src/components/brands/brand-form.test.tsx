@@ -301,10 +301,14 @@ describe("BrandForm — logo upload", () => {
   it("keeps the form usable when the upload fails, rather than losing the brand", async () => {
     // Regression coverage for the non-atomic `saveBrand`: the brand row can
     // commit even though the promise this awaits rejects (see the doc
-    // comment on `saveBrand` in `@/lib/storage`). This file mocks `sonner`
-    // and mounts no `<Toaster />` (see the note at the top of this file), so
-    // — consistent with every other save-failure test here — the surfaced
-    // error is asserted on the `toast` mock rather than `screen.findByText`.
+    // comment on `saveBrand` in `@/lib/storage`, mirrored by the fake's own
+    // ordering — `failNext("uploadBrandLogo", ...)` below fails the second
+    // write, after the fake's first upsert has already run, so the row is
+    // genuinely committed by the time the assertions below run). This file
+    // mocks `sonner` and mounts no `<Toaster />` (see the note at the top of
+    // this file), so — consistent with every other save-failure test here —
+    // the surfaced error is asserted on the `toast` mock rather than
+    // `screen.findByText`.
     failNext("uploadBrandLogo", "upload failed");
     renderForm();
 
@@ -323,28 +327,75 @@ describe("BrandForm — logo upload", () => {
     expect(screen.getByRole("button", { name: "Create brand" })).toBeEnabled();
     // What was typed is still there — nothing to re-enter on retry.
     expect(screen.getByDisplayValue("Acme Studio")).toBeInTheDocument();
+    // The row itself is not lost, still carrying its base64 unmigrated — the
+    // comment above is a claim, this is what actually proves it.
+    const [committed] = await storage.getBrands();
+    expect(committed).toBeDefined();
+    expect(committed.logo).toBe("data:image/png;base64,aGk=");
+    expect(committed.logoPath).toBeUndefined();
   });
 
-  it("reuses the same brand id when retrying after a failed save, rather than orphaning the first attempt's row", async () => {
-    // `saveBrand` upserts the whole row before it ever touches Storage (see
-    // its doc comment), so a first attempt that fails on the upload step can
-    // still have committed a row under whatever id was sent. If a retry
-    // generated a fresh id instead of reusing it, that first row would be
-    // orphaned — present in Postgres, invisible to the user, holding a
-    // logo_data the failed upload never cleared.
-    failNext("saveBrand", "network unreachable");
+  it("reuses the same brand id when retrying after a failed upload, so the already-committed row is updated rather than orphaned", async () => {
+    // Arms `uploadBrandLogo`, not `saveBrand` itself, so this exercises the
+    // exact non-atomic sequence the doc comment on the real `saveBrand`
+    // describes: the fake's first upsert commits the row (base64 and all)
+    // before the upload — which fails here — ever runs. A retry that
+    // generated a fresh id instead of reusing it would insert a SECOND row
+    // rather than update the first, leaving the committed one an orphan —
+    // present, invisible to the user, still holding the base64 the failed
+    // upload never cleared.
+    failNext("uploadBrandLogo", "upload failed");
     renderForm();
 
     await fillRequiredFields();
+    await chooseLogo("data:image/png;base64,aGk=");
     await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
-    await waitFor(() => expect(toast).toHaveBeenCalledWith("network unreachable"));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("upload failed"));
 
+    // The row is already committed at this point, non-atomically, exactly
+    // as `saveBrand`'s own doc comment describes.
+    const afterFirstAttempt = await storage.getBrands();
+    expect(afterFirstAttempt).toHaveLength(1);
+    expect(afterFirstAttempt[0].logo).toBe("data:image/png;base64,aGk=");
+
+    // The retry's upload is not armed to fail, so this attempt succeeds.
     await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/brands"));
 
-    const calls = vi.mocked(storage.saveBrand).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(calls[1][0].id).toBe(calls[0][0].id);
+    const afterRetry = await storage.getBrands();
+    // Still exactly one row, same id, now migrated — the retry updated the
+    // committed row in place instead of inserting an orphan alongside it.
+    expect(afterRetry).toHaveLength(1);
+    expect(afterRetry[0].id).toBe(afterFirstAttempt[0].id);
+    expect(afterRetry[0].logoPath).toBeTruthy();
+    expect(afterRetry[0].logo).toBeUndefined();
+  });
+
+  it("gives two separate create-form mounts different ids, so concurrent drafts never collide", async () => {
+    // The id-reuse fix above relies on `brandId` being computed once per
+    // component instance (a lazily-initialized `useRef`), not once ever —
+    // that distinction is invisible from a single mount's perspective, which
+    // is all the tests above exercise. Two independent create flows (two
+    // browser tabs, or one after another) must still land on different ids;
+    // a module-level constant or a memoised/hoisted ref would pass every
+    // test above while silently making every brand created in this session
+    // collide on the very first save.
+    const first = renderForm();
+    await userEvent.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "First Co");
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/brands"));
+    first.unmount();
+
+    push.mockClear();
+    const second = renderForm();
+    await userEvent.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Second Co");
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/brands"));
+    second.unmount();
+
+    const brands = await storage.getBrands();
+    expect(brands).toHaveLength(2);
+    expect(brands[0].id).not.toBe(brands[1].id);
   });
 
   it("clearing an already-migrated, path-only logo actually clears it, not just the local preview", async () => {
