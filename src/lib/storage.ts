@@ -132,19 +132,48 @@ export async function getBrand(id: string): Promise<Brand | null> {
   return data ? rowToBrand(data as BrandRow) : null;
 }
 
+/**
+ * Saves a brand, uploading a freshly-picked logo along the way.
+ *
+ * This is TWO writes, not one, and they are not transactional — Postgres
+ * and Storage are separate systems here, so there is no rollback if the
+ * second one fails. That is a deliberate trade-off, not an oversight:
+ *
+ * 1. The whole row (every field the caller passed, including a fresh data
+ *    URL verbatim in `logo_data`) is upserted FIRST. It has to be: the
+ *    bucket's INSERT policy is `exists (select 1 from public.brands where
+ *    id = ...)`, and a brand's id is generated client-side
+ *    (`crypto.randomUUID()`) before any row exists for it. Uploading before
+ *    this write — which is what an earlier draft of this function did —
+ *    means the very first save of a brand-new logo always fails RLS, since
+ *    the row it would check for does not exist yet. There is no ordering
+ *    that both satisfies that policy and keeps the two writes atomic; this
+ *    is the least-bad option, not the ideal one.
+ * 2. Only once that row exists does the upload happen, followed by a
+ *    second, narrow write that swaps `logo_data` for `logo_path`.
+ *
+ * The consequence: if step 2 throws — upload failure, network drop, RLS on
+ * the second write — this function still rejects (nothing here swallows an
+ * error), but step 1 already committed. Every other field the caller
+ * changed in the same call (address, phone, bank details, ...) is durably
+ * saved even though the promise the caller is awaiting rejects. A caller
+ * that reads "the promise rejected" as "nothing changed" is wrong about
+ * everything except the logo.
+ *
+ * That specific exception — the logo — is the one deliberately-kept
+ * fallback: because step 1 writes the fresh data URL into `logo_data`
+ * as-is, a brand whose step 2 fails is left rendering from that base64
+ * rather than with no logo at all, even though the rest of Phase 3 is
+ * about removing base64 from that column. It stays there, unmigrated,
+ * until the next successful save re-attempts the upload. See
+ * `src/test/integration/seam.test.ts`, "commits the row's other edited
+ * fields even when the logo upload step fails afterward", for what this
+ * looks like from a caller's side.
+ */
 export async function saveBrand(brand: Brand): Promise<Brand> {
   // Upsert rather than insert-or-update: the form generates the id with
   // crypto.randomUUID() before it knows whether this is a create or an
   // edit, so both paths are the same write.
-  //
-  // Written BEFORE any upload, deliberately: the bucket's policy checks
-  // `exists (select 1 from public.brands where id = ...)`, so on a brand's
-  // FIRST save the row has to exist before an object can land under its id.
-  // (The brief's original ordering — upload, then write the row — fails RLS
-  // for exactly that case; caught by the integration suite, not by
-  // inspection. See the task report.) A fresh data URL is written into
-  // `logo_data` as-is on this first pass; if the subsequent upload fails,
-  // the brand is left rendering from that base64 rather than from nothing.
   const { data, error } = await createClient()
     .from("brands")
     .upsert(brandToRow(brand))

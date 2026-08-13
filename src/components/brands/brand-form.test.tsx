@@ -139,7 +139,7 @@ describe("BrandForm — logo, phone, PAN", () => {
     expect(saved.logoPath).toMatch(/\.png$/);
   });
 
-  it("preserves logo, phone and PAN when editing without touching them", async () => {
+  it("migrates an untouched legacy logo on save, while phone and PAN pass through unchanged", async () => {
     const existing = brand({
       phone: "+91 80000 00000",
       panNumber: "ZYXWV9876G",

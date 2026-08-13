@@ -174,7 +174,47 @@ describe("brands through the seam", () => {
     const first = await storage.saveBrand(brand({ logo: TINY_PNG_DATA_URL }));
     const second = await storage.saveBrand({ ...first, logo: TINY_PNG_DATA_URL });
 
+    // Asserted before the equality check on purpose: without it, a
+    // `saveBrand` that never uploads at all would leave both sides
+    // `undefined` and pass this test for the wrong reason.
+    expect(first.logoPath).toMatch(/\.png$/);
     expect(second.logoPath).toBe(first.logoPath);
+  });
+
+  it("commits the row's other edited fields even when the logo upload step fails afterward", async () => {
+    // `saveBrand` is two writes, not one transaction (see its doc comment):
+    // the whole row lands first, then the logo upload, then a second write
+    // that swaps logo_data for logo_path. This pins what a caller actually
+    // gets when the second half fails — the promise still rejects, but the
+    // first write is not rolled back.
+    const created = await storage.saveBrand(brand({ phone: "+91 70000 00000", logo: undefined }));
+
+    // Forces the upload call itself to fail — a real object-store outage,
+    // not an RLS denial — without touching the `.from("brands")` calls the
+    // row writes go through, so both of those stay genuinely real.
+    const fromSpy = vi.spyOn(alice.client.storage, "from").mockReturnValue({
+      upload: vi
+        .fn()
+        .mockResolvedValue({ data: null, error: { message: "simulated storage outage" } }),
+    } as never);
+
+    try {
+      await expect(
+        storage.saveBrand({ ...created, phone: "+91 60000 00000", logo: TINY_PNG_DATA_URL })
+      ).rejects.toThrow();
+    } finally {
+      fromSpy.mockRestore();
+    }
+
+    // The rejection is honest about the logo, but not about the rest of the
+    // call: the phone edit from the failed call is durably committed...
+    const persisted = await storage.getBrand(created.id);
+    expect(persisted!.phone).toBe("+91 60000 00000");
+    // ...and the fresh logo survives too, just not migrated — it's still
+    // sitting in logo_data exactly as submitted, which is what lets the
+    // brand keep rendering a logo instead of losing it.
+    expect(persisted!.logo).toBe(TINY_PNG_DATA_URL);
+    expect(persisted!.logoPath).toBeUndefined();
   });
 
   it("never returns another org's brands", async () => {
