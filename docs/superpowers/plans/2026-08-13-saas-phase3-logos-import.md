@@ -1711,7 +1711,25 @@ export function LocalImportPrompt() {
 }
 ```
 
-`ImportSummaryView` is the per-record summary the file importer already renders, including the remapped-ids notice. Lift it out of `import-export.tsx` alongside the pipeline in Task 6 rather than writing a second one — if Task 6 left it in the component, move it now.
+> **CORRECTED DURING EXECUTION.** The `ImportSummary` shape sketched earlier in this plan was fiction. Task 6 kept the **real** accounting, which is richer for a reason: brands, clients and templates can only be added or skipped, while invoices have four outcomes. Read `src/lib/import-pipeline.ts` for the authoritative types; the real ones are:
+>
+> ```ts
+> interface CollectionWriteResult { imported: number; skippedExisting: number; failed: number }
+> interface InvoiceWriteResult {
+>   imported: number; overwritten: number; renamed: number; discarded: number; failed: number
+> }
+> interface ImportSummary {
+>   brands: CollectionWriteResult; clients: CollectionWriteResult;
+>   templates: CollectionWriteResult; invoices: InvoiceWriteResult; remappedIds: number
+> }
+> type PrepareImportResult =
+>   | { ok: false; error: string }
+>   | { ok: true; collections: ImportCollections; remappedIds: number }
+> ```
+>
+> `ConflictResolver` is `(conflict: PendingConflict) => ConflictResolution`, synchronous. The prompt omits `onConflict` — with no conflicts expected, a collision must be handled the same way the file importer's non-interactive path handles it. Check what `writeImport` actually does with no resolver before assuming.
+
+`ImportSummaryView` is the per-record summary the file importer already renders, including the remapped-ids notice. Lift it out of `import-export.tsx` alongside the pipeline in Task 6 rather than writing a second one — if Task 6 left it in the component, move it now. **It must render the real accounting above**, not the sketch: flattening "renamed" and "discarded" into one number throws away exactly what the summary exists to tell the user.
 
 Add `clearLocalCollections()` to `src/lib/local-data.ts`, the **only** function in this phase that writes an `invoicer_*` data key:
 
