@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { BrandSwitcher } from "./brand-switcher";
+import { CommandPalette } from "./command-palette";
 import { PlanCard } from "./plan-card";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -128,6 +130,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const { invoices } = useInvoices();
   const { brands } = useBrands();
   const { clients } = useClients();
@@ -163,17 +166,23 @@ export function AppSidebar() {
 
       <SidebarContent className="gap-0">
         <div className="px-3 pt-3.5">
-          <Link
-            href="/invoices"
-            className="flex h-10 items-center gap-2.5 rounded-[11px] bg-field px-3 text-[14.5px] text-ink-3 transition-colors hover:text-ink-2"
+          {/* Was a link to /invoices wearing a `/` hint that nothing listened
+              for. The hint is now the shortcut CommandPalette registers. */}
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-haspopup="dialog"
+            aria-keyshortcuts="/"
+            className="flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-[11px] bg-field px-3 text-left text-[14.5px] text-ink-3 transition-colors hover:text-ink-2"
           >
             <Search className="size-[17px]" />
             <span className="flex-1">Search</span>
             <span className="inline-flex size-[22px] items-center justify-center rounded-md border bg-surface text-xs">
               /
             </span>
-          </Link>
+          </button>
         </div>
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 
         {groups.map((group, index) => (
           <div key={group.label}>
