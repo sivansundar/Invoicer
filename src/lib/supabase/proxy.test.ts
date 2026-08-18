@@ -10,6 +10,11 @@ import { NextRequest } from "next/server";
  */
 const getClaims = vi.fn();
 
+// createServerClient is mocked below, so these values are never read by an
+// SDK — they only need to satisfy supabaseEnv()'s presence check.
+process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
+
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (
     _url: string,

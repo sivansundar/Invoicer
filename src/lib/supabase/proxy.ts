@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { supabaseEnv } from "./env";
 
 /** Routes reachable without a session. Everything else requires one. */
 const PUBLIC_PATHS = ["/", "/pricing", "/privacy", "/terms", "/login", "/callback"];
@@ -44,9 +45,10 @@ function redirectWithCookies(url: URL, base: NextResponse): NextResponse {
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
   let supabaseResponse = NextResponse.next({ request });
 
+  const { url, publishableKey } = supabaseEnv();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    url,
+    publishableKey,
     {
       cookies: {
         getAll() {
