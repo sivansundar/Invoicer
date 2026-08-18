@@ -39,6 +39,12 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54421
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase status>
 ```
 
+`NEXT_PUBLIC_SITE_URL` (optional locally, required in any deployed environment) sets
+`metadataBase` in `src/app/layout.tsx` so relative Open Graph/Twitter image paths resolve
+against the right host. Unset, `next dev` falls back to `http://localhost:3000`, which is only
+ever correct locally — a deployed build without it points social share cards at a host the
+crawler cannot reach.
+
 Create **`.env.test.local`** (gitignored) — what the integration suite needs. It uses the
 service-role key and a direct Postgres connection; the app uses neither:
 

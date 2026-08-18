@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Relative image paths in `openGraph`/`twitter` resolve against this.
+  // Unset, Next.js falls back to localhost, so every share card in a
+  // deployed build points at a host the crawler cannot reach.
+  //
+  // `NEXT_PUBLIC_SITE_URL` is set per environment; the localhost fallback is
+  // only ever right for `next dev`.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "Invoicer",
   description: "Invoice management",
   openGraph: {
