@@ -120,7 +120,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-`dev:setup` starts the local Supabase stack if it is not already up, reads `supabase status`, and writes the `.env.local` the app needs. Skipping it is what produces `NEXT_PUBLIC_SUPABASE_URL is not set` on the first click of the sign-in button. It is safe to re-run — do so after `npm run db:stop`, since the anon key is regenerated whenever the stack is recreated.
+`dev:setup` starts the local Supabase stack if it is not already up, reads `supabase status`, and writes the `.env.local` the app needs. It is safe to re-run — do so after `npm run db:stop`, since the anon key is regenerated whenever the stack is recreated.
+
+`npm run dev` refuses to start if that environment is missing, naming what is absent instead of letting the app fail later on a click. Note that **Docker only runs the Supabase server** — a missing `.env.local` fails the same way whether Docker is up or not, so check the message before restarting anything.
 
 Run the app on **port 3000**: `supabase/config.toml` allow-lists that origin for auth redirects, so a magic link opened against another port will be rejected.
 
