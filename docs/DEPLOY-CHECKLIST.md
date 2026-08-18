@@ -5,9 +5,14 @@ Run before `supabase link` + `supabase db push` against any hosted project.
 ## Blocking
 
 - [ ] `DEPLOY_TARGET=hosted npm run check:deploy-config` exits 0.
-      It will not until `enable_signup` is `false` and `enable_confirmations`
-      is `true` in `supabase/config.toml`. Both are deliberately the other way
-      round for the local stack — see the script's comment.
+      It will not until `enable_signup` is `false` under `[auth]` and
+      `[auth.email]`, and `enable_confirmations` is `true` under
+      `[auth.email]`, in `supabase/config.toml`. Both are deliberately the
+      other way round for the local stack — see the script's comment. The
+      script is section-aware and ignores `[auth.sms]`'s own copies of both
+      settings (that provider is disabled and unrelated to this risk), so
+      fixing `[auth]`/`[auth.email]` alone is enough — no need to touch
+      `[auth.sms]`.
 - [ ] Integration tests are green against the **local** stack. Flipping the
       two settings above breaks `signInWithPassword`, so do not commit the
       flipped file: change it for the push, or override it per environment.
