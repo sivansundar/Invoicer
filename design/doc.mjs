@@ -1,11 +1,11 @@
-import { TOKENS, FONT_LINK } from './lib.mjs';
+import { TOKENS, FONT_LINK, FONT, FONTS } from './lib.mjs';
 
 /**
  * Wraps a screen body in a Design Component document.
  * `--blue` is the one cross-cutting lever exposed as a tweak; every other
  * colour is an inline token so it paints while the artboard streams in.
  */
-export function doc({ body, width, height, root = '', props = {} }) {
+export function doc({ body, width, height, root = '', props = {}, allFonts = false }) {
   const dataProps = JSON.stringify({
     accent: {
       editor: 'color',
@@ -27,7 +27,7 @@ export function doc({ body, width, height, root = '', props = {} }) {
 <body>
 <x-dc>
 <helmet>
-  ${FONT_LINK}
+  ${allFonts ? Object.values(FONTS).map((f) => `<link rel="stylesheet" href="${f.href}">`).join('\n  ') : FONT_LINK}
   <style>
     body { margin: 0; }
     a { color: oklch(0.52 0.008 70); text-decoration: none; }
@@ -40,7 +40,12 @@ export function doc({ body, width, height, root = '', props = {} }) {
 <div class="iv" style="--blue: {{accent}};${TOKENS}
     width: ${width}px; ${height ? `height: ${height}px;` : ''} display: flex; overflow: hidden;
     background: var(--canvas); color: var(--ink);
-    font-family: Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-sans: ${FONT.sans};
+    --font-display: ${FONT.display};
+    --font-mono: ${FONT.mono};
+    --display-weight: ${FONT.displayWeight};
+    --display-tracking: ${FONT.displayTracking};
+    font-family: var(--font-sans);
     font-size: 14px; letter-spacing: -0.005em; ${root}">
 ${body}
 </div>

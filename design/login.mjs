@@ -36,7 +36,7 @@ export function loginBody() {
     </div>
 
     <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;max-width:520px">
-      <h2 style="margin:0;font-size:46px;line-height:1.08;font-weight:600;letter-spacing:-0.032em;color:var(--ink);text-wrap:pretty">Bill under every name you work as.</h2>
+      <h2 style="margin:0;font-size:54px;line-height:1.04;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink);text-wrap:pretty">Bill under every name you work as.</h2>
       <p style="margin:20px 0 0;font-size:16.5px;line-height:1.55;color:var(--ink-2);max-width:440px;text-wrap:pretty">
         Keep each business separate — its own logo, GST number, bank details and invoice series — and run them all from one dashboard.
       </p>
@@ -57,7 +57,7 @@ export function loginBody() {
         </div>
         <div style="display:flex;align-items:flex-end;gap:12px;margin-top:14px">
           <div style="flex:1;min-width:0">
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--ink-3)">SC-2026-041</div>
+            <div style="font-family:var(--font-mono);font-size:13px;color:var(--ink-3)">SC-2026-041</div>
             <div style="font-size:26px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:var(--ink);margin-top:3px">₹1,20,000</div>
           </div>
           <div style="text-align:right">
@@ -81,7 +81,7 @@ export function loginBody() {
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
       <div style="width:100%;max-width:396px;margin:0 auto">
 
-        <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-0.025em;color:var(--ink)">Sign in</h1>
+        <h1 style="margin:0;font-size:36px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Sign in</h1>
         <p style="margin:9px 0 0;font-size:15px;line-height:1.5;color:var(--ink-2)">One click with Google, or a link in your inbox. No password to remember.</p>
 
         <!-- Fastest path first -->

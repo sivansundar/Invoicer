@@ -1,4 +1,4 @@
-import { ic, tile, tileOutline, delta, btnDark, btnOutline, btnPrimary, statusPill, letterTile, cell2, tickBar, sectionLabel, dotChart } from './lib.mjs';
+import { ic, tile, tileOutline, delta, btnDark, btnOutline, btnPrimary, statusPill, letterTile, cell2, tickBar, sectionLabel, columnChart } from './lib.mjs';
 import { sidebar, topbar, topbarActions, segmented } from './shell.mjs';
 
 const CARD = 'background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)';
@@ -9,7 +9,7 @@ const CARD = 'background:var(--surface);border:1px solid var(--line);border-radi
  * a binding and swallow them.
  */
 function tok(name) {
-  return `<span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;${name}&#125;&#125;</span>`;
+  return `<span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;${name}&#125;&#125;</span>`;
 }
 
 function th(label, flex, align = 'left') {
@@ -39,13 +39,13 @@ function queueRow({ letter, tone, number, brand, client, clientSub, reminder, re
           <div style="flex:1.6;min-width:0">${cell2(client, clientSub)}</div>
           <div style="flex:1.6;min-width:0">${cell2(reminder, reminderSub)}</div>
           <div style="flex:1.3;min-width:0">${cell2(when, whenSub)}</div>
-          <div style="flex:0 0 178px;display:flex;justify-content:flex-end;gap:9px">
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px">
             ${btnOutline('Hold', 'pause', 32)}${btnOutline('Send now', 'send', 32)}
           </div>
         </div>`;
 }
 
-function scheduleCard({ letter, tone, name, on, terms, steps }) {
+function scheduleCard({ letter, tone, name, on, terms, steps, sent }) {
   return `<div style="flex:1;min-width:0;${CARD};padding:18px 20px">
         <div style="display:flex;align-items:center;gap:12px">
           ${letterTile(letter, tone, 34)}
@@ -64,8 +64,9 @@ function scheduleCard({ letter, tone, name, on, terms, steps }) {
             <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">${s.when}</span>
           </div>`).join('')}
         </div>
-        <div style="display:flex;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
-          ${btnOutline('Edit schedule', null, 32)}
+        <div style="display:flex;align-items:center;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+          ${btnOutline(`View all ${sent}`, 'clock', 32)}
+          ${btnOutline('Edit', 'pencil', 32)}
         </div>
       </div>`;
 }
@@ -99,7 +100,7 @@ export function followupsBody() {
         <div style="${CARD};overflow:hidden">
           <div style="display:flex;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line)">
             ${th('Invoice', '1.5')}${th('Client', '1.6')}${th('Reminder', '1.6')}${th('Scheduled', '1.3')}
-            <div style="flex:0 0 178px"></div>
+            <div style="flex:0 0 202px"></div>
           </div>
           ${queueRow({ letter: 'K', tone: 'red', number: 'SC-2026-041', brand: 'Sundar Consulting', client: 'Kestrel Labs', clientSub: 'accounts@kestrel.io', reminder: 'Final notice', reminderSub: 'reminder 3 of 3', when: 'Today, 09:00', whenSub: 'in 2 hours' })}
           ${queueRow({ letter: 'N', tone: 'blue', number: 'SC-2026-042', brand: 'Sundar Consulting', client: 'Northwind Studio', clientSub: 'ap@northwind.studio', reminder: 'Gentle nudge', reminderSub: 'reminder 2 of 3', when: 'Today, 09:00', whenSub: 'in 2 hours' })}
@@ -109,18 +110,18 @@ export function followupsBody() {
       </div>
 
       <div style="display:flex;flex-direction:column;gap:14px">
-        ${sectionLabel('Schedules by brand')}
+        ${sectionLabel('Schedules by brand', 'Compare all brands')}
         <div style="display:flex;gap:16px">
-          ${scheduleCard({ letter: 'SC', tone: 'blue', name: 'Sundar Consulting', terms: 'Net 45 · 3 reminders', on: true, steps: [
+          ${scheduleCard({ letter: 'SC', tone: 'blue', name: 'Sundar Consulting', sent: '38 sent', terms: 'Net 45 · 3 reminders', on: true, steps: [
             { label: 'Due soon', when: '3 days before' },
             { label: 'Gentle nudge', when: '7 days after' },
             { label: 'Final notice', when: '21 days after' },
           ] })}
-          ${scheduleCard({ letter: 'AV', tone: 'amber', name: 'Avara Labs', terms: 'Net 30 · 2 reminders', on: true, steps: [
+          ${scheduleCard({ letter: 'AV', tone: 'amber', name: 'Avara Labs', sent: '19 sent', terms: 'Net 30 · 2 reminders', on: true, steps: [
             { label: 'Due soon', when: '5 days before' },
             { label: 'Follow up', when: '10 days after' },
           ] })}
-          ${scheduleCard({ letter: 'FP', tone: 'green', name: 'Foldpaper Studio', terms: 'Reminders off', on: false, steps: [
+          ${scheduleCard({ letter: 'FP', tone: 'green', name: 'Foldpaper Studio', sent: '4 sent', terms: 'Reminders off', on: false, steps: [
             { label: 'Due soon', when: 'not sending' },
             { label: 'Follow up', when: 'not sending' },
           ] })}
@@ -199,17 +200,32 @@ export function reportsBody() {
             </div>
             ${segmented(['Collected', 'Issued'], 0)}
           </div>
-          <div style="display:flex;gap:12px;margin-top:18px;flex:1">
-            <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;padding-bottom:20px;text-align:right;flex-shrink:0">
-              <span>₹1.2L</span><span>₹90k</span><span>₹60k</span><span>₹30k</span><span>₹0</span>
-            </div>
-            <div style="flex:1;min-width:0;display:flex;flex-direction:column">
-              ${dotChart({ w: 560, h: 172, cols: 46, rows: 17, series: [0.3, 0.42, 0.36, 0.5, 0.47, 0.6, 0.55, 0.7, 0.65, 0.8, 0.75, 0.9], color: 'var(--amber)' })}
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);margin-top:8px">
-                <span>Apr</span><span>Jun</span><span>Aug</span><span>Oct</span><span>Dec</span><span>Feb</span><span>Mar</span>
-              </div>
+          <div style="margin-top:14px;flex:1">
+            ${columnChart({
+              w: 596, h: 196, color: 'var(--green)',
+              yTicks: [{ v: 0, label: '₹0' }, { v: 40000, label: '₹40k' }, { v: 80000, label: '₹80k' }, { v: 120000, label: '₹1.2L' }],
+              avg: 70208, avgLabel: 'avg ₹70,208',
+              data: [
+                { label: 'Apr', v: 124000, display: '₹1,24,000' },
+                { label: 'May', v: 96500,  display: '₹96,500' },
+                { label: 'Jun', v: 112000, display: '₹1,12,000' },
+                { label: 'Jul', v: 146000, display: '₹1,46,000' },
+                { label: 'Aug', v: 168000, display: '₹1,68,000' },
+                { label: 'Sep', v: 0,      display: '—' },
+                { label: 'Oct', v: 0,      display: '—' },
+                { label: 'Nov', v: 0,      display: '—' },
+                { label: 'Dec', v: 0,      display: '—' },
+                { label: 'Jan', v: 0,      display: '—' },
+                { label: 'Feb', v: 0,      display: '—' },
+                { label: 'Mar', v: 0,      display: '—' },
+              ],
+              labelLast: false,
+            })}
+            <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--ink-3)">
+              Apr–Aug actual · the rest of FY 2026–27 has not been billed yet
             </div>
           </div>
+        </div>
         </div>
 
         <div style="flex:0 0 372px;${CARD};padding:20px;display:flex;flex-direction:column">

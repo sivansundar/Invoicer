@@ -14,7 +14,7 @@ export const TOKENS = `
       --blue-soft:   oklch(0.945 0.028 258);
       --green:       oklch(0.60 0.145 152);
       --green-soft:  oklch(0.945 0.038 152);
-      --amber:       oklch(0.715 0.148 62);
+      --amber:       oklch(0.66 0.15 62);
       --amber-soft:  oklch(0.950 0.045 62);
       --red:         oklch(0.585 0.205 27);
       --red-soft:    oklch(0.950 0.032 27);
@@ -24,8 +24,54 @@ export const TOKENS = `
       --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.06), 0 0 0 1px oklch(0.898 0.004 70);
 `;
 
-export const FONT_LINK =
-  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">';
+/**
+ * Type directions. Geist read as vanilla, so these three go for a more
+ * deliberate voice. Switch the whole system by changing FONT_KEY — every
+ * artboard reads --font-sans / --font-display / --font-mono.
+ *
+ * All three are on Google Fonts, the only font host the artifact CSP admits.
+ */
+export const FONTS = {
+  // Editorial authority: a high-contrast serif for display moments over a sharp
+  // grotesque for the dense UI. The register serious fintech has moved to.
+  editorial: {
+    label: 'Instrument Serif + Instrument Sans',
+    href: 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap',
+    display: "'Instrument Serif', 'Iowan Old Style', Georgia, serif",
+    sans: "'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif",
+    mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+    displayWeight: 400,
+    displayTracking: '-0.018em',
+  },
+  // Engineered: one technical superfamily. Reads like infrastructure, which is
+  // the right register for money.
+  engineered: {
+    label: 'IBM Plex Sans + IBM Plex Mono',
+    href: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap',
+    display: "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif",
+    sans: "'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif",
+    mono: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+    displayWeight: 600,
+    displayTracking: '-0.022em',
+  },
+  // Swiss precision: a contemporary editorial grotesque — tighter and sharper
+  // than Geist, and comfortable at table density.
+  swiss: {
+    label: 'Host Grotesk + JetBrains Mono',
+    href: 'https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap',
+    display: "'Host Grotesk', ui-sans-serif, system-ui, sans-serif",
+    sans: "'Host Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif",
+    mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+    displayWeight: 600,
+    displayTracking: '-0.02em',
+  },
+};
+
+/** The direction the screens are currently drawn in. */
+export const FONT_KEY = 'editorial';
+export const FONT = FONTS[FONT_KEY];
+
+export const FONT_LINK = `<link rel="stylesheet" href="${FONT.href}">`;
 
 const P = {
   dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
@@ -103,16 +149,16 @@ export function delta(dir, text) {
 }
 
 export function btnPrimary(label, iconName) {
-  return `<button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-0.005em;box-shadow:0 1px 2px rgb(0 0 0 / 0.10)">${iconName ? ic(iconName, 16, '#fff', 2) : ''}${label}</button>`;
+  return `<button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-0.005em;box-shadow:0 1px 2px rgb(0 0 0 / 0.10);white-space:nowrap">${iconName ? ic(iconName, 16, '#fff', 2) : ''}${label}</button>`;
 }
 export function btnDark(label) {
-  return `<button style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-family:inherit;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12)">${label}</button>`;
+  return `<button style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-family:inherit;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12);white-space:nowrap">${label}</button>`;
 }
 export function btnOutline(label, iconName, h = 36) {
-  return `<button style="display:inline-flex;align-items:center;gap:7px;height:${h}px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">${iconName ? ic(iconName, 16, 'var(--ink-2)') : ''}${label}</button>`;
+  return `<button style="display:inline-flex;align-items:center;gap:7px;height:${h}px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">${iconName ? ic(iconName, 16, 'var(--ink-2)') : ''}${label}</button>`;
 }
 export function btnGhost(label, iconName, h = 34) {
-  return `<button style="display:inline-flex;align-items:center;gap:7px;height:${h}px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--ink-2);font-family:inherit;font-size:14px;font-weight:500">${iconName ? ic(iconName, 16, 'var(--ink-2)') : ''}${label}</button>`;
+  return `<button style="display:inline-flex;align-items:center;gap:7px;height:${h}px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--ink-2);font-family:inherit;font-size:14px;font-weight:500;white-space:nowrap">${iconName ? ic(iconName, 16, 'var(--ink-2)') : ''}${label}</button>`;
 }
 
 /** Status pill — soft fill + dot, replacing the current mono-grey badges. */
@@ -137,7 +183,7 @@ export function letterTile(letter, tone, size = 34) {
 export function cell2(top, sub, opts = {}) {
   const { mono = false, align = 'left', weight = 500 } = opts;
   return `<div style="text-align:${align}">
-              <div style="font-size:14px;font-weight:${weight};${mono ? "font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;" : ''}font-variant-numeric:tabular-nums;color:var(--ink)">${top}</div>
+              <div style="font-size:14px;font-weight:${weight};${mono ? "font-family:var(--font-mono);font-size:13px;" : ''}font-variant-numeric:tabular-nums;color:var(--ink)">${top}</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">${sub}</div>
             </div>`;
 }
@@ -163,22 +209,88 @@ export function sectionLabel(text, right) {
       </div>`;
 }
 
-/** Dotted-pixel area chart, the reference's most distinctive chart form. */
-export function dotChart({ w = 700, h = 230, cols = 58, rows = 22, series, color = 'var(--amber)' }) {
-  const dx = w / cols, dy = h / rows, r = 2.1;
-  let on = '', off = '';
-  for (let c = 0; c < cols; c++) {
-    const t = c / (cols - 1);
-    const i = t * (series.length - 1);
-    const lo = Math.floor(i), hi = Math.min(series.length - 1, lo + 1);
-    const v = series[lo] + (series[hi] - series[lo]) * (i - lo);
-    const filled = Math.round(v * rows);
-    for (let rr = 0; rr < rows; rr++) {
-      const cx = (c + 0.5) * dx, cy = h - (rr + 0.5) * dy;
-      const d = `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}"/>`;
-      if (rr < filled) on += d; else off += d;
-    }
+/**
+ * Column chart — the honest form for discrete monthly totals. Thin marks with
+ * 4px rounded tops anchored to the baseline, hairline SOLID gridlines, axis
+ * labels inside the SVG so they align to the grid exactly, and a single direct
+ * label rather than a number on every column.
+ *
+ * `hover` renders the tooltip state so a static artboard still specifies the
+ * interaction.
+ */
+export function columnChart({
+  w = 640, h = 230, data, color = 'var(--green)', yTicks, avg = null, avgLabel = 'avg',
+  hover = null, labelLast = true,
+}) {
+  const padL = 52, padR = 12, padT = 22, padB = 26;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const max = yTicks[yTicks.length - 1].v;
+  const y = (v) => padT + plotH * (1 - v / max);
+  const slot = plotW / data.length;
+  const bw = Math.min(26, slot * 0.54);
+  const r = 4;
+
+  const grid = yTicks.map(t => `<line x1="${padL}" x2="${w - padR}" y1="${y(t.v).toFixed(1)}" y2="${y(t.v).toFixed(1)}" stroke="var(--line-2)" stroke-width="1"/>`).join('');
+  const yLabels = yTicks.map(t => `<text x="${padL - 10}" y="${(y(t.v) + 4).toFixed(1)}" text-anchor="end" font-size="11.5" fill="var(--ink-3)" font-family="var(--font-sans)">${t.label}</text>`).join('');
+
+  const bars = data.map((d, i) => {
+    const x = padL + slot * i + (slot - bw) / 2;
+    const top = y(d.v), base = padT + plotH;
+    const hgt = Math.max(base - top, r);
+    return `<path d="M${x.toFixed(1)},${base} V${(base - hgt + r).toFixed(1)} Q${x.toFixed(1)},${(base - hgt).toFixed(1)} ${(x + r).toFixed(1)},${(base - hgt).toFixed(1)} H${(x + bw - r).toFixed(1)} Q${(x + bw).toFixed(1)},${(base - hgt).toFixed(1)} ${(x + bw).toFixed(1)},${(base - hgt + r).toFixed(1)} V${base} Z" fill="${color}" opacity="1"/>`;
+  }).join('');
+
+  const xLabels = data.map((d, i) =>
+    `<text x="${(padL + slot * i + slot / 2).toFixed(1)}" y="${h - 7}" text-anchor="middle" font-size="11.5" fill="var(--ink-3)" font-family="var(--font-sans)">${d.label}</text>`).join('');
+
+  const avgLine = avg == null ? '' :
+    `<line x1="${padL}" x2="${w - padR}" y1="${y(avg).toFixed(1)}" y2="${y(avg).toFixed(1)}" stroke="var(--ink-3)" stroke-width="1"/>
+     <rect x="${padL + 4}" y="${(y(avg) - 17).toFixed(1)}" width="${avgLabel.length * 6.2 + 12}" height="15" rx="4" fill="var(--surface)"/>
+     <text x="${padL + 10}" y="${(y(avg) - 6).toFixed(1)}" font-size="11" fill="var(--ink-3)" font-family="var(--font-sans)">${avgLabel}</text>`;
+
+  const last = data.length - 1;
+  const direct = labelLast && hover === null
+    ? `<text x="${(padL + slot * last + slot / 2).toFixed(1)}" y="${(y(data[last].v) - 9).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)" font-family="var(--font-sans)">${data[last].display}</text>`
+    : '';
+
+  let tip = '';
+  if (hover !== null) {
+    const d = data[hover];
+    const cx = padL + slot * hover + slot / 2;
+    const ty = Math.max(y(d.v) - 54, 4);
+    const tw = 116;
+    const tx = Math.min(Math.max(cx - tw / 2, 2), w - tw - 2);
+    tip = `<g>
+      <rect x="${(cx - slot / 2).toFixed(1)}" y="${padT}" width="${slot.toFixed(1)}" height="${plotH}" fill="var(--ink)" opacity="0.04"/>
+      <rect x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" width="${tw}" height="46" rx="9" fill="var(--surface)" stroke="var(--line)"/>
+      <text x="${(tx + 12).toFixed(1)}" y="${(ty + 18).toFixed(1)}" font-size="11.5" fill="var(--ink-3)" font-family="var(--font-sans)">${d.full ?? d.label}</text>
+      <text x="${(tx + 12).toFixed(1)}" y="${(ty + 35).toFixed(1)}" font-size="14" font-weight="600" fill="var(--ink)" font-family="var(--font-sans)">${d.display}</text>
+    </g>`;
   }
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" style="display:block">
-        <g fill="var(--line-2)">${off}</g><g fill="${color}">${on}</g></svg>`;
+
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="display:block;overflow:visible">
+        ${grid}${yLabels}${bars}${avgLine}${direct}${xLabels}${tip}
+      </svg>`;
+}
+
+/**
+ * Ranked horizontal bars — replaces the stacked bar plus separate list. One row
+ * per brand, ordered high→low, so "who earns most" is answered by bar length
+ * and the exact figure sits right beside it.
+ */
+export function rankedBars(rows) {
+  const max = Math.max(...rows.map(r => r.v));
+  return `<div style="display:flex;flex-direction:column;gap:2px">
+      ${rows.map(r => `<div style="padding:9px 6px 10px">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <span style="width:9px;height:9px;border-radius:2px;background:${r.color};flex-shrink:0;align-self:center"></span>
+            <span style="flex:1;min-width:0;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name}</span>
+            <span style="font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums">${r.display}</span>
+            <span style="width:38px;text-align:right;font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums">${r.pct}%</span>
+          </div>
+          <div style="height:7px;border-radius:3px;background:var(--line-2);margin-top:8px;margin-left:19px">
+            <div style="width:${((r.v / max) * 100).toFixed(1)}%;height:7px;border-radius:3px;background:${r.color}"></div>
+          </div>
+        </div>`).join('')}
+    </div>`;
 }

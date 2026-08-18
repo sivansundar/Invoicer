@@ -7,6 +7,8 @@ import { newInvoiceBody } from './newinvoice.mjs';
 import { brandsBody, clientsBody } from './screens2.mjs';
 import { followupsBody, reportsBody } from './screens3.mjs';
 import { componentsBody } from './components.mjs';
+import { followupsBrandBody } from './followups-brand.mjs';
+import { typeBody } from './type.mjs';
 
 const S = [
   { file: 'Main.dc.html',       title: 'Dashboard',      body: dashboardBody(),  w: 1440, h: 1420, page: 'page-1', x: 0,    y: 0 },
@@ -17,15 +19,17 @@ const S = [
   { file: 'Brands.dc.html',     title: 'Brands',         body: brandsBody(),     w: 1440, h: 895,  page: 'page-2', x: 0,    y: 0 },
   { file: 'Clients.dc.html',    title: 'Clients',        body: clientsBody(),    w: 1440, h: 895,  page: 'page-2', x: 1540, y: 0 },
   { file: 'Followups.dc.html',  title: 'Follow-ups',     body: followupsBody(),  w: 1440, h: 1320, page: 'page-2', x: 3080, y: 0 },
-  { file: 'Reports.dc.html',    title: 'Reports',        body: reportsBody(),    w: 1440, h: 1240, page: 'page-2', x: 4620, y: 0 },
+  { file: 'FollowupsBrand.dc.html', title: 'Follow-ups — per brand', body: followupsBrandBody(), w: 1440, h: 1375, page: 'page-2', x: 6160, y: 0 },
+  { file: 'Reports.dc.html',    title: 'Reports',        body: reportsBody(),    w: 1440, h: 1465, page: 'page-2', x: 4620, y: 0 },
 
-  { file: 'Components.dc.html', title: 'Design system',  body: componentsBody(), w: 1240, h: 2080, page: 'page-3', x: 0,    y: 0, column: true },
+  { file: 'Type.dc.html',       title: 'Type directions', body: typeBody(),      w: 1560, h: 1180, page: 'page-3', x: 0,    y: 0, column: true, allFonts: true },
+  { file: 'Components.dc.html', title: 'Design system',  body: componentsBody(), w: 1240, h: 2145, page: 'page-3', x: 1660, y: 0, column: true },
 ];
 
 for (const s of S) {
   writeFileSync(
     s.file,
-    doc({ body: s.body, width: s.w, height: s.h, root: s.column ? 'flex-direction: column;' : '' })
+    doc({ body: s.body, width: s.w, height: s.h, root: s.column ? 'flex-direction: column;' : '', allFonts: !!s.allFonts })
   );
 }
 
@@ -39,7 +43,7 @@ const canvas = {
   ],
   artboards: [
     ...S.map(({ file, title, x, y, w, h, page }) => ({ file, title, x, y, w, h, page })),
-    { file: 'Today.dc.html', title: 'Before — today’s dashboard', x: 1340, y: 0, w: 1440, h: 1100, page: 'page-3' },
+    { file: 'Today.dc.html', title: 'Before — today’s dashboard', x: 3000, y: 0, w: 1440, h: 1100, page: 'page-3' },
   ],
   annotations: [
     note('brief', 'page-1', 0, -300, 620,
@@ -52,10 +56,16 @@ const canvas = {
       'INVOICE DETAIL\n\nThe one thing to do is at the top with the button on it. Lifecycle, follow-up history and the PDF preview move to a right rail, so the left column stays a document you can read top to bottom.\n\nThe follow-up card shows what already went out and what goes next — today you have to reason about that from a schedule elsewhere.'),
     note('ux-newinvoice', 'page-1', 4620, -300, 660,
       'NEW INVOICE — the biggest UX change.\n\nOne screen, no wizard. Brand is a click, not a dropdown. Terms are a segmented control and the due date derives itself. Recent clients are chips, so the common case is one tap.\n\nAnd one button: "Send invoice" creates it, emails the PDF, marks it Sent and starts the reminder schedule. Today those are four separate decisions.'),
+    note('ux-brand-history', 'page-2', 6160, -300, 640,
+      'NEW — FOLLOW-UPS PER BRAND.\n\nReached from the "View all 38 sent" button on each brand\'s schedule card. It answers three questions in one place: what has already gone out, what is queued next, and whether any of it works.\n\nEverything sent is grouped by month, and each row carries its OUTCOME — paid two days later, opened but not paid, no reply — because a reminder log without outcomes is just noise. "Which nudge works" turns that into the actionable number: most invoices settle after the second nudge, so it is worth moving earlier.'),
     note('ux-manage', 'page-2', 0, -260, 700,
       'MANAGE\n\nBrands keeps the card grid but each card now earns its space — collected vs outstanding, collection rate, and which schedule is running. The two cards on the second row are prompts, not decoration: one of them is a real gap (a brand with no bank details, so its PDFs have nowhere to pay).\n\nClients moves from a card grid to a table — 18 clients compared side by side is a table job. "Avg days to pay" is new and is the number that actually predicts trouble.\n\nFollow-ups leads with what goes out today and lets you hold or send from the queue. Reports groups by currency first, which is how multi-currency books are actually read.'),
-    note('ux-system', 'page-3', 0, -260, 560,
-      'The system sheet is the handover: every colour, size and radius the screens use, in oklch, ready to replace the neutral ramp in globals.css.\n\nNext to it is today’s dashboard, rebuilt from the real source values, so the before/after is honest rather than remembered.'),
+    note('ux-type', 'page-3', 0, -300, 620,
+      'PICK A TYPE DIRECTION.\n\nGeist read as vanilla, so here are three, each applied to the same fragments — title, headline number, dense table row, and a stack of figures that has to align.\n\nAll three are on Google Fonts. The screens are currently drawn in the first one; switching is a single line, and nothing else in the system moves.'),
+    note('ux-system', 'page-3', 1660, -300, 560,
+      'The system sheet is the handover: every colour, size and radius the screens use, in oklch, ready to replace the neutral ramp in globals.css.\n\nThe categorical order — blue, amber, violet, green — is not a taste call: it was run through a colour-vision and contrast validator, and amber was re-stepped darker to clear 3:1 against white.'),
+    note('ux-before', 'page-3', 3000, -260, 480,
+      'Today’s dashboard, rebuilt from the real values in globals.css and the shipped components, so the before/after is honest rather than remembered.'),
   ],
   launch: { view: 'canvas', page: 'page-1' },
 };

@@ -1,0 +1,302 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: oklch(0.52 0.008 70); text-decoration: none; }
+    a:hover { color: oklch(0.19 0.004 70); }
+    .iv, .iv * { box-sizing: border-box; }
+    .iv { -webkit-font-smoothing: antialiased; }
+  </style>
+</helmet>
+
+<div class="iv" style="--blue: {{accent}};
+      --canvas:      oklch(0.955 0.004 70);
+      --surface:     oklch(1 0 0);
+      --ink:         oklch(0.19 0.004 70);
+      --ink-2:       oklch(0.52 0.008 70);
+      --ink-3:       oklch(0.66 0.008 70);
+      --line:        oklch(0.898 0.004 70);
+      --line-2:      oklch(0.932 0.004 70);
+      --field:       oklch(0.928 0.004 70);
+      --blue-soft:   oklch(0.945 0.028 258);
+      --green:       oklch(0.60 0.145 152);
+      --green-soft:  oklch(0.945 0.038 152);
+      --amber:       oklch(0.66 0.15 62);
+      --amber-soft:  oklch(0.950 0.045 62);
+      --red:         oklch(0.585 0.205 27);
+      --red-soft:    oklch(0.950 0.032 27);
+      --violet:      oklch(0.575 0.185 295);
+      --violet-soft: oklch(0.950 0.032 295);
+      --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+      --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.06), 0 0 0 1px oklch(0.898 0.004 70);
+
+    width: 1560px; height: 1180px; display: flex; overflow: hidden;
+    background: var(--canvas); color: var(--ink);
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --display-weight: 400;
+    --display-tracking: -0.018em;
+    font-family: var(--font-sans);
+    font-size: 14px; letter-spacing: -0.005em; flex-direction: column;">
+<div style="width:100%;display:flex;flex-direction:column;gap:24px;padding:36px 40px 44px">
+    <div>
+      <h1 style="margin:0;font-size:36px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking)">Three type directions</h1>
+      <p style="margin:10px 0 0;font-size:15px;line-height:1.55;color:var(--ink-2);max-width:760px">
+        The same fragments in each pairing — page title, section heading, the headline number, a dense table row,
+        and a stack of figures that has to align. All three are on Google Fonts, so any of them ships without a
+        licence. Pick one and the whole system follows; nothing else changes.
+      </p>
+    </div>
+    <div style="display:flex;gap:22px;align-items:flex-start">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;
+      --font-sans:'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;--font-display:'Instrument Serif', 'Iowan Old Style', Georgia, serif;--font-mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --display-weight:400;--display-tracking:-0.018em;
+      font-family:var(--font-sans)">
+
+    <div style="display:flex;align-items:center;gap:9px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+      <span style="font-size:15px;font-weight:600;color:var(--ink);font-family:var(--font-sans)">Instrument Serif + Instrument Sans</span>
+      <span style="display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;background:var(--blue);color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap">Recommended</span>
+    </div>
+    <p style="margin:11px 0 0;font-size:13px;line-height:1.55;color:var(--ink-2);font-family:var(--font-sans);min-height:60px">A high-contrast serif carries the display moments; a sharp grotesque runs the dense UI. The most differentiated of the three — reads considered and premium rather than generated.</p>
+
+    <!-- page title -->
+    <div style="margin-top:20px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="display:flex;align-items:center;gap:11px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span style="font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Overview</span>
+      </div>
+      <div style="font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink);margin-top:18px">Invoices that need you</div>
+      <div style="font-size:14px;color:var(--ink-2);margin-top:8px;line-height:1.55">Reminder 2 of 3 sent — the next one goes out on 10 Sep unless this is paid.</div>
+    </div>
+
+    <!-- the number that matters -->
+    <div style="margin-top:14px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5"/></svg></span><span style="font-size:14px;font-weight:500">Revenue collected</span></div>
+      <div style="font-size:34px;font-weight:600;letter-spacing:-0.032em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">₹8,42,500</div>
+      <div style="display:flex;align-items:center;margin-top:11px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:999px;background:var(--green-soft)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span>+24.1%</span><span style="flex:1"></span><span style="font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums">vs ₹6,78,900</span></div>
+    </div>
+
+    <!-- table density, where a UI face earns its keep -->
+    <div style="margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:500;color:var(--ink-3)">
+        <span style="flex:1.6">Client</span><span style="flex:1.4">Invoice</span><span style="flex:0 0 84px;text-align:right">Amount</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2)">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--red);color:#fff;font-size:12px;font-weight:600">K</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Kestrel Labs</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--red)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Overdue · 34 days late</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-041</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">₹64,000</div>
+      </div><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2)">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--blue);color:#fff;font-size:12px;font-weight:600">N</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Northwind Studio</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--blue)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Sent · 12 days ago</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-042</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">₹1,20,000</div>
+      </div><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--amber);color:#fff;font-size:12px;font-weight:600">H</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbourline Ltd</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--blue)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Sent · 4 days ago</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">AV-2026-018</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">$4,200</div>
+      </div>
+    </div>
+
+    <!-- figure alignment: these must stack in a straight column -->
+    <div style="margin-top:14px;padding:15px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="font-size:12.5px;font-weight:500;color:var(--ink-3)">Tabular figures</div>
+      <div style="font-variant-numeric:tabular-nums;font-size:15px;color:var(--ink);margin-top:9px;line-height:1.6;text-align:right;width:132px">
+        <div>1,111.00</div><div>8,42,500</div><div>0,000.00</div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--green)"></span>Paid</span><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--red)"></span>Overdue</span><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--field);color:var(--ink-2);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--ink-2)"></span>Draft</span></div>
+    </div>
+  </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;
+      --font-sans:'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;--font-display:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;--font-mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --display-weight:600;--display-tracking:-0.022em;
+      font-family:var(--font-sans)">
+
+    <div style="display:flex;align-items:center;gap:9px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+      <span style="font-size:15px;font-weight:600;color:var(--ink);font-family:var(--font-sans)">IBM Plex Sans + IBM Plex Mono</span>
+      
+    </div>
+    <p style="margin:11px 0 0;font-size:13px;line-height:1.55;color:var(--ink-2);font-family:var(--font-sans);min-height:60px">One technical superfamily for text, numbers and code. Reads like infrastructure, which suits money; the mono is genuinely excellent for invoice numbers.</p>
+
+    <!-- page title -->
+    <div style="margin-top:20px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="display:flex;align-items:center;gap:11px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span style="font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Overview</span>
+      </div>
+      <div style="font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink);margin-top:18px">Invoices that need you</div>
+      <div style="font-size:14px;color:var(--ink-2);margin-top:8px;line-height:1.55">Reminder 2 of 3 sent — the next one goes out on 10 Sep unless this is paid.</div>
+    </div>
+
+    <!-- the number that matters -->
+    <div style="margin-top:14px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5"/></svg></span><span style="font-size:14px;font-weight:500">Revenue collected</span></div>
+      <div style="font-size:34px;font-weight:600;letter-spacing:-0.032em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">₹8,42,500</div>
+      <div style="display:flex;align-items:center;margin-top:11px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:999px;background:var(--green-soft)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span>+24.1%</span><span style="flex:1"></span><span style="font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums">vs ₹6,78,900</span></div>
+    </div>
+
+    <!-- table density, where a UI face earns its keep -->
+    <div style="margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:500;color:var(--ink-3)">
+        <span style="flex:1.6">Client</span><span style="flex:1.4">Invoice</span><span style="flex:0 0 84px;text-align:right">Amount</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2)">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--red);color:#fff;font-size:12px;font-weight:600">K</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Kestrel Labs</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--red)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Overdue · 34 days late</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-041</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">₹64,000</div>
+      </div><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2)">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--blue);color:#fff;font-size:12px;font-weight:600">N</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Northwind Studio</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--blue)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Sent · 12 days ago</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-042</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">₹1,20,000</div>
+      </div><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--amber);color:#fff;font-size:12px;font-weight:600">H</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbourline Ltd</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--blue)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Sent · 4 days ago</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">AV-2026-018</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">$4,200</div>
+      </div>
+    </div>
+
+    <!-- figure alignment: these must stack in a straight column -->
+    <div style="margin-top:14px;padding:15px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="font-size:12.5px;font-weight:500;color:var(--ink-3)">Tabular figures</div>
+      <div style="font-variant-numeric:tabular-nums;font-size:15px;color:var(--ink);margin-top:9px;line-height:1.6;text-align:right;width:132px">
+        <div>1,111.00</div><div>8,42,500</div><div>0,000.00</div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--green)"></span>Paid</span><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--red)"></span>Overdue</span><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--field);color:var(--ink-2);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--ink-2)"></span>Draft</span></div>
+    </div>
+  </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;
+      --font-sans:'Host Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;--font-display:'Host Grotesk', ui-sans-serif, system-ui, sans-serif;--font-mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --display-weight:600;--display-tracking:-0.02em;
+      font-family:var(--font-sans)">
+
+    <div style="display:flex;align-items:center;gap:9px;padding-bottom:12px;border-bottom:1px solid var(--line)">
+      <span style="font-size:15px;font-weight:600;color:var(--ink);font-family:var(--font-sans)">Host Grotesk + JetBrains Mono</span>
+      
+    </div>
+    <p style="margin:11px 0 0;font-size:13px;line-height:1.55;color:var(--ink-2);font-family:var(--font-sans);min-height:60px">A contemporary grotesque — tighter and sharper than Geist, still uncommon enough not to read as a template, and comfortable at table density.</p>
+
+    <!-- page title -->
+    <div style="margin-top:20px;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="display:flex;align-items:center;gap:11px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span style="font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Overview</span>
+      </div>
+      <div style="font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink);margin-top:18px">Invoices that need you</div>
+      <div style="font-size:14px;color:var(--ink-2);margin-top:8px;line-height:1.55">Reminder 2 of 3 sent — the next one goes out on 10 Sep unless this is paid.</div>
+    </div>
+
+    <!-- the number that matters -->
+    <div style="margin-top:14px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5"/></svg></span><span style="font-size:14px;font-weight:500">Revenue collected</span></div>
+      <div style="font-size:34px;font-weight:600;letter-spacing:-0.032em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">₹8,42,500</div>
+      <div style="display:flex;align-items:center;margin-top:11px"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:999px;background:var(--green-soft)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span>+24.1%</span><span style="flex:1"></span><span style="font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums">vs ₹6,78,900</span></div>
+    </div>
+
+    <!-- table density, where a UI face earns its keep -->
+    <div style="margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:500;color:var(--ink-3)">
+        <span style="flex:1.6">Client</span><span style="flex:1.4">Invoice</span><span style="flex:0 0 84px;text-align:right">Amount</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2)">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--red);color:#fff;font-size:12px;font-weight:600">K</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Kestrel Labs</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--red)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Overdue · 34 days late</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-041</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">₹64,000</div>
+      </div><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line-2)">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--blue);color:#fff;font-size:12px;font-weight:600">N</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Northwind Studio</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--blue)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Sent · 12 days ago</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-042</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">₹1,20,000</div>
+      </div><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;">
+        <div style="flex:1.6;min-width:0;display:flex;align-items:center;gap:10px">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--amber);color:#fff;font-size:12px;font-weight:600">H</span>
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harbourline Ltd</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:2px"><span style="width:5px;height:5px;border-radius:999px;background:var(--blue)"></span><span style="font-size:12px;color:var(--ink-3);white-space:nowrap">Sent · 4 days ago</span></div>
+          </div>
+        </div>
+        <div style="flex:1.4;min-width:0;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">AV-2026-018</div>
+        <div style="flex:0 0 84px;text-align:right;font-size:14px;font-weight:500;font-variant-numeric:tabular-nums">$4,200</div>
+      </div>
+    </div>
+
+    <!-- figure alignment: these must stack in a straight column -->
+    <div style="margin-top:14px;padding:15px 18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)">
+      <div style="font-size:12.5px;font-weight:500;color:var(--ink-3)">Tabular figures</div>
+      <div style="font-variant-numeric:tabular-nums;font-size:15px;color:var(--ink);margin-top:9px;line-height:1.6;text-align:right;width:132px">
+        <div>1,111.00</div><div>8,42,500</div><div>0,000.00</div>
+      </div>
+      <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--green)"></span>Paid</span><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--red-soft);color:var(--red);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--red)"></span>Overdue</span><span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--field);color:var(--ink-2);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--ink-2)"></span>Draft</span></div>
+    </div>
+  </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"oklch(0.52 0.16 258)","options":["#2f5fd0","#1a7f64","#b4530f","#5b41c8"]},"$preview":{"width":1560,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? 'oklch(0.52 0.16 258)' };
+  }
+}
+</script>
+</body>
+</html>

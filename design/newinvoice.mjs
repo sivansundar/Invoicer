@@ -42,7 +42,7 @@ function seg(items, active, { grow = false } = {}) {
 function inputRow(label, value, { w = null, placeholder = false, mono = false, trailing = null } = {}) {
   return `<div style="${w ? `flex:0 0 ${w}px;` : 'flex:1;'}min-width:0;display:flex;flex-direction:column;gap:7px">
           <label style="font-size:12.5px;font-weight:500;color:var(--ink-3)">${label}</label>
-          <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card);font-size:14px;${mono ? "font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;" : ''}color:${placeholder ? 'var(--ink-3)' : 'var(--ink)'}">
+          <div style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card);font-size:14px;${mono ? "font-family:var(--font-mono);font-size:13px;" : ''}color:${placeholder ? 'var(--ink-3)' : 'var(--ink)'}">
             <span style="flex:1;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</span>${trailing ?? ''}
           </div>
         </div>`;
@@ -71,8 +71,8 @@ export function newInvoiceBody() {
       <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card)">${ic('chevLeft', 17, 'var(--ink-2)')}</span>
       <div>
         <div style="display:flex;align-items:center;gap:10px">
-          <h1 style="margin:0;font-size:24px;font-weight:600;letter-spacing:-0.022em;color:var(--ink)">New invoice</h1>
-          <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink-2)">SC-2026-043</span>
+          <h1 style="margin:0;font-size:28px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">New invoice</h1>
+          <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2)">SC-2026-043</span>
         </div>
         <div style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-3);margin-top:3px">
           ${ic('check', 13, 'var(--green)', 3)}Saved as draft a moment ago
@@ -198,7 +198,7 @@ export function newInvoiceBody() {
                 </div>
                 <div style="text-align:right">
                   <div style="font-size:8px;letter-spacing:0.08em;color:var(--ink-3)">INVOICE</div>
-                  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:var(--ink);margin-top:2px">SC-2026-043</div>
+                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--ink);margin-top:2px">SC-2026-043</div>
                 </div>
               </div>
 

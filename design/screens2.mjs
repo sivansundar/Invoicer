@@ -1,4 +1,4 @@
-import { ic, tile, tileOutline, delta, btnDark, btnOutline, btnPrimary, statusPill, letterTile, cell2, tickBar, sectionLabel, dotChart } from './lib.mjs';
+import { ic, tile, tileOutline, delta, btnDark, btnOutline, btnPrimary, statusPill, letterTile, cell2, tickBar, sectionLabel } from './lib.mjs';
 import { sidebar, topbar, topbarActions, segmented } from './shell.mjs';
 
 const CARD = 'background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)';
@@ -17,7 +17,7 @@ function brandCard({ letter, tone, name, prefix, address, tax, invoices, collect
             <div style="font-size:16px;font-weight:600;letter-spacing:-0.014em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
             <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">${tax}</div>
           </div>
-          <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--ink-2);flex-shrink:0">${prefix}</span>
+          <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:var(--font-mono);font-size:12px;color:var(--ink-2);flex-shrink:0">${prefix}</span>
         </div>
 
         <div style="font-size:13px;line-height:1.55;color:var(--ink-2);margin-top:14px">${address}</div>

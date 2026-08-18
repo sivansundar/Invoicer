@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <style>
     body { margin: 0; }
     a { color: oklch(0.52 0.008 70); text-decoration: none; }
@@ -29,7 +29,7 @@
       --blue-soft:   oklch(0.945 0.028 258);
       --green:       oklch(0.60 0.145 152);
       --green-soft:  oklch(0.945 0.038 152);
-      --amber:       oklch(0.715 0.148 62);
+      --amber:       oklch(0.66 0.15 62);
       --amber-soft:  oklch(0.950 0.045 62);
       --red:         oklch(0.585 0.205 27);
       --red-soft:    oklch(0.950 0.032 27);
@@ -40,7 +40,12 @@
 
     width: 1440px; height: 1320px; display: flex; overflow: hidden;
     background: var(--canvas); color: var(--ink);
-    font-family: Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --display-weight: 400;
+    --display-tracking: -0.018em;
+    font-family: var(--font-sans);
     font-size: 14px; letter-spacing: -0.005em; ">
 <div style="width:268px;flex-shrink:0;display:flex;flex-direction:column;background:var(--canvas);border-right:1px solid var(--line)">
 
@@ -167,14 +172,14 @@
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas)">
     <div style="display:flex;align-items:center;gap:13px;padding:20px 32px;border-bottom:1px solid var(--line);flex-shrink:0">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
-      <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-0.022em;color:var(--ink)">Follow-ups</h1>
+      <h1 style="margin:0;font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Follow-ups</h1>
       <div style="flex:1"></div>
       <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card)">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
         <span style="position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:999px;background:var(--blue);border:1.5px solid var(--surface)"></span>
       </span>
-      <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>Export</button>
-      <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-0.005em;box-shadow:0 1px 2px rgb(0 0 0 / 0.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New template</button>
+      <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>Export</button>
+      <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-0.005em;box-shadow:0 1px 2px rgb(0 0 0 / 0.10);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New template</button>
     </div>
     <div style="flex:1;min-height:0;padding:24px 32px 28px;display:flex;flex-direction:column;gap:24px">
 
@@ -184,7 +189,7 @@
         <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
           <span style="font-size:42px;font-weight:600;letter-spacing:-0.035em;line-height:1;font-variant-numeric:tabular-nums">03</span>
           <span style="font-size:14px;color:var(--ink-3);align-self:flex-end;padding-bottom:4px">reminders</span>
-          <span style="flex:1"></span><button style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-family:inherit;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12)">Review queue</button>
+          <span style="flex:1"></span><button style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-family:inherit;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12);white-space:nowrap">Review queue</button>
         </div>
         <div style="display:flex;align-items:center;gap:7px;margin-top:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5"/></svg><span style="font-size:13.5px;color:var(--ink-2)">₹2,84,000 across 3 clients</span></div>
       </div>
@@ -193,7 +198,7 @@
         <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
           <span style="font-size:42px;font-weight:600;letter-spacing:-0.035em;line-height:1;font-variant-numeric:tabular-nums">02</span>
           <span style="font-size:14px;color:var(--ink-3);align-self:flex-end;padding-bottom:4px">invoices</span>
-          <span style="flex:1"></span><button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Turn on</button>
+          <span style="flex:1"></span><button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Turn on</button>
         </div>
         <div style="display:flex;align-items:center;gap:7px;margin-top:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:13.5px;color:var(--ink-2)">Overdue, but reminders are off</span></div>
       </div>
@@ -202,7 +207,7 @@
         <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
           <span style="font-size:42px;font-weight:600;letter-spacing:-0.035em;line-height:1;font-variant-numeric:tabular-nums">₹4.1L</span>
           <span style="font-size:14px;color:var(--ink-3);align-self:flex-end;padding-bottom:4px">this year</span>
-          <span style="flex:1"></span><button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">See which</button>
+          <span style="flex:1"></span><button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">See which</button>
         </div>
         <div style="display:flex;align-items:center;gap:7px;margin-top:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg><span style="font-size:13.5px;color:var(--ink-2)">11 invoices paid after a nudge</span></div>
       </div>
@@ -216,13 +221,13 @@
         <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden">
           <div style="display:flex;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line)">
             <div style="flex:1.5;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Invoice</div><div style="flex:1.6;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Client</div><div style="flex:1.6;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Reminder</div><div style="flex:1.3;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Scheduled</div>
-            <div style="flex:0 0 178px"></div>
+            <div style="flex:0 0 202px"></div>
           </div>
           <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line-2)">
           <div style="flex:1.5;min-width:0;display:flex;align-items:center;gap:12px">
             <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--red);color:#fff;font-size:14px;font-weight:600">K</span>
             <div style="min-width:0"><div style="text-align:left">
-              <div style="font-size:14px;font-weight:500;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Sundar Consulting</div>
             </div></div>
           </div>
@@ -238,15 +243,15 @@
               <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Today, 09:00</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 2 hours</div>
             </div></div>
-          <div style="flex:0 0 178px;display:flex;justify-content:flex-end;gap:9px">
-            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px">
+            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
           </div>
         </div>
           <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line-2)">
           <div style="flex:1.5;min-width:0;display:flex;align-items:center;gap:12px">
             <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--blue);color:#fff;font-size:14px;font-weight:600">N</span>
             <div style="min-width:0"><div style="text-align:left">
-              <div style="font-size:14px;font-weight:500;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-042</div>
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-042</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Sundar Consulting</div>
             </div></div>
           </div>
@@ -262,15 +267,15 @@
               <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Today, 09:00</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 2 hours</div>
             </div></div>
-          <div style="flex:0 0 178px;display:flex;justify-content:flex-end;gap:9px">
-            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px">
+            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
           </div>
         </div>
           <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line-2)">
           <div style="flex:1.5;min-width:0;display:flex;align-items:center;gap:12px">
             <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--amber);color:#fff;font-size:14px;font-weight:600">H</span>
             <div style="min-width:0"><div style="text-align:left">
-              <div style="font-size:14px;font-weight:500;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">AV-2026-018</div>
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">AV-2026-018</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Avara Labs</div>
             </div></div>
           </div>
@@ -286,15 +291,15 @@
               <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Today, 14:00</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 7 hours</div>
             </div></div>
-          <div style="flex:0 0 178px;display:flex;justify-content:flex-end;gap:9px">
-            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px">
+            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
           </div>
         </div>
           <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;">
           <div style="flex:1.5;min-width:0;display:flex;align-items:center;gap:12px">
             <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--green);color:#fff;font-size:14px;font-weight:600">C</span>
             <div style="min-width:0"><div style="text-align:left">
-              <div style="font-size:14px;font-weight:500;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">AV-2026-019</div>
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">AV-2026-019</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Avara Labs</div>
             </div></div>
           </div>
@@ -310,8 +315,8 @@
               <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">21 Aug, 09:00</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 3 days</div>
             </div></div>
-          <div style="flex:0 0 178px;display:flex;justify-content:flex-end;gap:9px">
-            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px">
+            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
           </div>
         </div>
         </div>
@@ -320,7 +325,7 @@
       <div style="display:flex;flex-direction:column;gap:14px">
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
         <h2 style="margin:0;font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink)">Schedules by brand</h2>
-        
+        <a href="#" style="display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:500;text-decoration:none">Compare all brands <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
       </div>
         <div style="display:flex;gap:16px">
           <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:18px 20px">
@@ -349,8 +354,9 @@
             <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">21 days after</span>
           </div>
         </div>
-        <div style="display:flex;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
-          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Edit schedule</button>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>View all 38 sent</button>
+          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button>
         </div>
       </div>
           <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:18px 20px">
@@ -375,8 +381,9 @@
             <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">10 days after</span>
           </div>
         </div>
-        <div style="display:flex;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
-          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Edit schedule</button>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>View all 19 sent</button>
+          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button>
         </div>
       </div>
           <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:18px 20px">
@@ -401,8 +408,9 @@
             <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">not sending</span>
           </div>
         </div>
-        <div style="display:flex;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
-          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Edit schedule</button>
+        <div style="display:flex;align-items:center;gap:9px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>View all 4 sent</button>
+          <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button>
         </div>
       </div>
         </div>
@@ -420,8 +428,8 @@
             <div style="font-size:14.5px;font-weight:500">Due soon</div>
             <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Used by 2 brands</div>
           </div>
-          <div style="flex:2;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Your invoice <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;invoice&#125;&#125;</span> is due on <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;due_date&#125;&#125;</span></div>
-          <div style="flex:0 0 168px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Preview</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button></div>
+          <div style="flex:2;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Your invoice <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;invoice&#125;&#125;</span> is due on <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;due_date&#125;&#125;</span></div>
+          <div style="flex:0 0 168px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Preview</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button></div>
         </div>
           <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line-2)">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--field)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
@@ -429,8 +437,8 @@
             <div style="font-size:14.5px;font-weight:500">Gentle nudge</div>
             <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Used by 1 brand</div>
           </div>
-          <div style="flex:2;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">A quick reminder about invoice <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;invoice&#125;&#125;</span> for <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;amount&#125;&#125;</span></div>
-          <div style="flex:0 0 168px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Preview</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button></div>
+          <div style="flex:2;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">A quick reminder about invoice <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;invoice&#125;&#125;</span> for <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;amount&#125;&#125;</span></div>
+          <div style="flex:0 0 168px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Preview</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button></div>
         </div>
           <div style="display:flex;align-items:center;gap:16px;padding:14px 20px;">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--field)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
@@ -438,8 +446,8 @@
             <div style="font-size:14.5px;font-weight:500">Final notice</div>
             <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Used by 1 brand</div>
           </div>
-          <div style="flex:2;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Invoice <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;invoice&#125;&#125;</span> is now <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;days_late&#125;&#125;</span> days overdue</div>
-          <div style="flex:0 0 168px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Preview</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button></div>
+          <div style="flex:2;min-width:0;font-size:13px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Invoice <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;invoice&#125;&#125;</span> is now <span style="font-family:var(--font-mono);font-size:12.5px;color:var(--ink);background:var(--field);border-radius:5px;padding:1px 4px">&#123;&#123;days_late&#125;&#125;</span> days overdue</div>
+          <div style="flex:0 0 168px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Preview</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit</button></div>
         </div>
         </div>
       </div>

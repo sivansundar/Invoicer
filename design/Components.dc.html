@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <style>
     body { margin: 0; }
     a { color: oklch(0.52 0.008 70); text-decoration: none; }
@@ -29,7 +29,7 @@
       --blue-soft:   oklch(0.945 0.028 258);
       --green:       oklch(0.60 0.145 152);
       --green-soft:  oklch(0.945 0.038 152);
-      --amber:       oklch(0.715 0.148 62);
+      --amber:       oklch(0.66 0.15 62);
       --amber-soft:  oklch(0.950 0.045 62);
       --red:         oklch(0.585 0.205 27);
       --red-soft:    oklch(0.950 0.032 27);
@@ -38,17 +38,22 @@
       --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
       --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.06), 0 0 0 1px oklch(0.898 0.004 70);
 
-    width: 1240px; height: 2080px; display: flex; overflow: hidden;
+    width: 1240px; height: 2145px; display: flex; overflow: hidden;
     background: var(--canvas); color: var(--ink);
-    font-family: Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --display-weight: 400;
+    --display-tracking: -0.018em;
+    font-family: var(--font-sans);
     font-size: 14px; letter-spacing: -0.005em; flex-direction: column;">
 <div style="width:100%;display:flex;flex-direction:column;gap:18px;padding:36px 40px 44px">
 
     <div>
-      <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-0.025em">Invoicer design system</h1>
+      <h1 style="margin:0;font-size:36px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking)">Invoicer design system</h1>
       <p style="margin:9px 0 0;font-size:15px;line-height:1.55;color:var(--ink-2);max-width:680px">
         Every value below is what the redesigned screens actually use. The palette is expressed in oklch so it drops
-        straight into <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13.5px">src/app/globals.css</span>,
+        straight into <span style="font-family:var(--font-mono);font-size:13.5px">src/app/globals.css</span>,
         replacing today's fully-desaturated neutral ramp.
       </p>
     </div>
@@ -63,42 +68,42 @@
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.955 0.004 70);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Canvas</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--canvas</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--canvas</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(1 0 0);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Surface</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--surface</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--surface</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.928 0.004 70);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Field</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--field</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--field</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.898 0.004 70);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Line</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--line</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--line</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.932 0.004 70);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Line soft</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--line-2</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--line-2</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.19 0.004 70);border:1px solid transparent"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Ink</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--ink</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--ink</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.52 0.008 70);border:1px solid transparent"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Ink 2</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--ink-2</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--ink-2</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:oklch(0.66 0.008 70);border:1px solid transparent"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Ink 3</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--ink-3</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--ink-3</div>
       </div>
       </div></div>
       </div>
@@ -106,61 +111,61 @@
     <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:22px 24px 24px">
         <div style="display:flex;align-items:baseline;gap:12px">
           <h3 style="margin:0;font-size:16px;font-weight:600;letter-spacing:-0.014em">Accents</h3>
-          <span style="font-size:13px;color:var(--ink-3)">semantic first, categorical second — held to a narrow lightness and chroma band so no one colour shouts</span>
+          <span style="font-size:13px;color:var(--ink-3)">validated for colour-vision deficiency and 3:1 contrast — the categorical order is blue → amber → violet → green</span>
         </div>
         <div style="margin-top:18px">
       <div style="display:flex;gap:14px">
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--blue);border:1px solid transparent"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Blue — primary, sent</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--blue</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--blue</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--green);border:1px solid transparent"></div>
-        <div style="font-size:13px;font-weight:500;margin-top:9px">Green — paid, improving</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.60 0.145 152)</div>
+        <div style="font-size:13px;font-weight:500;margin-top:9px">Green — paid, collected</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.60 0.145 152)</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--amber);border:1px solid transparent"></div>
-        <div style="font-size:13px;font-weight:500;margin-top:9px">Amber — drafts, charts</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.715 0.148 62)</div>
+        <div style="font-size:13px;font-weight:500;margin-top:9px">Amber — drafts, series 2</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.66 0.15 62)</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--red);border:1px solid transparent"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Red — overdue, worsening</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.585 0.205 27)</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.585 0.205 27)</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--violet);border:1px solid transparent"></div>
-        <div style="font-size:13px;font-weight:500;margin-top:9px">Violet — fourth series</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.575 0.185 295)</div>
+        <div style="font-size:13px;font-weight:500;margin-top:9px">Violet — series 3</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">oklch(0.575 0.185 295)</div>
       </div>
       </div>
       <div style="display:flex;gap:14px;margin-top:16px">
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--blue-soft);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Blue soft</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--blue-soft</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--blue-soft</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--green-soft);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Green soft</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--green-soft</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--green-soft</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--amber-soft);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Amber soft</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--amber-soft</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--amber-soft</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--red-soft);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Red soft</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--red-soft</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--red-soft</div>
       </div>
         <div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:var(--violet-soft);border:1px solid var(--line)"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">Violet soft</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--violet-soft</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">--violet-soft</div>
       </div>
       </div></div>
       </div>
@@ -168,48 +173,48 @@
     <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:22px 24px 24px">
         <div style="display:flex;align-items:baseline;gap:12px">
           <h3 style="margin:0;font-size:16px;font-weight:600;letter-spacing:-0.014em">Type</h3>
-          <span style="font-size:13px;color:var(--ink-3)">Geist and Geist Mono — already loaded by the app, so nothing new to ship</span>
+          <span style="font-size:13px;color:var(--ink-3)">Instrument Serif + Instrument Sans — both on Google Fonts, so no licence to buy</span>
         </div>
         <div style="margin-top:18px">
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
-        <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Page title</div>
-        <div style="flex:1;min-width:0;font-size:26px;font-weight:600;letter-spacing:-0.022em;color:var(--ink)">Overview</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:26px · font-weight:600 · letter-spacing:-0.022em</div>
+        <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Page title (display)</div>
+        <div style="flex:1;min-width:0;font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Overview</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:30px · font-family:var(--font-display) · font-weight:var(--display-weight) · letter-spacing:var(--display-tracking)</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Big number</div>
         <div style="flex:1;min-width:0;font-size:34px;font-weight:600;letter-spacing:-0.032em;font-variant-numeric:tabular-nums;color:var(--ink)">₹8,42,500</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:34px · font-weight:600 · letter-spacing:-0.032em · font-variant-numeric:tabular-nums</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:34px · font-weight:600 · letter-spacing:-0.032em · font-variant-numeric:tabular-nums</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Section label</div>
         <div style="flex:1;min-width:0;font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink)">Invoices that need you</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:17px · font-weight:600 · letter-spacing:-0.015em</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:17px · font-weight:600 · letter-spacing:-0.015em</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Card title</div>
         <div style="flex:1;min-width:0;font-size:15.5px;font-weight:600;letter-spacing:-0.012em;color:var(--ink)">Revenue by brand</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:15.5px · font-weight:600 · letter-spacing:-0.012em</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:15.5px · font-weight:600 · letter-spacing:-0.012em</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Body</div>
         <div style="flex:1;min-width:0;font-size:14px;color:var(--ink)">Reminder 2 of 3 sent — next goes out 10 Sep unless paid.</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:14px</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:14px</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Secondary</div>
         <div style="flex:1;min-width:0;font-size:13px;color:var(--ink-2);color:var(--ink)">Sent and awaiting payment</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:13px · color:var(--ink-2)</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:13px · color:var(--ink-2)</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Micro</div>
         <div style="flex:1;min-width:0;font-size:12.5px;color:var(--ink-3);color:var(--ink)">vs ₹6,78,900</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-size:12.5px · color:var(--ink-3)</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-size:12.5px · color:var(--ink-3)</div>
       </div>
       <div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">Mono</div>
-        <div style="flex:1;min-width:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--ink)">SC-2026-041</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">font-family:'Geist Mono',ui-monospace,monospace · font-size:13px</div>
+        <div style="flex:1;min-width:0;font-family:var(--font-mono);font-size:13px;color:var(--ink)">SC-2026-041</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">font-family:var(--font-mono) · font-size:13px</div>
       </div></div>
       </div>
 
@@ -222,14 +227,14 @@
         </div>
         <div style="margin-top:18px">
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
-            <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-0.005em;box-shadow:0 1px 2px rgb(0 0 0 / 0.10)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New invoice</button>
-            <button style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-family:inherit;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12)">Chase now</button>
-            <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>Export</button>
-            <button style="display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--ink-2);font-family:inherit;font-size:14px;font-weight:500">Cancel</button>
+            <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:0;border-radius:10px;background:var(--blue);color:#fff;font-family:inherit;font-size:14px;font-weight:500;letter-spacing:-0.005em;box-shadow:0 1px 2px rgb(0 0 0 / 0.10);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New invoice</button>
+            <button style="display:inline-flex;align-items:center;height:36px;padding:0 16px;border:0;border-radius:10px;background:var(--ink);color:#fff;font-family:inherit;font-size:14px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12);white-space:nowrap">Chase now</button>
+            <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg>Export</button>
+            <button style="display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--ink-2);font-family:inherit;font-size:14px;font-weight:500;white-space:nowrap">Cancel</button>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px">
-            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)">Open</button>
-            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
+            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Open</button>
+            <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button>
             <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg></span>
           </div>
           <p style="margin:16px 0 0;font-size:13px;line-height:1.55;color:var(--ink-2)">
@@ -249,7 +254,7 @@
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px">
             <span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:var(--blue);color:#fff;font-size:12px;font-weight:600">3</span>
-            <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--ink-2)">SC-2026-###</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:var(--font-mono);font-size:12px;color:var(--ink-2)">SC-2026-###</span>
             <span style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:500;color:var(--ink-2)"><span style="width:7px;height:7px;border-radius:999px;background:var(--green)"></span>Paid invoices only</span>
           </div>
           <div style="margin-top:16px"><div style="display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:11px;background:var(--field)">
@@ -308,7 +313,7 @@
           </div>
           <div style="display:flex;gap:36px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line-2)">
             <div style="text-align:left">
-              <div style="font-size:14px;font-weight:500;font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
               <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Sundar Consulting</div>
             </div>
             <div style="text-align:left">
@@ -341,54 +346,54 @@
         <div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">14px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Card</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-card</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-card</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">10px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Button, field</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-md</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-md</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">11px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Icon tile</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-tile</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-tile</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">8–9px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Chip, small tile</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-sm</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">--radius-sm</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">999px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Pill</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">full</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">full</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">36px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Control height</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">default</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">default</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">32px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Small control</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">sm</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">sm</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">40–44px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Field height</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">form</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">form</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">18–20px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Card padding</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">inline</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">inline</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">16–18px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Grid gap</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">layout</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">layout</div>
           </div><div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">24px 32px</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">Page padding</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">shell</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">shell</div>
           </div>
       </div></div>
       </div>
   </div>
 </div>
 </x-dc>
-<script data-dc-script data-props='{"accent":{"editor":"color","default":"oklch(0.52 0.16 258)","options":["#2f5fd0","#1a7f64","#b4530f","#5b41c8"]},"$preview":{"width":1240,"height":2080}}'>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"oklch(0.52 0.16 258)","options":["#2f5fd0","#1a7f64","#b4530f","#5b41c8"]},"$preview":{"width":1240,"height":2145}}'>
 class Component extends DCLogic {
   renderVals() {
     return { accent: this.props.accent ?? 'oklch(0.52 0.16 258)' };

@@ -108,7 +108,7 @@ export function sidebar(active) {
 export function topbar(icon, title, actions) {
   return `<div style="display:flex;align-items:center;gap:13px;padding:20px 32px;border-bottom:1px solid var(--line);flex-shrink:0">
       ${ic(icon, 24, 'var(--ink)', 1.9)}
-      <h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-0.022em;color:var(--ink)">${title}</h1>
+      <h1 style="margin:0;font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">${title}</h1>
       <div style="flex:1"></div>
       ${actions}
     </div>`;

@@ -1,4 +1,4 @@
-import { ic, tile, tileOutline, delta, btnDark, btnOutline, statusPill, letterTile, cell2, tickBar, sectionLabel, dotChart } from './lib.mjs';
+import { ic, tile, tileOutline, delta, btnDark, btnOutline, statusPill, letterTile, cell2, tickBar, sectionLabel, columnChart, rankedBars } from './lib.mjs';
 import { sidebar, topbar, topbarActions, segmented } from './shell.mjs';
 
 /** Action card — the reference's "number, consequence, one button" pattern. */
@@ -130,17 +130,16 @@ export function dashboardBody() {
             <a href="#" style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500">Breakdown ${ic('arrowRight', 13, 'currentColor')}</a>
           </div>
           <div style="font-size:32px;font-weight:600;letter-spacing:-0.032em;font-variant-numeric:tabular-nums;margin:12px 6px 0">₹8,42,500</div>
-          <div style="display:flex;gap:3px;margin:16px 6px 0">
-            <span style="flex:52;height:10px;border-radius:3px;background:var(--blue)"></span>
-            <span style="flex:28;height:10px;border-radius:3px;background:var(--amber)"></span>
-            <span style="flex:13;height:10px;border-radius:3px;background:var(--green)"></span>
-            <span style="flex:7;height:10px;border-radius:3px;background:var(--violet)"></span>
+          <div style="margin:14px 0 0">
+            ${rankedBars([
+              { name: 'Sundar Consulting', v: 438100, display: '₹4,38,100', pct: 52, color: 'var(--blue)' },
+              { name: 'Avara Labs',        v: 235900, display: '₹2,35,900', pct: 28, color: 'var(--amber)' },
+              { name: 'Foldpaper Studio',  v: 109500, display: '₹1,09,500', pct: 13, color: 'var(--violet)' },
+              { name: 'Retainers',         v: 59000,  display: '₹59,000',   pct: 7,  color: 'var(--green)' },
+            ])}
           </div>
-          <div style="margin-top:14px;display:flex;flex-direction:column">
-            ${brandRow('var(--blue)', 'Sundar Consulting', '52%', '₹4,38,100', 'up', true)}
-            ${brandRow('var(--amber)', 'Avara Labs', '28%', '₹2,35,900', 'up', false)}
-            ${brandRow('var(--green)', 'Foldpaper Studio', '13%', '₹1,09,500', 'down', true)}
-            ${brandRow('var(--violet)', 'Retainers', '7%', '₹59,000', 'up', false)}
+          <div style="display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line-2);font-size:12.5px;color:var(--ink-3)">
+            Paid invoices only · FY 2026–27
           </div>
         </div>
 
@@ -157,16 +156,27 @@ export function dashboardBody() {
               <span style="width:7px;height:7px;border-radius:999px;background:var(--green)"></span>Paid invoices only
             </span>
           </div>
-          <div style="display:flex;gap:12px;margin-top:18px;flex:1">
-            <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;padding-bottom:20px;text-align:right;flex-shrink:0">
-              <span>₹1.2L</span><span>₹90k</span><span>₹60k</span><span>₹30k</span><span>₹0</span>
-            </div>
-            <div style="flex:1;min-width:0;display:flex;flex-direction:column">
-              ${dotChart({ w: 640, h: 208, cols: 52, rows: 20, series: [0.28, 0.34, 0.3, 0.46, 0.42, 0.55, 0.5, 0.62, 0.58, 0.72, 0.68, 0.84, 0.79, 0.93], color: 'var(--amber)' })}
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);margin-top:8px">
-                <span>Sep</span><span>Nov</span><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Aug</span>
-              </div>
-            </div>
+          <div style="margin-top:14px;flex:1">
+            ${columnChart({
+              w: 648, h: 236, color: 'var(--green)',
+              yTicks: [{ v: 0, label: '₹0' }, { v: 30000, label: '₹30k' }, { v: 60000, label: '₹60k' }, { v: 90000, label: '₹90k' }, { v: 120000, label: '₹1.2L' }],
+              avg: 70208, avgLabel: 'avg ₹70,208',
+              hover: 11,
+              data: [
+                { label: 'Sep', full: 'Sep 2025', v: 38000,  display: '₹38,000' },
+                { label: 'Oct', full: 'Oct 2025', v: 52000,  display: '₹52,000' },
+                { label: 'Nov', full: 'Nov 2025', v: 44500,  display: '₹44,500' },
+                { label: 'Dec', full: 'Dec 2025', v: 71000,  display: '₹71,000' },
+                { label: 'Jan', full: 'Jan 2026', v: 63500,  display: '₹63,500' },
+                { label: 'Feb', full: 'Feb 2026', v: 86000,  display: '₹86,000' },
+                { label: 'Mar', full: 'Mar 2026', v: 74000,  display: '₹74,000' },
+                { label: 'Apr', full: 'Apr 2026', v: 96000,  display: '₹96,000' },
+                { label: 'May', full: 'May 2026', v: 82500,  display: '₹82,500' },
+                { label: 'Jun', full: 'Jun 2026', v: 108000, display: '₹1,08,000' },
+                { label: 'Jul', full: 'Jul 2026', v: 94000,  display: '₹94,000' },
+                { label: 'Aug', full: 'Aug 2026', v: 116000, display: '₹1,16,000' },
+              ],
+            })}
           </div>
         </div>
       </div>

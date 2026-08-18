@@ -1,0 +1,581 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: oklch(0.52 0.008 70); text-decoration: none; }
+    a:hover { color: oklch(0.19 0.004 70); }
+    .iv, .iv * { box-sizing: border-box; }
+    .iv { -webkit-font-smoothing: antialiased; }
+  </style>
+</helmet>
+
+<div class="iv" style="--blue: {{accent}};
+      --canvas:      oklch(0.955 0.004 70);
+      --surface:     oklch(1 0 0);
+      --ink:         oklch(0.19 0.004 70);
+      --ink-2:       oklch(0.52 0.008 70);
+      --ink-3:       oklch(0.66 0.008 70);
+      --line:        oklch(0.898 0.004 70);
+      --line-2:      oklch(0.932 0.004 70);
+      --field:       oklch(0.928 0.004 70);
+      --blue-soft:   oklch(0.945 0.028 258);
+      --green:       oklch(0.60 0.145 152);
+      --green-soft:  oklch(0.945 0.038 152);
+      --amber:       oklch(0.66 0.15 62);
+      --amber-soft:  oklch(0.950 0.045 62);
+      --red:         oklch(0.585 0.205 27);
+      --red-soft:    oklch(0.950 0.032 27);
+      --violet:      oklch(0.575 0.185 295);
+      --violet-soft: oklch(0.950 0.032 295);
+      --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+      --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.06), 0 0 0 1px oklch(0.898 0.004 70);
+
+    width: 1440px; height: 1375px; display: flex; overflow: hidden;
+    background: var(--canvas); color: var(--ink);
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --display-weight: 400;
+    --display-tracking: -0.018em;
+    font-family: var(--font-sans);
+    font-size: 14px; letter-spacing: -0.005em; ">
+<div style="width:268px;flex-shrink:0;display:flex;flex-direction:column;background:var(--canvas);border-right:1px solid var(--line)">
+
+    <div style="display:flex;align-items:center;gap:11px;padding:16px 16px;border-bottom:1px solid var(--line)">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0;border-radius:11px;background:var(--blue);color:#fff;font-size:16px;font-weight:600">I</span>
+      <span style="display:flex;flex-direction:column;min-width:0;flex:1">
+        <span style="font-size:14.5px;font-weight:600;color:var(--ink);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Sundar Consulting</span>
+        <span style="font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">3 brands · Free plan</span>
+      </span>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+    </div>
+
+    <div style="padding:14px 12px 0">
+      <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:11px;background:var(--field)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span style="flex:1;font-size:14.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Search</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-size:12px;color:var(--ink-2)">/</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:2px;padding:14px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 11px">
+          <span style="font-size:13px;font-weight:500;color:var(--ink-3);letter-spacing:-0.005em">Essentials</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m18 15-6-6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          <span style="flex:1">Dashboard</span>
+          
+          
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0 / 0.05);font-weight:500;color:var(--ink)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+          <span style="flex:1">Follow-ups</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:var(--blue);color:#fff;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums">3</span>
+          
+        </div>
+      </div>
+    <div style="height:1px;background:var(--line);margin:0 0"></div>
+    <div style="display:flex;flex-direction:column;gap:2px;padding:14px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 11px">
+          <span style="font-size:13px;font-weight:500;color:var(--ink-3);letter-spacing:-0.005em">Work</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m18 15-6-6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+          <span style="flex:1">Invoices</span>
+          
+          <span style="font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums">42</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/></svg>
+          <span style="flex:1">Brands</span>
+          
+          <span style="font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums">3</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style="flex:1">Clients</span>
+          
+          <span style="font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums">18</span>
+        </div>
+      </div>
+    <div style="height:1px;background:var(--line)"></div>
+    <div style="display:flex;flex-direction:column;gap:2px;padding:14px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;height:26px;padding:0 11px">
+          <span style="font-size:13px;font-weight:500;color:var(--ink-3);letter-spacing:-0.005em">Measure</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m18 15-6-6-6 6"/></svg>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 16v5"/><path d="M16 14v7"/><path d="M20 10v11"/><path d="M8 12v9"/><path d="M4 16v5"/></svg>
+          <span style="flex:1">Reports</span>
+          
+          
+        </div>
+      </div>
+
+    <div style="flex:1"></div>
+
+    <div style="padding:0 12px 12px">
+      <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-card)">
+        <div style="height:78px;position:relative;background:
+            radial-gradient(120% 140% at 12% 20%, oklch(0.86 0.09 235) 0%, transparent 55%),
+            radial-gradient(120% 140% at 82% 12%, oklch(0.93 0.10 92) 0%, transparent 58%),
+            radial-gradient(140% 160% at 60% 100%, oklch(0.90 0.07 30) 0%, transparent 60%),
+            oklch(0.94 0.03 250)">
+          <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 14px;border-radius:9px;background:var(--ink);color:#fff;font-size:13px;font-weight:500;box-shadow:0 2px 6px rgb(0 0 0 / 0.2)">Add details</span>
+        </div>
+        <div style="padding:13px 14px 14px">
+          <div style="font-size:14.5px;font-weight:600;color:var(--ink);letter-spacing:-0.01em">Finish setup</div>
+          <div style="font-size:12.5px;line-height:1.45;color:var(--ink-2);margin-top:3px">Add bank details so your PDFs are payable.</div>
+          <div style="display:flex;align-items:center;gap:9px;margin-top:11px">
+            <svg width="17" height="17" viewBox="0 0 20 20" style="flex-shrink:0"><circle cx="10" cy="10" r="8" fill="none" stroke="var(--line)" stroke-width="3"/><circle cx="10" cy="10" r="8" fill="none" stroke="var(--blue)" stroke-width="3" stroke-linecap="round" stroke-dasharray="50.3" stroke-dashoffset="25.1" transform="rotate(-90 10 10)"/></svg>
+            <span style="font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:1">2 of 4</span>
+            <span style="font-size:12.5px;color:var(--ink-3)">Skip</span>
+            <span style="display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:8px;background:var(--field);font-size:12.5px;font-weight:500;color:var(--ink)">Next</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:0 12px 12px;display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <span style="flex:1">Appearance</span>
+          
+          
+        </div>
+      <div style="display:flex;align-items:center;gap:11px;height:38px;padding:0 11px;border-radius:10px;font-size:14.5px;letter-spacing:-0.005em;color:var(--ink-2)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          <span style="flex:1">Help &amp; support</span>
+          
+          
+        </div>
+      <div style="display:flex;align-items:center;gap:11px;padding:8px 11px 0">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;flex-shrink:0;border-radius:999px;background:var(--field);border:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--ink-2)">SS</span>
+        <span style="display:flex;flex-direction:column;min-width:0;flex:1">
+          <span style="font-size:14px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Sivan Sundar</span>
+          <span style="font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Plan &amp; billing</span>
+        </span>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:var(--canvas)">
+
+    <div style="display:flex;align-items:center;gap:14px;padding:18px 32px;border-bottom:1px solid var(--line);flex-shrink:0">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m15 18-6-6 6-6"/></svg></span>
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0;border-radius:9px;background:var(--blue);color:#fff;font-size:16px;font-weight:600">SC</span>
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <h1 style="margin:0;font-size:28px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Sundar Consulting</h1>
+          <span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500"><span style="width:6px;height:6px;border-radius:999px;background:var(--green)"></span>Reminders on</span>
+        </div>
+        <div style="font-size:13px;color:var(--ink-3);margin-top:3px">Every follow-up sent and scheduled for this brand · Net 45 schedule</div>
+      </div>
+      <div style="flex:1"></div>
+      <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export history</button>
+      <button style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Edit schedule</button>
+    </div>
+
+    <div style="flex:1;min-height:0;padding:24px 32px 28px;display:flex;flex-direction:column;gap:22px">
+
+      <!-- Lifetime summary for this brand -->
+      <div style="display:flex;gap:16px">
+        <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Reminders sent</span></div>
+        <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">38</div>
+        <div style="margin-top:10px"><div style="display:flex;align-items:center"><span style="font-size:13px;color:var(--ink-2)">across 14 invoices</span><span style="flex:1"></span><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:999px;background:var(--green-soft)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span>+6</span></div></div>
+      </div>
+        <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Recovered</span></div>
+        <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">₹4,12,000</div>
+        <div style="margin-top:10px"><div style="display:flex;align-items:center"><span style="font-size:13px;color:var(--ink-2)">9 invoices paid after a nudge</span></div></div>
+      </div>
+        <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Avg nudges to pay</span></div>
+        <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">1.8</div>
+        <div style="margin-top:10px"><div style="display:flex;align-items:center"><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:999px;background:var(--green-soft)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m19 12-7 7-7-7"/><path d="M12 5v14"/></svg></span>−0.4</span><span style="flex:1"></span><span style="font-size:13px;color:var(--ink-3)">vs 2.2</span></div></div>
+      </div>
+        <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Pays after a nudge</span></div>
+        <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">64%</div>
+        <div style="margin-top:10px"><div style="display:flex;align-items:center"><span style="font-size:13px;color:var(--ink-2)">within 7 days</span><span style="flex:1"></span><span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--green);font-variant-numeric:tabular-nums">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:999px;background:var(--green-soft)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span>+9 pts</span></div></div>
+      </div>
+        <div style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:16px 18px">
+        <div style="display:flex;align-items:center;gap:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:9px;background:var(--surface);border:1px solid var(--line)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Still unanswered</span></div>
+        <div style="font-size:30px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;margin-top:13px;color:var(--ink)">03</div>
+        <div style="margin-top:10px"><div style="display:flex;align-items:center"><span style="font-size:13px;color:var(--ink-2)">3 nudges, no reply</span></div></div>
+      </div>
+      </div>
+
+      <div style="display:flex;gap:20px;align-items:flex-start">
+
+        <!-- MAIN -->
+        <div style="flex:1.9;min-width:0;display:flex;flex-direction:column;gap:22px">
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+        <h2 style="margin:0;font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink)">Scheduled next</h2>
+        <a href="#" style="display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:500;text-decoration:none">Pause all for this brand <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+      </div>
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line)">
+                <div style="flex:1.2;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Invoice</div><div style="flex:1.4;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Reminder</div><div style="flex:1;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Sends</div>
+                <div style="flex:0 0 202px"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Kestrel Labs</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Final notice</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 3 of 3</div>
+            </div></div>
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Today, 09:00</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 2 hours</div>
+            </div></div>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-042</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Northwind Studio</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Gentle nudge</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 2 of 3</div>
+            </div></div>
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Today, 09:00</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 2 hours</div>
+            </div></div>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;">
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-044</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Lantern Books</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Due soon</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 1 of 3</div>
+            </div></div>
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">24 Aug, 09:00</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">in 6 days</div>
+            </div></div>
+          <div style="flex:0 0 202px;display:flex;justify-content:flex-end;gap:9px"><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>Hold</button><button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>Send now</button></div>
+        </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+        <h2 style="margin:0;font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink)">Everything sent</h2>
+        
+      </div>
+              <span style="flex:1"></span>
+              <div style="display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:11px;background:var(--field)">
+      <span style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:9px;font-size:14px;font-weight:500;white-space:nowrap;background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / 0.06)">All 38</span>
+      <span style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:9px;font-size:14px;font-weight:500;white-space:nowrap;color:var(--ink-2)">Paid after</span>
+      <span style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:9px;font-size:14px;font-weight:500;white-space:nowrap;color:var(--ink-2)">No reply</span>
+    </div>
+              <button style="display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>FY 2026–27</button>
+            </div>
+
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line)">
+                <div style="flex:1;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Sent</div><div style="flex:1.2;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Invoice</div><div style="flex:1.4;min-width:0;text-align:left;font-size:12.5px;font-weight:500;color:var(--ink-3)">Reminder</div><div style="flex:0 0 210px;min-width:0;text-align:right;font-size:12.5px;font-weight:500;color:var(--ink-3)">What happened</div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 20px;background:var(--canvas);border-bottom:1px solid var(--line-2)">
+          <span style="font-size:12.5px;font-weight:600;color:var(--ink-2);letter-spacing:0.01em">AUGUST 2026</span>
+          <span style="font-size:12.5px;color:var(--ink-3)">9 reminders</span>
+          <span style="flex:1"></span>
+          <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums">₹1,84,000 recovered</span>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">10 Aug</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Kestrel Labs</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Follow up</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 2 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--field);color:var(--ink-3);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/></svg>No reply yet</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">04 Aug</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-041</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Kestrel Labs</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Gentle nudge</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 1 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Opened, not paid</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">02 Aug</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-039</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Meridian Foods</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Gentle nudge</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 1 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Paid 2 days later</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">01 Aug</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">14:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-037</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Lantern Books</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Due soon</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 1 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Paid same day</span></div>
+        </div>
+
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 20px;background:var(--canvas);border-bottom:1px solid var(--line-2)">
+          <span style="font-size:12.5px;font-weight:600;color:var(--ink-2);letter-spacing:0.01em">JULY 2026</span>
+          <span style="font-size:12.5px;color:var(--ink-3)">11 reminders</span>
+          <span style="flex:1"></span>
+          <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums">₹2,28,000 recovered</span>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">28 Jul</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-036</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Northwind Studio</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Final notice</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 3 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Paid 1 day later</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">21 Jul</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-036</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Northwind Studio</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Follow up</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 2 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--field);color:var(--ink-3);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M5 12h14"/></svg>No reply</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">14 Jul</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-036</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Northwind Studio</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Gentle nudge</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 1 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Opened, not paid</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-bottom:1px solid var(--line-2)">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">09 Jul</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">14:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-034</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Calder &amp; Co</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Due soon</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 1 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Paid 4 days later</span></div>
+        </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;">
+          <div style="flex:1;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">03 Jul</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">09:00</div>
+            </div></div>
+          <div style="flex:1.2;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink)">SC-2026-032</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">Harbourline Ltd</div>
+            </div></div>
+          <div style="flex:1.4;min-width:0"><div style="text-align:left">
+              <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink)">Follow up</div>
+              <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">reminder 2 of 3</div>
+            </div></div>
+          <div style="flex:0 0 210px;display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;background:var(--amber-soft);color:var(--amber);font-size:12.5px;font-weight:500;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Escalated to final</span></div>
+        </div>
+
+              <div style="display:flex;align-items:center;gap:16px;padding:13px 20px;border-top:1px solid var(--line)">
+                <span style="font-size:13px;color:var(--ink-3);flex:1">Showing <span style="font-variant-numeric:tabular-nums;color:var(--ink-2)">9 of 38</span> reminders sent for this brand</span>
+                <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Load older</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIDE -->
+        <div style="flex:1;min-width:0;max-width:376px;display:flex;flex-direction:column;gap:20px">
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:18px 20px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:15.5px;font-weight:600;letter-spacing:-0.012em;flex:1">Which nudge works</span>
+            </div>
+            <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:var(--ink-2)">Share of reminders at each step that were followed by payment within a week.</p>
+            <div style="margin-top:12px">
+              <div style="padding:11px 0;border-bottom:1px solid var(--line-2)">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;flex-shrink:0;border-radius:6px;background:var(--blue-soft);font-size:11.5px;font-weight:600;color:var(--blue);align-self:center">1</span>
+            <span style="flex:1;font-size:13.5px;color:var(--ink)">Due soon</span>
+            <span style="font-size:13.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums">43%</span>
+          </div>
+          <div style="height:7px;border-radius:3px;background:var(--line-2);margin:8px 0 0 31px">
+            <div style="width:43%;height:7px;border-radius:3px;background:var(--green)"></div>
+          </div>
+          <div style="font-size:12px;color:var(--ink-3);margin:6px 0 0 31px;font-variant-numeric:tabular-nums">6 of 14 paid within 7 days</div>
+        </div>
+              <div style="padding:11px 0;border-bottom:1px solid var(--line-2)">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;flex-shrink:0;border-radius:6px;background:var(--blue-soft);font-size:11.5px;font-weight:600;color:var(--blue);align-self:center">2</span>
+            <span style="flex:1;font-size:13.5px;color:var(--ink)">Gentle nudge</span>
+            <span style="font-size:13.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums">69%</span>
+          </div>
+          <div style="height:7px;border-radius:3px;background:var(--line-2);margin:8px 0 0 31px">
+            <div style="width:69%;height:7px;border-radius:3px;background:var(--green)"></div>
+          </div>
+          <div style="font-size:12px;color:var(--ink-3);margin:6px 0 0 31px;font-variant-numeric:tabular-nums">9 of 13 paid within 7 days</div>
+        </div>
+              <div style="padding:11px 0;border-bottom:1px solid var(--line-2)">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;flex-shrink:0;border-radius:6px;background:var(--blue-soft);font-size:11.5px;font-weight:600;color:var(--blue);align-self:center">3</span>
+            <span style="flex:1;font-size:13.5px;color:var(--ink)">Final notice</span>
+            <span style="font-size:13.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums">73%</span>
+          </div>
+          <div style="height:7px;border-radius:3px;background:var(--line-2);margin:8px 0 0 31px">
+            <div style="width:73%;height:7px;border-radius:3px;background:var(--green)"></div>
+          </div>
+          <div style="font-size:12px;color:var(--ink-3);margin:6px 0 0 31px;font-variant-numeric:tabular-nums">8 of 11 paid within 7 days</div>
+        </div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:9px;margin-top:14px;padding:12px 13px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M9.9 2.6a.5.5 0 0 1 .95 0l1.2 3.6a3 3 0 0 0 1.9 1.9l3.6 1.2a.5.5 0 0 1 0 .95l-3.6 1.2a3 3 0 0 0-1.9 1.9l-1.2 3.6a.5.5 0 0 1-.95 0l-1.2-3.6a3 3 0 0 0-1.9-1.9l-3.6-1.2a.5.5 0 0 1 0-.95l3.6-1.2a3 3 0 0 0 1.9-1.9z"/><path d="M18 15.5 18.6 17.3a1.5 1.5 0 0 0 1 1l1.8.6-1.8.6a1.5 1.5 0 0 0-1 1L18 22.2l-.6-1.8a1.5 1.5 0 0 0-1-1L14.6 19l1.8-.6a1.5 1.5 0 0 0 1-1z"/></svg>
+              <span style="font-size:12.5px;line-height:1.5;color:var(--ink-2)">Most invoices settle after the second nudge. Moving it earlier than day 7 is worth testing.</span>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:18px 20px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--ink-2)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+              <span style="font-size:15.5px;font-weight:600;letter-spacing:-0.012em;flex:1">This brand's schedule</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+              <div style="display:flex;align-items:center;gap:11px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;border-radius:7px;background:var(--blue-soft);font-size:11.5px;font-weight:600;color:var(--blue)">1</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;color:var(--ink)">Due soon</div>
+                  <div style="font-size:12px;color:var(--ink-3);margin-top:1px">3 days before due</div>
+                </div>
+                <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">14 sent</span>
+              </div><div style="display:flex;align-items:center;gap:11px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;border-radius:7px;background:var(--blue-soft);font-size:11.5px;font-weight:600;color:var(--blue)">2</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;color:var(--ink)">Gentle nudge</div>
+                  <div style="font-size:12px;color:var(--ink-3);margin-top:1px">7 days after due</div>
+                </div>
+                <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">13 sent</span>
+              </div><div style="display:flex;align-items:center;gap:11px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;border-radius:7px;background:var(--blue-soft);font-size:11.5px;font-weight:600;color:var(--blue)">3</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;color:var(--ink)">Final notice</div>
+                  <div style="font-size:12px;color:var(--ink-3);margin-top:1px">21 days after due</div>
+                </div>
+                <span style="font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;white-space:nowrap">11 sent</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:9px;margin-top:15px;padding-top:14px;border-top:1px solid var(--line-2)">
+              <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Edit schedule</button>
+              <button style="display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:500;box-shadow:var(--shadow-card);white-space:nowrap">Templates</button>
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);padding:18px 20px">
+            <div style="font-size:15.5px;font-weight:600;letter-spacing:-0.012em">Other brands</div>
+            <div style="display:flex;flex-direction:column;gap:2px;margin-top:12px">
+              <div style="display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:10px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--amber);color:#fff;font-size:12px;font-weight:600">AV</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink)">Avara Labs</div>
+                  <div style="font-size:12px;color:var(--ink-3);margin-top:1px">19 sent · ₹1,86,000 recovered</div>
+                </div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m9 18 6-6-6-6"/></svg>
+              </div><div style="display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:10px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--green);color:#fff;font-size:12px;font-weight:600">FP</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--ink)">Foldpaper Studio</div>
+                  <div style="font-size:12px;color:var(--ink-3);margin-top:1px">Reminders off</div>
+                </div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m9 18 6-6-6-6"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"oklch(0.52 0.16 258)","options":["#2f5fd0","#1a7f64","#b4530f","#5b41c8"]},"$preview":{"width":1440,"height":1375}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? 'oklch(0.52 0.16 258)' };
+  }
+}
+</script>
+</body>
+</html>

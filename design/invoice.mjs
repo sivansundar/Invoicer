@@ -67,7 +67,7 @@ export function invoiceBody() {
       <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card)">${ic('chevLeft', 17, 'var(--ink-2)')}</span>
       <div>
         <div style="display:flex;align-items:center;gap:10px">
-          <h1 style="margin:0;font-family:'Geist Mono',ui-monospace,monospace;font-size:24px;font-weight:500;letter-spacing:-0.02em;color:var(--ink)">SC-2026-041</h1>
+          <h1 style="margin:0;font-family:var(--font-mono);font-size:24px;font-weight:500;letter-spacing:-0.02em;color:var(--ink)">SC-2026-041</h1>
           ${statusPill('Overdue')}
         </div>
         <div style="font-size:13px;color:var(--ink-3);margin-top:3px">Kestrel Labs · billed 14 Jul 2026 · due 28 Aug 2026</div>
@@ -212,7 +212,7 @@ export function invoiceBody() {
                 <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--blue);color:#fff;font-size:9px;font-weight:600">SC</span>
                 <div style="text-align:right">
                   <div style="font-size:7px;color:var(--ink-3)">INVOICE</div>
-                  <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:8px;color:var(--ink)">SC-2026-041</div>
+                  <div style="font-family:var(--font-mono);font-size:8px;color:var(--ink)">SC-2026-041</div>
                 </div>
               </div>
               <div style="display:flex;gap:12px;margin-top:14px">

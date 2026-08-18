@@ -7,7 +7,7 @@
 <body>
 <x-dc>
 <helmet>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
   <style>
     body { margin: 0; }
     a { color: oklch(0.52 0.008 70); text-decoration: none; }
@@ -29,7 +29,7 @@
       --blue-soft:   oklch(0.945 0.028 258);
       --green:       oklch(0.60 0.145 152);
       --green-soft:  oklch(0.945 0.038 152);
-      --amber:       oklch(0.715 0.148 62);
+      --amber:       oklch(0.66 0.15 62);
       --amber-soft:  oklch(0.950 0.045 62);
       --red:         oklch(0.585 0.205 27);
       --red-soft:    oklch(0.950 0.032 27);
@@ -40,7 +40,12 @@
 
     width: 1440px; height: 900px; display: flex; overflow: hidden;
     background: var(--canvas); color: var(--ink);
-    font-family: Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --display-weight: 400;
+    --display-tracking: -0.018em;
+    font-family: var(--font-sans);
     font-size: 14px; letter-spacing: -0.005em; ">
 
   <!-- LEFT: the callout -->
@@ -62,7 +67,7 @@
     </div>
 
     <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;max-width:520px">
-      <h2 style="margin:0;font-size:46px;line-height:1.08;font-weight:600;letter-spacing:-0.032em;color:var(--ink);text-wrap:pretty">Bill under every name you work as.</h2>
+      <h2 style="margin:0;font-size:54px;line-height:1.04;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink);text-wrap:pretty">Bill under every name you work as.</h2>
       <p style="margin:20px 0 0;font-size:16.5px;line-height:1.55;color:var(--ink-2);max-width:440px;text-wrap:pretty">
         Keep each business separate — its own logo, GST number, bank details and invoice series — and run them all from one dashboard.
       </p>
@@ -92,7 +97,7 @@
         </div>
         <div style="display:flex;align-items:flex-end;gap:12px;margin-top:14px">
           <div style="flex:1;min-width:0">
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--ink-3)">SC-2026-041</div>
+            <div style="font-family:var(--font-mono);font-size:13px;color:var(--ink-3)">SC-2026-041</div>
             <div style="font-size:26px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:var(--ink);margin-top:3px">₹1,20,000</div>
           </div>
           <div style="text-align:right">
@@ -116,7 +121,7 @@
     <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
       <div style="width:100%;max-width:396px;margin:0 auto">
 
-        <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-0.025em;color:var(--ink)">Sign in</h1>
+        <h1 style="margin:0;font-size:36px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking);color:var(--ink)">Sign in</h1>
         <p style="margin:9px 0 0;font-size:15px;line-height:1.5;color:var(--ink-2)">One click with Google, or a link in your inbox. No password to remember.</p>
 
         <!-- Fastest path first -->

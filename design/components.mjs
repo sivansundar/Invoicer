@@ -1,4 +1,4 @@
-import { ic, tile, tileOutline, delta, btnDark, btnOutline, btnPrimary, btnGhost, statusPill, letterTile, cell2, tickBar } from './lib.mjs';
+import { ic, tile, tileOutline, delta, btnDark, btnOutline, btnPrimary, btnGhost, statusPill, letterTile, cell2, tickBar, FONT } from './lib.mjs';
 import { segmented } from './shell.mjs';
 
 const CARD = 'background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card)';
@@ -17,7 +17,7 @@ function swatch(name, value, token, dark) {
   return `<div style="flex:1;min-width:0">
         <div style="height:56px;border-radius:11px;background:${value};border:1px solid ${dark ? 'transparent' : 'var(--line)'}"></div>
         <div style="font-size:13px;font-weight:500;margin-top:9px">${name}</div>
-        <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">${token}</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--ink-3);margin-top:3px;word-break:break-all">${token}</div>
       </div>`;
 }
 
@@ -25,7 +25,7 @@ function typeRow(label, sample, css) {
   return `<div style="display:flex;align-items:baseline;gap:20px;padding:11px 0;border-bottom:1px solid var(--line-2)">
         <div style="flex:0 0 132px;font-size:12.5px;color:var(--ink-3)">${label}</div>
         <div style="flex:1;min-width:0;${css};color:var(--ink)">${sample}</div>
-        <div style="flex:0 0 250px;font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;color:var(--ink-3);text-align:right">${css.replace(/;\s*$/, '').replace(/;/g, ' · ')}</div>
+        <div style="flex:0 0 250px;font-family:var(--font-mono);font-size:11px;color:var(--ink-3);text-align:right">${css.replace(/;\s*$/, '').replace(/;/g, ' · ')}</div>
       </div>`;
 }
 
@@ -33,10 +33,10 @@ export function componentsBody() {
   return `<div style="width:100%;display:flex;flex-direction:column;gap:18px;padding:36px 40px 44px">
 
     <div>
-      <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-0.025em">Invoicer design system</h1>
+      <h1 style="margin:0;font-size:36px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking)">Invoicer design system</h1>
       <p style="margin:9px 0 0;font-size:15px;line-height:1.55;color:var(--ink-2);max-width:680px">
         Every value below is what the redesigned screens actually use. The palette is expressed in oklch so it drops
-        straight into <span style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13.5px">src/app/globals.css</span>,
+        straight into <span style="font-family:var(--font-mono);font-size:13.5px">src/app/globals.css</span>,
         replacing today's fully-desaturated neutral ramp.
       </p>
     </div>
@@ -53,13 +53,13 @@ export function componentsBody() {
         ${swatch('Ink 3', 'oklch(0.66 0.008 70)', '--ink-3', true)}
       </div>`)}
 
-    ${block('Accents', 'semantic first, categorical second — held to a narrow lightness and chroma band so no one colour shouts', `
+    ${block('Accents', 'validated for colour-vision deficiency and 3:1 contrast — the categorical order is blue → amber → violet → green', `
       <div style="display:flex;gap:14px">
         ${swatch('Blue — primary, sent', 'var(--blue)', '--blue', true)}
-        ${swatch('Green — paid, improving', 'var(--green)', 'oklch(0.60 0.145 152)', true)}
-        ${swatch('Amber — drafts, charts', 'var(--amber)', 'oklch(0.715 0.148 62)', true)}
+        ${swatch('Green — paid, collected', 'var(--green)', 'oklch(0.60 0.145 152)', true)}
+        ${swatch('Amber — drafts, series 2', 'var(--amber)', 'oklch(0.66 0.15 62)', true)}
         ${swatch('Red — overdue, worsening', 'var(--red)', 'oklch(0.585 0.205 27)', true)}
-        ${swatch('Violet — fourth series', 'var(--violet)', 'oklch(0.575 0.185 295)', true)}
+        ${swatch('Violet — series 3', 'var(--violet)', 'oklch(0.575 0.185 295)', true)}
       </div>
       <div style="display:flex;gap:14px;margin-top:16px">
         ${swatch('Blue soft', 'var(--blue-soft)', '--blue-soft')}
@@ -69,15 +69,15 @@ export function componentsBody() {
         ${swatch('Violet soft', 'var(--violet-soft)', '--violet-soft')}
       </div>`)}
 
-    ${block('Type', 'Geist and Geist Mono — already loaded by the app, so nothing new to ship', `
-      ${typeRow('Page title', 'Overview', 'font-size:26px;font-weight:600;letter-spacing:-0.022em')}
+    ${block('Type', `${FONT.label} — both on Google Fonts, so no licence to buy`, `
+      ${typeRow('Page title (display)', 'Overview', 'font-size:30px;font-family:var(--font-display);font-weight:var(--display-weight);letter-spacing:var(--display-tracking)')}
       ${typeRow('Big number', '₹8,42,500', 'font-size:34px;font-weight:600;letter-spacing:-0.032em;font-variant-numeric:tabular-nums')}
       ${typeRow('Section label', 'Invoices that need you', 'font-size:17px;font-weight:600;letter-spacing:-0.015em')}
       ${typeRow('Card title', 'Revenue by brand', 'font-size:15.5px;font-weight:600;letter-spacing:-0.012em')}
       ${typeRow('Body', 'Reminder 2 of 3 sent — next goes out 10 Sep unless paid.', 'font-size:14px')}
       ${typeRow('Secondary', 'Sent and awaiting payment', 'font-size:13px;color:var(--ink-2)')}
       ${typeRow('Micro', 'vs ₹6,78,900', 'font-size:12.5px;color:var(--ink-3)')}
-      ${typeRow('Mono', 'SC-2026-041', "font-family:'Geist Mono',ui-monospace,monospace;font-size:13px")}`)}
+      ${typeRow('Mono', 'SC-2026-041', 'font-family:var(--font-mono);font-size:13px')}`)}
 
     <div style="display:flex;gap:18px;align-items:stretch">
       <div style="flex:1;min-width:0">
@@ -104,7 +104,7 @@ export function componentsBody() {
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px">
             <span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:var(--blue);color:#fff;font-size:12px;font-weight:600">3</span>
-            <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:'Geist Mono',ui-monospace,monospace;font-size:12px;color:var(--ink-2)">SC-2026-###</span>
+            <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--field);font-family:var(--font-mono);font-size:12px;color:var(--ink-2)">SC-2026-###</span>
             <span style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:500;color:var(--ink-2)"><span style="width:7px;height:7px;border-radius:999px;background:var(--green)"></span>Paid invoices only</span>
           </div>
           <div style="margin-top:16px">${segmented(['All brands', 'Sundar Consulting', 'Avara Labs'], 0)}</div>`)}
@@ -163,7 +163,7 @@ export function componentsBody() {
         ].map(([label, value, token]) => `<div style="flex:0 0 auto;min-width:132px;padding:13px 15px;border-radius:11px;background:var(--canvas);border:1px solid var(--line)">
             <div style="font-size:19px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">${value}</div>
             <div style="font-size:12.5px;color:var(--ink-2);margin-top:3px">${label}</div>
-            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:var(--ink-3);margin-top:2px">${token}</div>
+            <div style="font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px">${token}</div>
           </div>`).join('')}
       </div>`)}
   </div>`;

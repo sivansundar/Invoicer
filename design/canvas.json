@@ -78,27 +78,45 @@
       "page": "page-2"
     },
     {
+      "file": "FollowupsBrand.dc.html",
+      "title": "Follow-ups — per brand",
+      "x": 6160,
+      "y": 0,
+      "w": 1440,
+      "h": 1375,
+      "page": "page-2"
+    },
+    {
       "file": "Reports.dc.html",
       "title": "Reports",
       "x": 4620,
       "y": 0,
       "w": 1440,
-      "h": 1240,
+      "h": 1465,
       "page": "page-2"
+    },
+    {
+      "file": "Type.dc.html",
+      "title": "Type directions",
+      "x": 0,
+      "y": 0,
+      "w": 1560,
+      "h": 1180,
+      "page": "page-3"
     },
     {
       "file": "Components.dc.html",
       "title": "Design system",
-      "x": 0,
+      "x": 1660,
       "y": 0,
       "w": 1240,
-      "h": 2080,
+      "h": 2145,
       "page": "page-3"
     },
     {
       "file": "Today.dc.html",
       "title": "Before — today’s dashboard",
-      "x": 1340,
+      "x": 3000,
       "y": 0,
       "w": 1440,
       "h": 1100,
@@ -147,6 +165,14 @@
       "text": "NEW INVOICE — the biggest UX change.\n\nOne screen, no wizard. Brand is a click, not a dropdown. Terms are a segmented control and the due date derives itself. Recent clients are chips, so the common case is one tap.\n\nAnd one button: \"Send invoice\" creates it, emails the PDF, marks it Sent and starts the reminder schedule. Today those are four separate decisions."
     },
     {
+      "id": "ux-brand-history",
+      "page": "page-2",
+      "x": 6160,
+      "y": -300,
+      "w": 640,
+      "text": "NEW — FOLLOW-UPS PER BRAND.\n\nReached from the \"View all 38 sent\" button on each brand's schedule card. It answers three questions in one place: what has already gone out, what is queued next, and whether any of it works.\n\nEverything sent is grouped by month, and each row carries its OUTCOME — paid two days later, opened but not paid, no reply — because a reminder log without outcomes is just noise. \"Which nudge works\" turns that into the actionable number: most invoices settle after the second nudge, so it is worth moving earlier."
+    },
+    {
       "id": "ux-manage",
       "page": "page-2",
       "x": 0,
@@ -155,12 +181,28 @@
       "text": "MANAGE\n\nBrands keeps the card grid but each card now earns its space — collected vs outstanding, collection rate, and which schedule is running. The two cards on the second row are prompts, not decoration: one of them is a real gap (a brand with no bank details, so its PDFs have nowhere to pay).\n\nClients moves from a card grid to a table — 18 clients compared side by side is a table job. \"Avg days to pay\" is new and is the number that actually predicts trouble.\n\nFollow-ups leads with what goes out today and lets you hold or send from the queue. Reports groups by currency first, which is how multi-currency books are actually read."
     },
     {
-      "id": "ux-system",
+      "id": "ux-type",
       "page": "page-3",
       "x": 0,
-      "y": -260,
+      "y": -300,
+      "w": 620,
+      "text": "PICK A TYPE DIRECTION.\n\nGeist read as vanilla, so here are three, each applied to the same fragments — title, headline number, dense table row, and a stack of figures that has to align.\n\nAll three are on Google Fonts. The screens are currently drawn in the first one; switching is a single line, and nothing else in the system moves."
+    },
+    {
+      "id": "ux-system",
+      "page": "page-3",
+      "x": 1660,
+      "y": -300,
       "w": 560,
-      "text": "The system sheet is the handover: every colour, size and radius the screens use, in oklch, ready to replace the neutral ramp in globals.css.\n\nNext to it is today’s dashboard, rebuilt from the real source values, so the before/after is honest rather than remembered."
+      "text": "The system sheet is the handover: every colour, size and radius the screens use, in oklch, ready to replace the neutral ramp in globals.css.\n\nThe categorical order — blue, amber, violet, green — is not a taste call: it was run through a colour-vision and contrast validator, and amber was re-stepped darker to clear 3:1 against white."
+    },
+    {
+      "id": "ux-before",
+      "page": "page-3",
+      "x": 3000,
+      "y": -260,
+      "w": 480,
+      "text": "Today’s dashboard, rebuilt from the real values in globals.css and the shipped components, so the before/after is honest rather than remembered."
     }
   ],
   "launch": {
