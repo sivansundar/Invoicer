@@ -3,6 +3,33 @@ import type { Brand, Client, EmailTemplate, Invoice, PlanState } from "@/lib/typ
 import { formatInvoiceNumber, parseInvoiceNumber } from "@/lib/numbering";
 
 /**
+ * Mirrors `@/lib/storage`'s `LogoUploadError` rather than re-exporting it.
+ *
+ * `vi.mock("@/lib/storage", () => import("@/test/fake-seam"))` (see every
+ * test file that drives this fake) intercepts EVERY import of
+ * `@/lib/storage` within that test file's module graph — including one
+ * written here. `export { LogoUploadError } from "@/lib/storage"` looks
+ * like the obvious move, but under that mock it turns into this very file
+ * importing itself while it is still mid-load, and the two loads deadlock
+ * waiting on each other (confirmed: it hangs `vitest run` rather than
+ * failing). A caller-facing `instanceof LogoUploadError` check never needs
+ * this to be the SAME class object as the real one — under the mock,
+ * `@/lib/storage` resolves to this module for every consumer, so the throw
+ * below and any `catch` elsewhere both see this class. `fake-seam.test.ts`
+ * only asserts the two modules export the same NAMES and export-shapes, not
+ * reference equality.
+ */
+export class LogoUploadError extends Error {
+  constructor(
+    readonly brand: Brand,
+    override readonly cause: unknown
+  ) {
+    super("Saved, but the logo could not be uploaded");
+    this.name = "LogoUploadError";
+  }
+}
+
+/**
  * An in-memory stand-in for `@/lib/storage`, for unit tests.
  *
  * Chosen over MSW (ruled 2026-08-12, see the Phase 2 plan). MSW would mean
@@ -128,8 +155,15 @@ export const saveBrand = vi.fn(async (brand: Brand): Promise<Brand> => {
   // real seam never does.
   let result = upsert(state.brands, brand);
   if (brand.logo?.startsWith("data:")) {
-    const logoPath = await uploadBrandLogo(brand.id, brand.logo);
-    result = upsert(state.brands, { ...brand, logoPath, logo: undefined });
+    try {
+      const logoPath = await uploadBrandLogo(brand.id, brand.logo);
+      result = upsert(state.brands, { ...brand, logoPath, logo: undefined });
+    } catch (err) {
+      // The real seam wraps this exact failure so a caller can tell "the
+      // row is committed, the logo isn't" from "nothing was written". A
+      // fake that rethrows bare would let a caller-side regression pass.
+      throw new LogoUploadError(result, err);
+    }
   }
   return result;
 });

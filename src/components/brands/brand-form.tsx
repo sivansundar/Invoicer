@@ -13,7 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
-import { nextInvoiceNumber } from "@/lib/storage";
+import { LogoUploadError, nextInvoiceNumber } from "@/lib/storage";
 import { defaultFollowupConfig } from "@/lib/seed";
 import { BRAND_PALETTE } from "@/lib/palette";
 import { DEFAULT_INVOICE_DESIGN, INVOICE_DESIGN_OPTIONS } from "@/lib/invoice-design";
@@ -211,6 +211,16 @@ export function BrandForm({ brand }: BrandFormProps) {
     try {
       await save(record);
     } catch (err) {
+      // The row committed and only the logo didn't — see `LogoUploadError`.
+      // Reporting this as a failed save would send the user back to retype
+      // fields that are already stored, and a resubmit would re-upload a
+      // logo they may not have wanted to touch. The brand renders from the
+      // base64 still in `logo_data` until the next save retries the upload.
+      if (err instanceof LogoUploadError) {
+        toast(`${trimmedName} saved, but the logo couldn't be uploaded — replace it to try again`);
+        router.push("/brands");
+        return;
+      }
       toast(err instanceof Error ? err.message : "Couldn't save this brand — try again");
       return;
     }

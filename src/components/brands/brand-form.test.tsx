@@ -306,9 +306,12 @@ describe("BrandForm — logo upload", () => {
     // write, after the fake's first upsert has already run, so the row is
     // genuinely committed by the time the assertions below run). This file
     // mocks `sonner` and mounts no `<Toaster />` (see the note at the top of
-    // this file), so — consistent with every other save-failure test here —
-    // the surfaced error is asserted on the `toast` mock rather than
-    // `screen.findByText`.
+    // this file). `handleSubmit`'s own handling of this rejection
+    // (`LogoUploadError`) is a separate concern — see "says the brand saved
+    // when only its logo upload failed" below — so this test deliberately
+    // does not assert on `toast` or `push` and instead polls storage
+    // directly, so it stays about the row surviving underneath the rejected
+    // promise, independent of how the form chooses to report that rejection.
     failNext("uploadBrandLogo", "upload failed");
     renderForm();
 
@@ -316,23 +319,33 @@ describe("BrandForm — logo upload", () => {
     await chooseLogo("data:image/png;base64,aGk=");
     await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
 
-    await waitFor(() => expect(toast).toHaveBeenCalledWith("upload failed"));
-    // Not a success toast, and no navigation away — the same shape as
-    // "does not show a success toast or navigate away when the save itself
-    // fails" above, now exercised through the upload branch specifically.
-    expect(toast).not.toHaveBeenCalledWith(
-      expect.stringContaining("is ready — first invoice will be")
-    );
-    expect(push).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Create brand" })).toBeEnabled();
-    // What was typed is still there — nothing to re-enter on retry.
-    expect(screen.getByDisplayValue("Acme Studio")).toBeInTheDocument();
     // The row itself is not lost, still carrying its base64 unmigrated — the
     // comment above is a claim, this is what actually proves it.
-    const [committed] = await storage.getBrands();
-    expect(committed).toBeDefined();
+    const [committed] = await waitFor(async () => {
+      const brands = await storage.getBrands();
+      expect(brands).toHaveLength(1);
+      return brands;
+    });
     expect(committed.logo).toBe("data:image/png;base64,aGk=");
     expect(committed.logoPath).toBeUndefined();
+  });
+
+  it("says the brand saved when only its logo upload failed", async () => {
+    // saveBrand commits the row before it uploads. Reporting that rejection
+    // as "couldn't save" sends the user back to retype fields that are
+    // already in the database.
+    failNext("uploadBrandLogo", "bucket unreachable");
+    renderForm();
+
+    await fillRequiredFields();
+    await chooseLogo("data:image/png;base64,aGk=");
+    await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/saved, but the logo/i))
+    );
+    expect(toast).not.toHaveBeenCalledWith(expect.stringMatching(/couldn't save this brand/i));
+    expect(push).toHaveBeenCalledWith("/brands");
   });
 
   it("reuses the same brand id when retrying after a failed upload, so the already-committed row is updated rather than orphaned", async () => {
@@ -350,12 +363,17 @@ describe("BrandForm — logo upload", () => {
     await fillRequiredFields();
     await chooseLogo("data:image/png;base64,aGk=");
     await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
-    await waitFor(() => expect(toast).toHaveBeenCalledWith("upload failed"));
 
     // The row is already committed at this point, non-atomically, exactly
-    // as `saveBrand`'s own doc comment describes.
-    const afterFirstAttempt = await storage.getBrands();
-    expect(afterFirstAttempt).toHaveLength(1);
+    // as `saveBrand`'s own doc comment describes. Polling storage directly —
+    // rather than waiting on `toast`/`push` — keeps this test about id
+    // reuse, not about how `handleSubmit` reports the rejection (see "says
+    // the brand saved when only its logo upload failed" for that).
+    const afterFirstAttempt = await waitFor(async () => {
+      const brands = await storage.getBrands();
+      expect(brands).toHaveLength(1);
+      return brands;
+    });
     expect(afterFirstAttempt[0].logo).toBe("data:image/png;base64,aGk=");
 
     // The retry's upload is not armed to fail, so this attempt succeeds.

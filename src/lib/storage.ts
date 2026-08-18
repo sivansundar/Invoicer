@@ -170,6 +170,29 @@ export async function getBrand(id: string): Promise<Brand | null> {
  * fields even when the logo upload step fails afterward", for what this
  * looks like from a caller's side.
  */
+/**
+ * The brand row committed; its logo did not.
+ *
+ * `saveBrand` writes the row before it uploads, because the bucket's INSERT
+ * policy needs the row to exist and a brand's id is minted client-side. A
+ * failure in the upload half therefore cannot roll the first half back, and
+ * a caller that reads a plain rejection as "nothing changed" is wrong about
+ * every field except the logo.
+ *
+ * `brand` is what is actually in the database now — including the base64
+ * still sitting in `logo_data`, which is what the brand renders from until
+ * the next successful save re-attempts the upload.
+ */
+export class LogoUploadError extends Error {
+  constructor(
+    readonly brand: Brand,
+    override readonly cause: unknown
+  ) {
+    super("Saved, but the logo could not be uploaded");
+    this.name = "LogoUploadError";
+  }
+}
+
 export async function saveBrand(brand: Brand): Promise<Brand> {
   // Upsert rather than insert-or-update: the form generates the id with
   // crypto.randomUUID() before it knows whether this is a create or an
@@ -191,15 +214,21 @@ export async function saveBrand(brand: Brand): Promise<Brand> {
   // no new upload: that column is what those brands render from until their
   // owner next touches the logo. Task 9 records the residue.
   if (brand.logo?.startsWith("data:")) {
-    const logoPath = await uploadBrandLogo(result.id, brand.logo);
-    const { data: updated, error: updateError } = await createClient()
-      .from("brands")
-      .update({ logo_path: logoPath, logo_data: null })
-      .eq("id", result.id)
-      .select("*")
-      .single();
-    throwOn(updateError);
-    result = rowToBrand(updated as BrandRow);
+    try {
+      const logoPath = await uploadBrandLogo(result.id, brand.logo);
+      const { data: updated, error: updateError } = await createClient()
+        .from("brands")
+        .update({ logo_path: logoPath, logo_data: null })
+        .eq("id", result.id)
+        .select("*")
+        .single();
+      throwOn(updateError);
+      result = rowToBrand(updated as BrandRow);
+    } catch (err) {
+      // `result` is the row the first write already committed. Rethrowing
+      // bare would lose that fact — see the class comment.
+      throw new LogoUploadError(result, err);
+    }
   }
 
   return result;
