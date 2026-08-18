@@ -161,6 +161,41 @@ was the only thing that surfaced it — the passing test, read on its own, looke
 
 ---
 
+## What Phase 3.5 leaves behind
+
+Found by the whole-branch review that closed `fix/phase3.5-bug-fixes`. Deliberately not fixed on
+that branch — recorded here so they aren't lost.
+
+- **The import summary reports a committed brand as failed.** `writeCollection`
+  (`src/lib/import-pipeline.ts:296-301`) counts a `LogoUploadError` as `failed`, so `finishImport`
+  (`import-export.tsx:348-362`) toasts "1 brand couldn't be saved — storage may be full. Free up
+  space and try again." The brand *did* save; only its logo did not; and the suggested retry can't
+  help, because a re-import skips that brand by id and the logo is never re-attempted. **Why this
+  was deferred rather than fixed on the same branch:** the natural fix reclassifies the record as
+  imported, which would open the "Clear local copy" gate — a semantic change to a gate guarding
+  data deletion. This phase's only Critical came from exactly that shape of change (see "What
+  Phase 3 leaves behind," above, on `prepareImport`'s validation-time skips), so this needs its own
+  task with its own falsification, not a tail-end patch. The current behaviour is safe in the
+  meantime: it errs toward withholding deletion, and only the message is wrong.
+- **`googlePending` (and the pre-existing `pending`) have no `try/finally`.**
+  `src/app/(auth)/login/page.tsx:43-57`. A throw rather than an `{ error }` return leaves the
+  button reading "Redirecting…" permanently with no toast, plus an unhandled rejection from a bare
+  `onClick={handleGoogle}`. Narrow — requires a missing env, where the proxy 500s `/login` first —
+  but inconsistent with the `.catch()` convention used in `client-form.tsx` and
+  `local-import-prompt.tsx`.
+- **`local-import-prompt.test.tsx:349-365` hand-rolls a `QueryClient`** instead of reusing
+  `testQueryClientOptions`, uses bare `render` instead of `renderWithProviders(...,
+  { queryClient })`, and asserts the weak `toHaveBeenCalled()` form that its sibling in
+  `reports/page.test.tsx` argues at length is insufficient — a regression narrowing the call to one
+  `queryKey` would still pass.
+- **`brand-followup-card.tsx:47-57` now surfaces `LogoUploadError.message` as a save failure**, so
+  an unmigrated brand still holding base64 would show "Saved, but the logo could not be uploaded"
+  when the user toggles a follow-up setting. Its comment — "a failed write leaves the record
+  unchanged, so the inputs revert on their own" — is now false for that case. Unreachable in
+  production while `FEATURES.followups` is `false`.
+
+---
+
 ## Decisions Phase 2 made that Phase 4 should not silently reverse
 
 Phase 3 didn't touch most of this ground, which is an argument for carrying it forward, not

@@ -29,8 +29,15 @@ Run before `supabase link` + `supabase db push` against any hosted project.
       instead of in production.
 - [ ] Google OAuth credentials are configured, or the button is hidden.
       It renders today and cannot work without them.
-- [ ] `service_role` appears nowhere outside `.env.test.local`. Verify:
-      `grep -rn "service_role" --exclude-dir=node_modules . | grep -v ".env.test.local"`
+- [ ] `service_role` appears in neither application code nor a `NEXT_PUBLIC_`
+      variable. That's the actual constraint — the string legitimately appears
+      elsewhere (the `grant ... to service_role` statements in
+      `supabase/migrations/*.sql`, `supabase/config.toml`, plan docs, this
+      checklist), so a repo-wide grep always returns 20+ hits and trains
+      whoever runs this to ignore it. Scope the check to where the constraint
+      actually applies:
+      `grep -rn "service_role" src/app src/components src/hooks src/lib src/proxy.ts .env.local.example`
+      Expect no output.
 - [ ] A restore from a fresh backup has actually been performed, not assumed.
 - [ ] Any CI/deploy pipeline step that runs `supabase db reset` and then
       talks to the REST or Storage API has an explicit PostgREST readiness

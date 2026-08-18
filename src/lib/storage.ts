@@ -21,9 +21,13 @@ import {
 export { nextInvoiceNumber } from "./numbering";
 // `export … from` rather than a bare `export { LogoUploadError };` after the
 // `import` above — see the equivalent re-export in `@/test/fake-seam.ts` for
-// why: the bare form was observed to silently export `undefined` once a
-// nearby doc comment grew past a certain length (a transform-pipeline quirk,
-// unrelated to `vi.mock`). `export … from` did not exhibit it.
+// why: the bare form was observed to silently export `undefined` instead of
+// the class under vitest. The exact mechanism was not pinned down; a
+// circular-import / module-evaluation-order interaction with vitest's
+// transform is plausible (see `fake-seam.ts`'s own, confirmed circularity
+// with this module) but unconfirmed here — do not treat that as settled.
+// What's known is the symptom, and that `export … from` does not exhibit it;
+// keep it this way.
 export { LogoUploadError } from "./storage-errors";
 
 // Plan state is the last thing still in localStorage, and stays there by

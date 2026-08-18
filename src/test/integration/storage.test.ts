@@ -81,13 +81,13 @@ describe("brand-logos bucket", () => {
     });
     expect(uploadError).toBeNull();
 
-    const { data, error } = await userA.storage.from(BUCKET).createSignedUrl(path, 1);
+    const { data, error } = await userA.storage.from(BUCKET).createSignedUrl(path, 3);
     expect(error).toBeNull();
 
     const fresh = await fetch(data!.signedUrl);
     expect(fresh.status).toBe(200);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 3500));
 
     const stale = await fetch(data!.signedUrl);
     // Confirmed against the running Storage API rather than assumed: an

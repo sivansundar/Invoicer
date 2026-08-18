@@ -24,9 +24,14 @@ import { LogoUploadError } from "@/lib/storage-errors";
  * Written as `export { X } from "…"` rather than a separate bare
  * `export { X };` after the `import` above — the two are usually
  * interchangeable, but the bare form here was observed to silently export
- * `undefined` instead of the class once this doc comment grew past a
- * certain length (a transform-pipeline quirk, reproduced independently of
- * `vi.mock`). The `export … from` form did not exhibit it; keep it this way.
+ * `undefined` instead of the class under vitest. The precise mechanism was
+ * not pinned down, but this module's confirmed circular relationship with
+ * `@/lib/storage` (described above) is a plausible source: vitest's
+ * transform rewrites imported bindings, and a circular import can snapshot
+ * one before it's assigned. That is a plausible explanation, not a
+ * confirmed one — don't treat it as settled. What's confirmed is the
+ * symptom, and that the `export … from` form does not exhibit it; keep it
+ * this way.
  */
 export { LogoUploadError } from "@/lib/storage-errors";
 
