@@ -7,9 +7,30 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-instrument-sans);
+  --font-mono: var(--font-jetbrains-mono);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-field: var(--field);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-blue: var(--blue);
+  --color-blue-soft: var(--blue-soft);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --radius-card: var(--radius-card);
+  --font-display: var(--font-instrument-serif);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
@@ -56,74 +77,115 @@
      Tailwind tokens can't reach any of them. */
   color-scheme: light;
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.546 0.215 262.881);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── Redesign tokens ───────────────────────────────────────────────────
+     The page is a warm grey and content sits on white cards floating on it,
+     rather than white-on-white separated only by a hairline. See
+     docs/redesign/01-design-system.md — every value here is specified there.
+
+     The shadcn names below (--background, --card, --muted, …) are kept and
+     mapped onto these, so the whole component library and every existing
+     `bg-card` / `text-muted-foreground` keeps working. */
+  --canvas: oklch(0.955 0.004 70);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.98 0.004 70);
+  --field: oklch(0.928 0.004 70);
+  --line: oklch(0.898 0.004 70);
+  --line-2: oklch(0.932 0.004 70);
+  --ink: oklch(0.19 0.004 70);
+  --ink-2: oklch(0.52 0.008 70);
+  --ink-3: oklch(0.66 0.008 70);
+
+  /* Accents. The categorical order is blue → amber → violet → green and must
+     not be reordered or cycled: colour follows the entity, never its rank.
+     These five were run through a colour-vision and contrast validator —
+     amber sits at 0.66 lightness specifically to clear 3:1 against white.
+     Re-run the validator before changing any of them. */
+  --blue: oklch(0.52 0.16 258);
+  --blue-soft: oklch(0.945 0.028 258);
+  --green: oklch(0.60 0.145 152);
+  --green-soft: oklch(0.945 0.038 152);
+  --amber: oklch(0.66 0.15 62);
+  --amber-soft: oklch(0.95 0.045 62);
+  --red: oklch(0.585 0.205 27);
+  --red-soft: oklch(0.95 0.032 27);
+  --violet: oklch(0.575 0.185 295);
+  --violet-soft: oklch(0.95 0.032 295);
+
+  --radius-card: 14px;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.06);
+
+  /* ── shadcn names, mapped onto the tokens above ───────────────────────── */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--blue);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: var(--field);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--field);
+  --accent-foreground: var(--ink);
+  --destructive: var(--red);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--blue);
+  --chart-1: var(--blue);
+  --chart-2: var(--amber);
+  --chart-3: var(--violet);
+  --chart-4: var(--green);
+  --chart-5: var(--red);
+  --sidebar: var(--canvas);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--blue);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--surface);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--blue);
 }
 
 .dark {
   /* See the note on `:root` — this is what actually flips the date-input
      calendar icon and the native option lists to their dark variants. */
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.623 0.188 259.815);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+
+  /* Re-derived rather than flipped: the warm canvas/white-card relationship
+     inverts to a near-black canvas with raised surfaces, and each accent gets
+     its own lighter step — the light steps are too dark to read here. */
+  --canvas: oklch(0.165 0.004 70);
+  --surface: oklch(0.215 0.004 70);
+  --surface-2: oklch(0.255 0.004 70);
+  --field: oklch(0.275 0.004 70);
+  --line: oklch(1 0 0 / 12%);
+  --line-2: oklch(1 0 0 / 7%);
+  --ink: oklch(0.97 0.004 70);
+  --ink-2: oklch(0.72 0.008 70);
+  --ink-3: oklch(0.58 0.008 70);
+
+  --blue: oklch(0.68 0.15 258);
+  --blue-soft: oklch(0.30 0.05 258);
+  --green: oklch(0.72 0.15 152);
+  --green-soft: oklch(0.30 0.05 152);
+  --amber: oklch(0.78 0.15 62);
+  --amber-soft: oklch(0.30 0.05 62);
+  --red: oklch(0.70 0.19 27);
+  --red-soft: oklch(0.30 0.05 27);
+  --violet: oklch(0.72 0.17 295);
+  --violet-soft: oklch(0.30 0.05 295);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30);
+  --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.35);
+
+  /* On a dark surface the primary is light, so its text must be dark. */
+  --primary-foreground: oklch(0.19 0.004 70);
+  --sidebar-primary-foreground: oklch(0.19 0.004 70);
+  --sidebar-accent: var(--surface);
 }
 
 @layer base {
