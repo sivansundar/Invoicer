@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   availableFinancialYears,
+  collectedAverage,
+  compactMoney,
+  dominantCurrency,
+  monthlyTotalsForCurrency,
   filterInvoices,
   fyLabel,
   fyOrderIndex,
@@ -220,5 +224,169 @@ describe("groupByCurrency", () => {
     const groups = groupByCurrency(invoices);
     expect(groups.map((g) => g.currency)).toEqual(["INR", "USD"]);
     expect(groups[1].invoices.map((i) => i.invoiceNumber)).toEqual(["U1", "U2"]);
+  });
+});
+
+describe("dominantCurrency", () => {
+  it("returns null for an empty book", () => {
+    expect(dominantCurrency([])).toBeNull();
+  });
+
+  it("picks the currency with the most invoices", () => {
+    const invoices = [
+      makeInvoice("2025-04-01", { currency: "USD" as Currency }),
+      makeInvoice("2025-05-01", { currency: "USD" as Currency }),
+      makeInvoice("2025-06-01", { currency: "INR" as Currency }),
+    ];
+    expect(dominantCurrency(invoices)).toBe("USD");
+  });
+
+  it("breaks a tie in display order, not by insertion", () => {
+    const invoices = [
+      makeInvoice("2025-04-01", { currency: "SGD" as Currency }),
+      makeInvoice("2025-05-01", { currency: "INR" as Currency }),
+    ];
+    expect(dominantCurrency(invoices)).toBe("INR");
+  });
+});
+
+describe("monthlyTotalsForCurrency", () => {
+  const today = new Date("2025-12-15T12:00:00");
+
+  it("returns all twelve months in financial-year order, empty ones included", () => {
+    const rows = monthlyTotalsForCurrency([], "INR", 2025, today);
+    expect(rows).toHaveLength(12);
+    expect(rows.map((r) => r.label)).toEqual([
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+      "January",
+      "February",
+      "March",
+    ]);
+    expect(rows.map((r) => r.shortLabel)).toEqual([
+      "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
+    ]);
+    // A month with nothing in it is a zero, and its rate is unknowable
+    // rather than 0% — the caller renders "—".
+    expect(rows.every((r) => r.count === 0 && r.issued === 0)).toBe(true);
+    expect(rows.every((r) => r.collectionPct === null)).toBe(true);
+  });
+
+  it("resolves Jan–Mar to the following calendar year", () => {
+    const rows = monthlyTotalsForCurrency([], "INR", 2025, today);
+    expect(rows[0].calendarYear).toBe(2025); // April
+    expect(rows[9].calendarYear).toBe(2026); // January
+    expect(rows[11].calendarYear).toBe(2026); // March
+  });
+
+  it("counts only the requested currency", () => {
+    const invoices = [
+      makeInvoice("2025-04-10", { currency: "INR" as Currency, total: 1000 }),
+      makeInvoice("2025-04-11", { currency: "USD" as Currency, total: 500 }),
+    ];
+    const inr = monthlyTotalsForCurrency(invoices, "INR", 2025, today);
+    const usd = monthlyTotalsForCurrency(invoices, "USD", 2025, today);
+    expect(inr[0].collected).toBe(1000);
+    expect(inr[0].count).toBe(1);
+    expect(usd[0].collected).toBe(500);
+    expect(usd[0].count).toBe(1);
+  });
+
+  it("splits paid from outstanding and reconciles against issued", () => {
+    const invoices = [
+      makeInvoice("2025-05-02", { status: "paid", total: 800 }),
+      makeInvoice("2025-05-09", { status: "sent", total: 200, dueDate: "2026-03-01" }),
+    ];
+    const may = monthlyTotalsForCurrency(invoices, "INR", 2025, today)[1];
+    expect(may.issued).toBe(1000);
+    expect(may.collected).toBe(800);
+    expect(may.outstanding).toBe(200);
+    expect(may.issued).toBe(may.collected + may.outstanding);
+    expect(may.collectionPct).toBe(80);
+  });
+
+  it("treats a past-due sent invoice as outstanding via effectiveStatus", () => {
+    // Nothing in this app ever stores "overdue" literally, so a bucket that
+    // keyed off the raw status would silently miss late money.
+    const invoices = [makeInvoice("2025-06-01", { status: "sent", dueDate: "2025-07-01", total: 400 })];
+    const june = monthlyTotalsForCurrency(invoices, "INR", 2025, today)[2];
+    expect(june.outstanding).toBe(400);
+    expect(june.collected).toBe(0);
+    expect(june.collectionPct).toBe(0);
+  });
+
+  it("excludes drafts — nothing was issued and nobody owes anything", () => {
+    const invoices = [makeInvoice("2025-07-01", { status: "draft", total: 999 })];
+    const july = monthlyTotalsForCurrency(invoices, "INR", 2025, today)[3];
+    expect(july.issued).toBe(0);
+    expect(july.count).toBe(0);
+    expect(july.collectionPct).toBeNull();
+  });
+
+  it("buckets by bill date, not by the month payment arrived", () => {
+    // The cohort reading is what keeps issued = collected + outstanding and
+    // the rate bounded at 100%.
+    const invoices = [
+      makeInvoice("2025-04-20", { status: "paid", paidOn: "2025-09-30", total: 700 }),
+    ];
+    const rows = monthlyTotalsForCurrency(invoices, "INR", 2025, today);
+    expect(rows[0].collected).toBe(700); // April, the month it was billed
+    expect(rows[5].collected).toBe(0); // September, the month the money landed
+  });
+
+  it("ignores invoices outside the financial year", () => {
+    const invoices = [
+      makeInvoice("2025-03-31", { total: 100 }), // FY 2024-25
+      makeInvoice("2026-04-01", { total: 100 }), // FY 2026-27
+      makeInvoice("2026-03-31", { total: 250 }), // March of FY 2025-26
+    ];
+    const rows = monthlyTotalsForCurrency(invoices, "INR", 2025, today);
+    expect(rows.reduce((sum, r) => sum + r.issued, 0)).toBe(250);
+    expect(rows[11].issued).toBe(250);
+  });
+});
+
+describe("collectedAverage", () => {
+  const today = new Date("2025-12-15T12:00:00");
+
+  it("averages over months that had invoices, not all twelve", () => {
+    const invoices = [
+      makeInvoice("2025-04-01", { status: "paid", total: 1000 }),
+      makeInvoice("2025-05-01", { status: "paid", total: 2000 }),
+    ];
+    const rows = monthlyTotalsForCurrency(invoices, "INR", 2025, today);
+    // 3000 over two active months, not over the twelve in the year.
+    expect(collectedAverage(rows)).toBe(1500);
+  });
+
+  it("returns null when no month had any invoices", () => {
+    expect(collectedAverage(monthlyTotalsForCurrency([], "INR", 2025, today))).toBeNull();
+  });
+});
+
+describe("compactMoney", () => {
+  it("uses lakh and crore for INR", () => {
+    expect(compactMoney(950, "INR")).toBe("₹950");
+    expect(compactMoney(12000, "INR")).toBe("₹12k");
+    expect(compactMoney(250000, "INR")).toBe("₹2.5L");
+    expect(compactMoney(15000000, "INR")).toBe("₹1.5Cr");
+  });
+
+  it("uses k and M for USD and SGD", () => {
+    expect(compactMoney(500, "USD")).toBe("$500");
+    expect(compactMoney(4200, "USD")).toBe("$4k");
+    expect(compactMoney(2500000, "USD")).toBe("$2.5M");
+    expect(compactMoney(3000, "SGD")).toBe("S$3k");
+  });
+
+  it("keeps the sign outside the symbol", () => {
+    expect(compactMoney(-250000, "INR")).toBe("-₹2.5L");
   });
 });
