@@ -121,3 +121,9 @@ Replay migrations from scratch with `supabase db reset`.
 - **The build must show `ƒ Proxy (Middleware)`.** Its absence means `src/proxy.ts` is not being
   detected — the auth guard would be silently inert. It lives in `src/`, not the repo root,
   because this project uses a `src/app` layout.
+- **PostgREST is not ready the instant `supabase db reset` returns.** Immediately after a reset,
+  the REST and Storage APIs answer with "Could not query the database for the schema cache"
+  until PostgREST reloads its schema cache, which is not instantaneous. This took three
+  consecutive integration runs to clear during one branch's work, not one, so a fixed retry
+  count is not enough headroom — any script or pipeline that resets the database and then hits
+  `/rest/v1/` or Storage needs to poll until it actually answers before proceeding.

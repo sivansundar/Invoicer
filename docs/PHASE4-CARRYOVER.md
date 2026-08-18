@@ -16,6 +16,11 @@ repeat here: logos migrating off the bridge column into Storage, and the local-d
 prompt existing at all. Everything else in that document is still open and is repeated below
 rather than left behind in a file about a finished phase.
 
+**Amended by the Phase 3.5 bug-fix branch (`fix/phase3.5-bug-fixes`)** to strike the items that
+branch closed and correct entries its own review found stale or wrong. It did not touch the
+underlying Phase 3 architecture — see its own process note, below, for what it fixed and what it
+found wrong in this document.
+
 ---
 
 ## Process note, read first
@@ -46,6 +51,49 @@ bug that had sat harmlessly in the brand-create form for months, and a ruling to
 prompt discard rather than overwrite made "local-only, unresolved" a state the "Clear local
 copy" gate had never had to account for.
 
+**Phase 3.5's addition: a defect list is not a plan until each item has been re-verified against
+the code, not against another document.** This phase's plan was written from this document and
+`docs/POST-MERGE-NOTES.md`, and seven of its items turned out to be wrong once checked against
+the code directly:
+
+- The global invoice-conflict bug was worse than either carry-over doc described. It wasn't just
+  spurious duplicate-number dialogs — an "overwrite" resolution could write one brand's invoice
+  data over a completely different brand's row, because the match was keyed on invoice number
+  alone with no brand filter.
+- `Brand.nextInvoiceNumber` needed no migration to remove. The plan assumed dropping a dead field
+  meant dropping a dead column; the column it was assumed to have never existed — it was
+  application-level dead state only.
+- A whole planned deliverable — pinning tests to the four save-failure guards
+  (`handleMarkSent`, `handleTogglePause`, `handleSendNow`, `handleDelete`) — was already done.
+  `docs/POST-MERGE-NOTES.md`'s claim that only `handleMarkPaid` had a test was false, and had been
+  false since before this branch started; this document's own "Test gaps worth closing" section
+  already said `page.test.tsx` "covers save-failure guards," plural, which would have settled the
+  question without touching the app code at all. The check should have been against the code, not
+  against whichever carry-over note was read first.
+- The plan's proposed fake-seam re-export deadlocked Vitest when tried as specified; the actual
+  fix needed a different shape.
+- A falsification the plan predicted was provably impossible to trigger the way it described.
+- A guessed HTTP response body (for the signed-URL-expiry proof) didn't match what Storage
+  actually returns.
+- Two of the plan's own suggested tests would have passed in both the broken state and the fixed
+  state — they didn't actually pin the behaviour they were written to pin.
+
+None of these were found by reading the plan harder. They were found by reading the code the plan
+was making claims about.
+
+**Also worth recording: the "check that the number of failing tests matches the number that
+should have failed" rule (Phase 3's addition, above) caught real vacuity three more times this
+phase, via three mechanisms not on that list.** A `waitFor` that had been a genuine synchronisation
+point earlier in the branch was silently invalidated by a later, unrelated fix — the condition it
+waited on became true immediately, so the test kept passing while proving nothing. An assertion
+was satisfied by a fallback code path producing the same user-visible string as the path under
+test, so the assertion couldn't tell success from the fallback quietly firing instead. And a
+query resolved to a different element entirely once the feature under test was dead: two buttons
+shared an accessible name, and with the dialog that should have scoped the query closed, the
+unscoped query silently matched the *other* button and reported success. In all three cases the
+mismatch between "tests failed" and "tests that should have failed" during deliberate falsification
+was the only thing that surfaced it — the passing test, read on its own, looked fine.
+
 ---
 
 ## What Phase 3 leaves behind
@@ -62,20 +110,19 @@ copy" gate had never had to account for.
   delete their objects individually**, because the object path is `{brandId}/{sha}.png` — keyed
   by brand id, not prefixed by `org_id` — so there is no single prefix that deletes an org's logos
   in one call.
-- **`saveBrand` is not atomic.** It upserts the row, uploads the object, then writes the path back
-  — in that order, because the bucket's INSERT policy requires the row to exist first, and a
-  brand's id is generated client-side before any row does. A failure after the first write leaves
-  the row committed, including any unrelated fields (address, phone, bank details, ...) edited in
-  the same save, while the promise the caller awaited rejects. A caller that reads "the promise
-  rejected" as "nothing changed" is wrong about everything except the logo. The base64 left in
-  `logo_data` by that first write is a deliberate fallback, not an oversight — it is what the
-  brand renders from until the next successful save re-attempts the upload.
-- **Invoice-number conflict detection is global, not per-brand.** `writeInvoices` builds its match
-  map from `getInvoices()` with no brand filter, but numbering is per-brand, so two brands both
-  starting at `INV-001` collide spuriously. Pre-existing before this phase and moved verbatim by
-  Task 6's extraction; left unchanged deliberately, not missed. It is bounded in the import prompt
-  by the discard-only resolver below, and user-visible (and already accepted) in the file
-  importer's own conflict dialog.
+- **`saveBrand` is still not atomic — Phase 3.5 fixed how the failure is reported, not the
+  ordering.** It still upserts the row, uploads the object, then writes the path back, in that
+  order, because the bucket's INSERT policy requires the row to exist first and a brand's id is
+  generated client-side before any row does. A failure after the first write still leaves the row
+  committed, including any unrelated fields (address, phone, bank details, ...) edited in the same
+  save. What changed: that case now throws a distinct `LogoUploadError` (`src/lib/storage-errors.ts`)
+  instead of the earlier generic rejection, and callers surface it as "saved, but the logo couldn't
+  be uploaded" rather than as a failed save — so the caller is told accurately what happened instead
+  of reading "the promise rejected" as "nothing changed." There is still no rollback: the row commit
+  is not undone, and the base64 left in `logo_data` by that first write remains the fallback the
+  brand renders from until the next successful save re-attempts the upload. Do not read the accurate
+  reporting as atomicity — the write-then-upload ordering, and its partial-failure window, are
+  unchanged.
 - **The import prompt discards collisions rather than overwriting them.** The prompt persists
   until dismissed, so it can run weeks after signup against an account that already has real
   invoices — passing `overwrite` would let an old browser tab silently clobber one of them.
@@ -99,18 +146,9 @@ copy" gate had never had to account for.
   delete a local/source copy must account for everything dropped *before* the write step, not
   only what the write step itself reports — a write function has no way to know what it was
   never handed.
-- **No test covers a signed URL actually expiring.** `LOGO_URL_TTL_SECONDS` and the shorter
-  `staleTime` in `useLogoSrc` that is supposed to refetch before it lapses are reasoned about, not
-  proven against a real expiry.
-- **`Brand.nextInvoiceNumber` is still dead.** Untouched again this phase; still on the type and
-  in every fixture, still unread by anything.
-- **Deferred minors:**
+- **Deferred minor:**
   - `BrandLogo`'s `<img>` has no `loading="lazy"` or width/height attributes. Matches the previous
     inline implementation it replaced — not a regression, just never fixed.
-  - The new storage policy names (`"brand logos are readable by their brand's org"`, and its
-    writable/replaceable siblings) are full sentences with spaces, where this repo's convention
-    elsewhere is short snake_case (`brands_select`). It originated in the plan's own SQL and
-    nobody renamed it on review.
 - **Neither import entry point invalidated the query cache — fixed in the final pre-merge
   review.** Both `LocalImportPrompt` and `ImportExport` write through `writeImport`/`writeCollection`
   directly, bypassing the `useBrands`/`useInvoices`/`useClients`/`useTemplates` mutation layer
@@ -164,23 +202,13 @@ materially exercised this phase.
 - **No test covers two *browsers* creating invoices at once.** `src/test/integration/rpc.test.ts`
   (see `"issues distinct, gapless numbers under concurrent calls"`) fires concurrent RPCs from
   one client, which exercises the lock, but the end-to-end path — two tabs, each with its own
-  provisional number, both saving — is only reasoned about.
-- **`/reports` and `/invoices/[id]` have skeletons but no loading-state test.**
-  `src/app/(app)/loading-states.test.tsx` covers `/clients`, `/brands`, and the brand/client/
-  invoice **edit** screens; `/reports` has no test file at all, and `/invoices/[id]`'s
-  `page.test.tsx` covers save-failure guards, not its loading state. Both are still wired by hand
-  and checked only by eye.
+  provisional number, both saving — is only reasoned about. The end-to-end two-tab path needs a
+  browser harness this project does not have; deferred, not an oversight.
 
 ---
 
 ## Operational
 
-- **`supabase/config.toml` is production-unsafe as committed.** `enable_signup = true` with
-  `enable_confirmations = false` is correct locally — it's what lets integration tests use
-  `signInWithPassword` — but the CLI pushes this file verbatim. On a hosted project it would let
-  anyone self-register an arbitrary email, pre-confirmed, while the product's stated auth surface
-  is magic link + Google only. **The deploy checklist must gate it.** Carried since Phase 1, still
-  true, still ungated.
 - **Wire the proxy's `getClaims()` catch to Sentry** when a later phase adds it
   (`src/lib/supabase/proxy.ts`). It `console.warn`s and fails closed, so a JWKS outage logs every
   user out with only a console line as signal. Carried since Phase 2; Sentry itself is still out
@@ -217,15 +245,8 @@ materially exercised this phase.
 
 ## Polish
 
-- `src/lib/supabase/{client,server,proxy}.ts` use `process.env.X!` with no runtime guard, unlike
-  `src/test/integration/helpers.ts` which validates and throws a useful message. A missing
-  `.env.local` fails deep inside the Supabase SDK instead of at a clear boundary.
 - `src/app/(auth)/login/page.tsx` surfaces raw Supabase error strings via `toast(error.message)`.
   The app's own copy is hand-written, dry and second-person; provider text reads as foreign.
   Wants a copy pass alongside the real landing page.
-- The Google sign-in button has no pending/disabled state, unlike the email form.
 - `PUBLIC_PATHS` in `src/lib/supabase/proxy.ts` lists `/pricing`, `/privacy` and `/terms`, which
   still don't exist as routes. Deliberate — the landing-page and legal-gate plans add them.
-- `docs/POST-MERGE-NOTES.md` residuals still open: no confirmation on client delete, and one
-  remaining stray `alert()` in `summary-report-dialog.tsx` (its sibling in
-  `pdf-download-button.tsx` was replaced with a toast this phase).
