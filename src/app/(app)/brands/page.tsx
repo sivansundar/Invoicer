@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Bell, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardGridSkeleton } from "@/components/ui/page-skeletons";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider"
 import { FEATURES } from "@/lib/features";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { cadenceLabel } from "@/lib/followups";
+import { Panel, TickBar } from "@/components/ui/primitives";
+import { cn } from "@/lib/utils";
 import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
 import type { Brand, Invoice } from "@/lib/types";
 
@@ -109,52 +111,99 @@ function BrandCard({ brand, invoices, onViewInvoices }: BrandCardProps) {
   const paidGroups = groupTotalsByCurrency(
     brandInvoices.filter((invoice) => invoice.status === "paid")
   );
-  const followupOn = brand.followup.enabled;
+
+  const issued = brandInvoices.filter((invoice) => invoice.status !== "draft");
+  const paid = brandInvoices.filter((invoice) => invoice.status === "paid");
+  const outstanding = brandInvoices.filter(
+    (invoice) => invoice.status === "sent" || invoice.status === "overdue"
+  );
+  // Count-based, not amount-based: the app bills in three currencies and a
+  // single percentage of mixed money would be meaningless.
+  const collectionRate =
+    issued.length === 0 ? null : Math.round((paid.length / issued.length) * 100);
 
   return (
-    <div className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-3">
-      <div className="flex items-center gap-2">
+    <Panel className="flex flex-col gap-3 p-5">
+      <div className="flex items-center gap-3">
         <span
-          className="size-2 rounded-full shrink-0"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-[11px] text-[15px] font-semibold text-white"
           style={{ backgroundColor: brand.accentColor }}
-        />
-        <span className="text-base font-semibold flex-1 truncate">{brand.name}</span>
-        <span className="font-mono text-xs border rounded-full px-2 py-0.5 text-muted-foreground">
+        >
+          {brand.name.trim().slice(0, 2).toUpperCase()}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-semibold tracking-[-0.014em]">
+            {brand.name}
+          </span>
+          <span className="block truncate text-[12.5px] text-ink-3">
+            {brand.gstNumber ? `GSTIN ${brand.gstNumber}` : brand.panNumber ? `PAN ${brand.panNumber}` : "No tax id"}
+          </span>
+        </span>
+        <span className="shrink-0 rounded-full bg-field px-2.5 py-0.5 font-mono text-xs text-ink-2">
           {brand.invoicePrefix}
         </span>
       </div>
 
-      <p className="text-[13px] text-muted-foreground whitespace-pre-line">{brand.address}</p>
+      <p className="text-[13px] leading-relaxed whitespace-pre-line text-ink-2">{brand.address}</p>
 
-      <p className="text-[13px] text-muted-foreground">
-        {brand.bankDetails.bankName}
-        {brand.bankDetails.accountNumber && ` · ${brand.bankDetails.accountNumber}`}
-      </p>
-
-      <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-        <span
-          className="size-[6px] rounded-full shrink-0"
-          style={{ backgroundColor: followupOn ? "#059669" : "var(--border-strong)" }}
-        />
-        {cadenceLabel(brand.followup)}
+      <div className="mt-1 flex gap-5 border-t pt-3.5">
+        <div className="min-w-0 flex-1">
+          <div className="text-xs text-ink-3">Invoices</div>
+          <div className="mt-1 text-[17px] font-semibold tracking-[-0.02em] tabular-nums">
+            {brandInvoices.length}
+          </div>
+        </div>
+        <div className="min-w-0 flex-[1.5]">
+          <div className="text-xs text-ink-3">Collected</div>
+          <div className="mt-1 truncate text-[17px] font-semibold tracking-[-0.02em] tabular-nums">
+            {paidGroups.length === 0 ? "—" : formatCurrencyGroups(paidGroups)}
+          </div>
+        </div>
+        <div className="min-w-0 flex-[1.4]">
+          <div className="text-xs text-ink-3">Outstanding</div>
+          <div
+            className={cn(
+              "mt-1 truncate text-[17px] font-semibold tracking-[-0.02em] tabular-nums",
+              outstanding.length === 0 && "text-ink-3"
+            )}
+          >
+            {outstanding.length === 0
+              ? "—"
+              : formatCurrencyGroups(groupTotalsByCurrency(outstanding))}
+          </div>
+        </div>
       </div>
 
-      <div className="border-t pt-3 flex gap-6 text-[13px] items-center">
-        <span>Invoices {brandInvoices.length}</span>
-        <span>Paid {formatCurrencyGroups(paidGroups)}</span>
-        <span className="ml-auto font-mono text-xs">
-          Next: {nextInvoiceNumber(brand, invoices)}
-        </span>
+      {collectionRate !== null && (
+        <div className="flex items-center gap-3">
+          <TickBar
+            pct={collectionRate}
+            tone={collectionRate >= 80 ? "green" : collectionRate >= 50 ? "amber" : "red"}
+            width={130}
+          />
+          <span className="text-[12.5px] text-ink-2 tabular-nums">
+            {collectionRate}% collected
+          </span>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 text-[12.5px] text-ink-2">
+        <Bell className="size-3.5 shrink-0 text-ink-3" />
+        <span className="truncate">{cadenceLabel(brand.followup)}</span>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2 text-[12.5px] text-ink-3">
+        <span className="font-mono">Next: {nextInvoiceNumber(brand, invoices)}</span>
+      </div>
+
+      <div className="mt-auto flex gap-2 border-t pt-3.5">
         <Button variant="outline" size="sm" onClick={onViewInvoices}>
           View invoices
         </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/brands/${brand.id}/edit`}>Edit</Link>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/brands/${brand.id}/edit`}>Edit brand</Link>
         </Button>
       </div>
-    </div>
+    </Panel>
   );
 }
