@@ -131,3 +131,58 @@ export function effectiveStatus(invoice: Invoice, today: Date = new Date()): Inv
   if (invoice.status === "sent" && daysLate(invoice, today) > 0) return "overdue";
   return invoice.status;
 }
+
+/**
+ * Mean days from bill date to payment, over invoices that actually record
+ * both. Returns `null` when nothing qualifies — the caller shows "—" rather
+ * than a fabricated zero.
+ *
+ * `paidOn` is deliberately optional and never backfilled (see its doc on
+ * `Invoice`): an invoice paid before that field existed has no known payment
+ * date, and guessing one would put a made-up number into a headline metric.
+ * Those invoices are excluded from the mean rather than counted as same-day.
+ *
+ * An unparseable `billDate` or `paidOn` is skipped for the same reason
+ * `daysLate` treats a bad `dueDate` as "not late": stored dates are
+ * unvalidated, and `NaN` would otherwise poison the whole average.
+ */
+export function avgDaysToPay(invoices: Invoice[]): number | null {
+  let total = 0;
+  let counted = 0;
+
+  for (const invoice of invoices) {
+    if (invoice.status !== "paid" || !invoice.paidOn) continue;
+    const billed = new Date(`${invoice.billDate}T00:00`);
+    const paid = new Date(`${invoice.paidOn}T00:00`);
+    if (Number.isNaN(billed.getTime()) || Number.isNaN(paid.getTime())) continue;
+    // A payment recorded before the bill date is corrupt rather than
+    // instantaneous; clamping to 0 keeps one bad record from dragging the
+    // mean negative.
+    total += Math.max(Math.round((paid.getTime() - billed.getTime()) / 864e5), 0);
+    counted += 1;
+  }
+
+  return counted === 0 ? null : Math.round(total / counted);
+}
+
+/** Days since the oldest draft was created, or `null` when there are no drafts. */
+export function oldestDraftAgeDays(
+  invoices: Invoice[],
+  today: Date = new Date()
+): number | null {
+  const midnight = new Date(today.toDateString());
+  let oldest: number | null = null;
+
+  for (const invoice of invoices) {
+    if (invoice.status !== "draft") continue;
+    const created = new Date(invoice.createdAt);
+    if (Number.isNaN(created.getTime())) continue;
+    const age = Math.max(
+      Math.round((midnight.getTime() - new Date(created.toDateString()).getTime()) / 864e5),
+      0
+    );
+    if (oldest === null || age > oldest) oldest = age;
+  }
+
+  return oldest;
+}

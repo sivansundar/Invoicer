@@ -22,7 +22,7 @@ Font.register({
   ],
 });
 
-// Noto Sans stands in for the app's Geist Sans (a next/font/google face with
+// Noto Sans stands in for the app's Instrument Sans (a next/font/google face with
 // no static file this renderer can load), and also supplies the ₹ glyph
 // that JetBrains Mono lacks — currency symbols are always wrapped in it
 // explicitly at each call site that needs it.

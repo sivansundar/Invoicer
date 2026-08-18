@@ -330,9 +330,9 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             <ChevronLeft className="size-3.5" />
             All invoices
           </Link>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+          <h2 className="mt-3 text-lg font-semibold tracking-[-0.015em]">
             {isEdit ? "Edit invoice" : "New invoice"}
-          </h1>
+          </h2>
           {/*
             On a new invoice this number is provisional, not reserved: the
             sequence is allocated by the server at save time, so if someone

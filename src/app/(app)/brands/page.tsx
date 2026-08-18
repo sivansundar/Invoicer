@@ -58,19 +58,18 @@ function BrandsPageContent() {
   if (loading) return <CardGridSkeleton />;
 
   return (
-    <div className="p-6 max-w-[1000px] flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Brands</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Each business you invoice from — its own numbering, details and bank account.
-          </p>
-        </div>
-        <Button onClick={handleNewBrand} className="gap-1.5">
-          <Plus className="size-4" />
-          New brand
-          {FEATURES.billing && !isPro && <ProPill />}
-        </Button>
+    <div className="flex max-w-[1100px] flex-col gap-5 p-8">
+      <div className="flex items-center justify-between gap-4">
+        <p className="max-w-[560px] text-[14.5px] text-ink-2">
+          Each business you invoice from — its own numbering, details and bank account.
+        </p>
+        {FEATURES.billing && !isPro && (
+          <Button onClick={handleNewBrand} variant="outline" className="h-9 gap-1.5 rounded-[10px]">
+            <Plus className="size-4" />
+            New brand
+            <ProPill />
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">

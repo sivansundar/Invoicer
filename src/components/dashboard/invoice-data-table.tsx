@@ -6,7 +6,7 @@ import { AlignLeft, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import type { Invoice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { effectiveStatus } from "@/lib/dashboard";
+import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import {
   INVOICE_TABS,
   invoiceTabCounts,
@@ -14,7 +14,7 @@ import {
   type InvoiceTab,
 } from "@/lib/invoice-table";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
-import { StatusBadge } from "@/components/invoices/status-badge";
+import { StatusPill, TwoLineCell } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,8 +104,8 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
   return (
     <div className="flex flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap px-6">
-        <div className="inline-flex items-center h-9 bg-accent rounded-[10px] p-[3px]">
+      <div className="flex flex-wrap items-center gap-3 px-8">
+        <div className="inline-flex h-9 items-center gap-0.5 rounded-[11px] bg-field p-[3px]">
           {INVOICE_TABS.map((value) => {
             const selected = value === tab;
             return (
@@ -115,12 +115,14 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
                 onClick={() => setTab(value)}
                 aria-pressed={selected}
                 className={cn(
-                  "h-[30px] px-2.5 rounded-md text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors",
-                  selected ? "bg-card shadow-sm" : "text-muted-foreground"
+                  "inline-flex h-[30px] items-center gap-1.5 rounded-[9px] px-2.5 text-[13px] font-medium transition-colors",
+                  selected
+                    ? "bg-surface text-ink shadow-[var(--shadow-pill)]"
+                    : "text-ink-2 hover:text-ink"
                 )}
               >
                 {TAB_LABEL[value]}
-                <span className="bg-border rounded-full px-1.5 text-[11px] tabular-nums">
+                <span className="rounded-full bg-line px-1.5 text-[11px] tabular-nums">
                   {counts[value]}
                 </span>
               </button>
@@ -134,15 +136,15 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
           placeholder="Search invoices…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="h-8 w-[180px]"
+          className="h-9 w-[200px] rounded-[10px] bg-surface"
         />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5">
-              <AlignLeft className="size-3.5" />
+            <Button variant="outline" className="h-9 gap-2 rounded-[10px]">
+              <AlignLeft className="size-4 text-ink-2" />
               Columns
-              <ChevronDown className="size-3.5" />
+              <ChevronDown className="size-4 text-ink-2" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -182,74 +184,151 @@ export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProp
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Button variant="outline" size="sm" className="h-8" asChild>
-          <Link href="/invoices/create">Add invoice</Link>
-        </Button>
       </div>
 
       {/* Table */}
-      <div className="px-6">
-        <div className="border rounded-[14px] bg-card overflow-hidden">
-          <div className="flex items-center h-10 px-4 bg-muted border-b text-sm font-medium">
-            <div className="flex-[0_0_130px]">Invoice</div>
-            <div className="flex-[1.5]">Client</div>
+      <div className="px-8">
+        <div className="overflow-hidden rounded-card border bg-surface shadow-[var(--shadow-card)]">
+          <div className="flex items-center gap-4 border-b px-5 py-3 text-[12.5px] font-medium text-ink-3">
+            <div className="flex-[2.1]">Client</div>
+            <div className="flex-[1.3]">Invoice</div>
             {columns.brand && <div className="flex-1">Brand</div>}
-            {columns.due && <div className="flex-1">Due</div>}
-            {columns.amount && <div className="flex-1 text-right">Amount</div>}
-            {columns.status && <div className="flex-[0_0_100px] text-right">Status</div>}
+            {columns.due && <div className="flex-[1.2]">Due</div>}
+            {columns.amount && <div className="flex-[1.1]">Amount</div>}
+            {columns.status && <div className="flex-[0_0_104px]">Status</div>}
+            <div className="flex-[0_0_92px]" />
           </div>
 
           {rows.length === 0 ? (
             <div className="p-12 text-center">
               <p className="text-sm font-medium">Nothing here</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="mt-1 text-sm text-ink-2">
                 No invoices match this filter — calm, isn&apos;t it?
               </p>
             </div>
           ) : (
-            rows.map((invoice) => (
-              <Link
-                key={invoice.id}
-                href={`/invoices/${invoice.id}`}
-                className="flex items-center px-4 py-3 border-b text-sm cursor-pointer transition-colors hover:bg-muted last:border-b-0"
-              >
-                <div className="flex-[0_0_130px] font-mono text-[13px] text-muted-foreground truncate pr-2">
-                  {invoice.invoiceNumber}
+            rows.map((invoice) => {
+              const status = effectiveStatus(invoice);
+              const late = daysLate(invoice);
+              const dueSub =
+                invoice.status === "paid"
+                  ? "settled"
+                  : status === "overdue"
+                    ? `${late} ${late === 1 ? "day" : "days"} late`
+                    : invoice.dueDate
+                      ? "on terms"
+                      : "no due date";
+
+              return (
+                <div
+                  key={invoice.id}
+                  className="flex items-center gap-4 border-b px-5 py-3.5 transition-colors last:border-b-0 hover:bg-canvas"
+                >
+                  {/* One link over the data cells: a per-row action button
+                      cannot live inside an anchor, so it is a sibling. */}
+                  <Link
+                    href={`/invoices/${invoice.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-4"
+                  >
+                    <div className="flex flex-[2.1] min-w-0 items-center gap-3">
+                      <span
+                        className="inline-flex size-[34px] shrink-0 items-center justify-center rounded-[9px] text-[13px] font-semibold text-white"
+                        style={{ backgroundColor: invoice.brandSnapshot.accentColor }}
+                      >
+                        {invoice.client.companyName.trim().slice(0, 1).toUpperCase() || "?"}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="truncate text-[14.5px] font-medium">
+                          {invoice.client.companyName}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              "size-1.5 shrink-0 rounded-full",
+                              status === "overdue"
+                                ? "bg-red"
+                                : status === "paid"
+                                  ? "bg-green"
+                                  : status === "sent"
+                                    ? "bg-blue"
+                                    : "bg-ink-3"
+                            )}
+                          />
+                          <span className="truncate text-[12.5px] text-ink-3">
+                            {invoice.client.name || invoice.brandSnapshot.name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-[1.3]">
+                      <TwoLineCell
+                        top={invoice.invoiceNumber}
+                        sub={invoice.brandSnapshot.name}
+                        mono
+                      />
+                    </div>
+
+                    {columns.brand && (
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] text-ink-3">
+                        <span
+                          className="inline-block size-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: invoice.brandSnapshot.accentColor }}
+                        />
+                        <span className="truncate">{invoice.brandSnapshot.invoicePrefix}</span>
+                      </div>
+                    )}
+
+                    {columns.due && (
+                      <div className="min-w-0 flex-[1.2]">
+                        <TwoLineCell
+                          top={formatStoredDate(invoice.dueDate, "d MMM")}
+                          sub={dueSub}
+                          subClassName={status === "overdue" ? "text-red" : undefined}
+                        />
+                      </div>
+                    )}
+
+                    {columns.amount && (
+                      <div className="min-w-0 flex-[1.1]">
+                        <TwoLineCell
+                          top={formatCurrency(invoice.total, invoice.currency ?? "INR")}
+                          sub={invoice.currency ?? "INR"}
+                        />
+                      </div>
+                    )}
+
+                    {columns.status && (
+                      <div className="flex-[0_0_104px]">
+                        {/* effectiveStatus, not the raw stored status — a row
+                            that just got filtered into the Overdue tab must not
+                            turn around and badge itself "Sent". */}
+                        <StatusPill status={status} />
+                      </div>
+                    )}
+                  </Link>
+
+                  <div className="flex flex-[0_0_92px] justify-end">
+                    {status === "overdue" ? (
+                      <Button
+                        asChild
+                        className="h-8 rounded-[9px] bg-ink px-3 text-canvas hover:bg-ink/90"
+                      >
+                        <Link href={`/invoices/${invoice.id}`}>Chase</Link>
+                      </Button>
+                    ) : invoice.status === "draft" ? (
+                      <Button asChild variant="outline" className="h-8 rounded-[9px] px-3">
+                        <Link href={`/invoices/${invoice.id}/edit`}>Finish</Link>
+                      </Button>
+                    ) : (
+                      <Button asChild variant="outline" className="h-8 rounded-[9px] px-3">
+                        <Link href={`/invoices/${invoice.id}`}>Open</Link>
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-[1.5] font-medium truncate pr-2">
-                  {invoice.client.companyName}
-                </div>
-                {columns.brand && (
-                  <div className="flex-1 flex items-center gap-1.5 text-[13px] text-muted-foreground pr-2">
-                    <span
-                      className="inline-block size-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: invoice.brandSnapshot.accentColor }}
-                    />
-                    <span className="truncate">{invoice.brandSnapshot.invoicePrefix}</span>
-                  </div>
-                )}
-                {columns.due && (
-                  <div className="flex-1 text-muted-foreground pr-2">
-                    {invoice.status === "paid" ? "Paid " : ""}
-                    {formatStoredDate(invoice.dueDate, "MMM d")}
-                  </div>
-                )}
-                {columns.amount && (
-                  <div className="flex-1 text-right font-medium tabular-nums pr-2">
-                    {formatCurrency(invoice.total, invoice.currency ?? "INR")}
-                  </div>
-                )}
-                {columns.status && (
-                  <div className="flex-[0_0_100px] text-right">
-                    {/* effectiveStatus, not the raw stored status — a row
-                        that just got filtered into the Overdue tab must not
-                        turn around and badge itself "Sent". */}
-                    <StatusBadge status={effectiveStatus(invoice)} />
-                  </div>
-                )}
-              </Link>
-            ))
+              );
+            })
           )}
         </div>
       </div>

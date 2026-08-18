@@ -6,10 +6,8 @@
 // transmitted anywhere.
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
 import { BrandFollowupCard } from "@/components/followups/brand-followup-card";
 import { TemplateList } from "@/components/followups/template-list";
 import { FollowupQueue } from "@/components/followups/followup-queue";
@@ -44,19 +42,10 @@ function FollowupsPageContent() {
   const activeBrandCount = brands.filter((brand) => brand.followup.enabled).length;
 
   return (
-    <div className="p-6 max-w-[1000px] flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Follow-ups</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Let each brand chase its own unpaid invoices by email. Paid invoices drop out on their
-            own.
-          </p>
-        </div>
-        <Button variant="outline" asChild>
-          <Link href="/followups/templates/create">New template</Link>
-        </Button>
-      </div>
+    <div className="flex max-w-[1100px] flex-col gap-5 p-8">
+      <p className="max-w-[560px] text-[14.5px] text-ink-2">
+        Let each brand chase its own unpaid invoices by email. Paid invoices drop out on their own.
+      </p>
 
       <div className="border rounded-[14px] bg-gradient-to-t from-black/[0.05] to-card dark:from-white/[0.06] shadow-xs px-6 py-5">
         <p className="text-sm font-medium tabular-nums">

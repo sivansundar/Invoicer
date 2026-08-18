@@ -22,13 +22,10 @@ function ReportsPageContent() {
   if (brandsLoading || invoicesLoading) return <ReportsSkeleton />;
 
   return (
-    <div className="p-6 max-w-[1000px] flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Reports</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Financial-year summaries, and a way to move your data in and out.
-        </p>
-      </div>
+    <div className="flex max-w-[1100px] flex-col gap-5 p-8">
+      <p className="max-w-[560px] text-[14.5px] text-ink-2">
+        Financial-year summaries, and a way to move your data in and out.
+      </p>
 
       <div className="border rounded-[14px] bg-card shadow-sm p-6">
         <h2 className="text-sm font-semibold">Financial year summary</h2>

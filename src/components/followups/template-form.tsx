@@ -130,9 +130,9 @@ export function TemplateForm({ template }: TemplateFormProps) {
             <ChevronLeft className="size-3.5" />
             Follow-ups
           </Link>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+          <h2 className="mt-3 text-lg font-semibold tracking-[-0.015em]">
             {isEdit ? `Edit "${template.name}"` : "New email template"}
-          </h1>
+          </h2>
           <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
         </div>
 
