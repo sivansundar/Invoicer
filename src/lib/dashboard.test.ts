@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  avgDaysToPay,
   collectionRate,
   collectionRateFooter,
   daysLate,
   effectiveStatus,
   oldestDaysLate,
+  oldestDraftAgeDays,
   revenueCardCopy,
   revenueTrend,
 } from "./dashboard";
@@ -238,5 +240,62 @@ describe("effectiveStatus", () => {
     expect(effectiveStatus(inv({ status: "overdue", dueDate: "2026-01-01" }), today)).toBe(
       "overdue"
     );
+  });
+});
+
+describe("avgDaysToPay", () => {
+  const paid = (billDate: string, paidOn: string | undefined) =>
+    inv({ status: "paid", billDate, paidOn });
+
+  it("averages days from bill date to payment", () => {
+    expect(
+      avgDaysToPay([paid("2026-01-01", "2026-01-11"), paid("2026-02-01", "2026-02-21")])
+    ).toBe(15);
+  });
+
+  it("returns null when nothing qualifies", () => {
+    expect(avgDaysToPay([])).toBeNull();
+    expect(avgDaysToPay([inv({ status: "sent" })])).toBeNull();
+  });
+
+  // paidOn is never backfilled, so an invoice paid before that field existed
+  // has no known payment date. Counting it as same-day would understate the
+  // mean rather than admit the gap.
+  it("excludes paid invoices with no recorded payment date", () => {
+    expect(
+      avgDaysToPay([paid("2026-01-01", "2026-01-11"), paid("2026-01-01", undefined)])
+    ).toBe(10);
+  });
+
+  it("skips unparseable dates rather than returning NaN", () => {
+    expect(
+      avgDaysToPay([paid("2026-01-01", "2026-01-11"), paid("nonsense", "also-nonsense")])
+    ).toBe(10);
+  });
+
+  it("clamps a payment recorded before the bill date to zero", () => {
+    expect(avgDaysToPay([paid("2026-02-01", "2026-01-01")])).toBe(0);
+  });
+});
+
+describe("oldestDraftAgeDays", () => {
+  const draft = (createdAt: string) => inv({ status: "draft", createdAt });
+
+  it("returns the age of the oldest draft", () => {
+    expect(
+      oldestDraftAgeDays([draft("2026-07-22T09:00:00"), draft("2026-07-26T09:00:00")], today)
+    ).toBe(6);
+  });
+
+  it("returns null when there are no drafts", () => {
+    expect(oldestDraftAgeDays([inv({ status: "sent" })], today)).toBeNull();
+  });
+
+  it("never reports a negative age for a draft created later today", () => {
+    expect(oldestDraftAgeDays([draft("2026-07-28T23:00:00")], today)).toBe(0);
+  });
+
+  it("ignores a draft with an unparseable createdAt", () => {
+    expect(oldestDraftAgeDays([draft("nonsense"), draft("2026-07-26T09:00:00")], today)).toBe(2);
   });
 });

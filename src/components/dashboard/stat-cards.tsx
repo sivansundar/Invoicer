@@ -1,145 +1,93 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { CircleCheck, Clock, FileText, Wallet } from "lucide-react";
 import type { Invoice } from "@/lib/types";
-import { formatCurrencyGroups, groupTotalsByCurrency, overflowSummary } from "@/lib/money";
-import {
-  collectionRate,
-  collectionRateFooter,
-  effectiveStatus,
-  oldestDaysLate,
-  revenueCardCopy,
-  revenueTrend,
-} from "@/lib/dashboard";
-import { cn } from "@/lib/utils";
+import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
+import { avgDaysToPay, collectionRate, revenueTrend } from "@/lib/dashboard";
+import { DeltaChip, MetricCard } from "@/components/ui/primitives";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
 
-interface StatCardProps {
-  label: string;
-  value: ReactNode;
-  valueClassName?: string;
-  /** Omit to suppress the badge pill entirely — e.g. no trend claim to make. */
-  badge?: ReactNode;
-  footer: string;
-  footerSub: string;
-}
-
-function StatCard({ label, value, valueClassName, badge, footer, footerSub }: StatCardProps) {
-  return (
-    <div className="border rounded-[14px] bg-gradient-to-t from-black/[0.05] to-card dark:from-white/[0.06] shadow-xs p-6 flex flex-col gap-5">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-start">
-        <span className="col-start-1 row-start-1 text-sm text-muted-foreground">{label}</span>
-        <span
-          className={cn(
-            "col-start-1 row-start-2 text-2xl font-semibold tracking-[-0.02em] tabular-nums leading-[1.2]",
-            valueClassName
-          )}
-        >
-          {value}
-        </span>
-        {badge !== undefined && (
-          <span className="col-start-2 row-start-1 row-span-2 justify-self-end inline-flex items-center gap-1 border rounded-full px-2 py-0.5 text-xs font-medium tabular-nums">
-            {badge}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">{footer}</span>
-        <span className="text-muted-foreground">{footerSub}</span>
-      </div>
-    </div>
-  );
-}
-
-interface StatCardsProps {
-  invoices: Invoice[];
-}
-
-export function StatCards({ invoices: allInvoices }: StatCardsProps) {
-  // The active brand filter is applied here, inside the card component, rather
-  // than by the caller — this component is rendered as a descendant of
-  // <Shell>'s BrandFilterProvider, and the caller (DashboardPage) is not.
+/**
+ * The Performance strip.
+ *
+ * These used to be the first thing on the dashboard and carried the "what
+ * needs doing" load badly — a number with a trend badge is not an action.
+ * They now sit below the action cards, and the rule that shapes them is that
+ * **a figure never appears without the baseline it is being compared
+ * against**: every card renders a `vs` line, so "81%" means something.
+ *
+ * The brand filter is applied here rather than by the caller because this
+ * renders as a descendant of <Shell>'s BrandFilterProvider and DashboardPage
+ * does not.
+ */
+export function StatCards({ invoices: allInvoices }: { invoices: Invoice[] }) {
   const { brandId } = useBrandFilter();
   const invoices = brandId
     ? allInvoices.filter((invoice) => invoice.brandId === brandId)
     : allInvoices;
 
-  // Card 1: Total revenue
   const paidInvoices = invoices.filter((invoice) => invoice.status === "paid");
   const paidGroups = groupTotalsByCurrency(paidInvoices);
-  const hasPaidRevenue = paidGroups.length > 0;
-  const revenueValue = hasPaidRevenue ? formatCurrencyGroups(paidGroups) : "None";
   const trend = revenueTrend(invoices);
-  const revenueCopy = revenueCardCopy(trend, hasPaidRevenue);
-  const TrendIcon = trend.direction === "up" ? TrendingUp : TrendingDown;
-  const revenueOverflow = overflowSummary(paidGroups);
 
-  // Card 2: Outstanding. `effectiveStatus`, not the raw stored status — see
-  // its own doc — since nothing this app writes is ever literally "overdue"
-  // and a raw-status check here would silently never count a late invoice.
-  const pendingInvoices = invoices.filter((invoice) => {
-    const status = effectiveStatus(invoice);
-    return status === "sent" || status === "overdue";
-  });
-  const pendingGroups = groupTotalsByCurrency(pendingInvoices);
-  const outstandingValue = pendingGroups.length === 0 ? "None" : formatCurrencyGroups(pendingGroups);
-  const openCount = pendingInvoices.length;
-  const pendingOverflow = overflowSummary(pendingGroups);
-
-  // Card 3: Overdue
-  const overdueInvoices = invoices.filter((invoice) => effectiveStatus(invoice) === "overdue");
-  const overdueGroups = groupTotalsByCurrency(overdueInvoices);
-  const lateCount = overdueInvoices.length;
-  const overdueValue = lateCount === 0 ? "None" : formatCurrencyGroups(overdueGroups);
-
-  // Card 4: Collection rate
   const collection = collectionRate(invoices);
-  const { rate, paid, issued } = collection;
+  const avgDays = avgDaysToPay(invoices);
+
+  const issuedThisYear = invoices.filter((invoice) => invoice.status !== "draft").length;
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
-      <StatCard
-        label="Total revenue"
-        value={revenueValue}
-        badge={
-          revenueCopy.showTrend ? (
-            <>
-              <TrendIcon className="size-3" />
+    <div className="flex gap-4 max-xl:grid max-xl:grid-cols-2 max-sm:grid-cols-1">
+      <MetricCard
+        icon={Wallet}
+        label="Revenue collected"
+        value={paidGroups.length === 0 ? "None" : formatCurrencyGroups(paidGroups)}
+        delta={
+          trend.pct > 0 ? (
+            <DeltaChip direction={trend.direction === "up" ? "up" : "down"}>
+              {trend.direction === "up" ? "+" : "−"}
               {trend.pct}%
-            </>
-          ) : undefined
+            </DeltaChip>
+          ) : (
+            <DeltaChip direction="flat">No change</DeltaChip>
+          )
         }
-        footer={revenueCopy.footer}
-        footerSub={revenueOverflow || "Paid invoices, all brands"}
+        vs="vs last month"
       />
-      <StatCard
-        label="Outstanding"
-        value={outstandingValue}
-        badge={`${openCount} open`}
-        footer={openCount > 0 ? "Awaiting payment" : "All settled"}
-        footerSub={
-          pendingOverflow || (openCount > 0 ? "Sent and awaiting payment" : "Nothing pending")
-        }
-      />
-      <StatCard
-        label="Overdue"
-        value={overdueValue}
-        valueClassName={lateCount > 0 ? "text-destructive" : undefined}
-        badge={lateCount > 0 ? `${lateCount} late` : "None"}
-        footer={lateCount > 0 ? "Needs a gentle nudge" : "Nothing past due"}
-        footerSub={
-          lateCount > 0
-            ? `Oldest is ${oldestDaysLate(overdueInvoices)} days late`
-            : "Every invoice is on time"
-        }
-      />
-      <StatCard
+
+      <MetricCard
+        icon={CircleCheck}
         label="Collection rate"
-        value={`${rate}%`}
-        badge={`${paid}/${issued}`}
-        footer={collectionRateFooter(collection)}
-        footerSub="Paid vs issued, all brands"
+        value={`${collection.rate}%`}
+        delta={
+          <DeltaChip direction={collection.rate >= 80 ? "up" : "down"}>
+            {collection.paid} of {collection.issued}
+          </DeltaChip>
+        }
+        vs="paid vs issued"
+      />
+
+      <MetricCard
+        icon={Clock}
+        label="Avg days to pay"
+        // null means no invoice records both a bill date and a payment date;
+        // an invented 0 would read as "everyone pays instantly".
+        value={avgDays === null ? "—" : `${avgDays} days`}
+        delta={
+          avgDays === null ? undefined : (
+            <DeltaChip direction={avgDays <= 30 ? "goodDown" : "badUp"}>
+              {avgDays <= 30 ? "within terms" : "over terms"}
+            </DeltaChip>
+          )
+        }
+        vs={avgDays === null ? "no payment dates recorded" : "across paid invoices"}
+      />
+
+      <MetricCard
+        icon={FileText}
+        label="Invoices issued"
+        value={String(issuedThisYear)}
+        delta={<DeltaChip direction="flat">{invoices.length} total</DeltaChip>}
+        vs="excludes drafts"
       />
     </div>
   );
