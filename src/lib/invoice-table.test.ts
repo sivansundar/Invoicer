@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { invoiceTabCounts, runInvoiceTablePipeline } from "./invoice-table";
+import {
+  INVOICE_TABS,
+  invoiceTabCounts,
+  parseInvoiceTab,
+  runInvoiceTablePipeline,
+} from "./invoice-table";
 import type { Invoice } from "./types";
 
 function inv(overrides: Partial<Invoice> = {}): Invoice {
@@ -246,5 +251,32 @@ describe("invoiceTabCounts", () => {
       draft: 0,
       overdue: 1,
     });
+  });
+});
+
+describe("parseInvoiceTab", () => {
+  it("accepts every tab the table offers", () => {
+    for (const tab of INVOICE_TABS) {
+      expect(parseInvoiceTab(tab)).toBe(tab);
+    }
+  });
+
+  // The three "Needs you" buttons on the dashboard are the reason this exists.
+  it("resolves the tabs the dashboard links with", () => {
+    expect(parseInvoiceTab("overdue")).toBe("overdue");
+    expect(parseInvoiceTab("draft")).toBe("draft");
+    expect(parseInvoiceTab("sent")).toBe("sent");
+  });
+
+  // A hand-edited or stale URL should show the invoice list, not an error.
+  it("falls back to all for anything it does not recognise", () => {
+    expect(parseInvoiceTab("nonsense")).toBe("all");
+    expect(parseInvoiceTab("")).toBe("all");
+    expect(parseInvoiceTab(null)).toBe("all");
+    expect(parseInvoiceTab(undefined)).toBe("all");
+  });
+
+  it("does not accept a differently-cased tab", () => {
+    expect(parseInvoiceTab("Overdue")).toBe("all");
   });
 });
