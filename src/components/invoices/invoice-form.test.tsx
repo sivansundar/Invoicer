@@ -167,9 +167,8 @@ describe("InvoiceForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<InvoiceForm />);
 
+    await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
     await user.click(screen.getAllByRole("combobox")[0]);
-    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
-    await user.click(screen.getAllByRole("combobox")[1]);
     await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
 
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
@@ -194,8 +193,7 @@ describe("InvoiceForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<InvoiceForm />);
 
-    await user.click(screen.getAllByRole("combobox")[0]);
-    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
 
     await user.click(screen.getByRole("button", { name: "Save as draft" }));
 
@@ -210,10 +208,9 @@ describe("InvoiceForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<InvoiceForm />);
 
-    await user.click(screen.getAllByRole("combobox")[0]);
-    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
 
-    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(screen.getAllByRole("combobox")[0]);
     await user.click(await screen.findByRole("option", { name: "Enter manually…" }));
 
     await user.type(screen.getByPlaceholderText("Acme Corp"), "One-off Client Ltd");
@@ -274,9 +271,8 @@ describe("InvoiceForm", () => {
     const user = userEvent.setup();
     renderWithProviders(<InvoiceForm />);
 
+    await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
     await user.click(screen.getAllByRole("combobox")[0]);
-    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
-    await user.click(screen.getAllByRole("combobox")[1]);
     await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
     fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
       target: { value: "2026-07-20" },
@@ -309,8 +305,7 @@ describe("InvoiceForm", () => {
       const user = userEvent.setup();
       renderWithProviders(<InvoiceForm />);
 
-      await user.click(screen.getAllByRole("combobox")[0]);
-      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
 
       const createButton = screen.getByRole("button", { name: "Create invoice" });
       expect(createButton).not.toBeDisabled();
@@ -352,9 +347,8 @@ describe("InvoiceForm", () => {
       const user = userEvent.setup();
       renderWithProviders(<InvoiceForm />);
 
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
       await user.click(screen.getAllByRole("combobox")[0]);
-      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
-      await user.click(screen.getAllByRole("combobox")[1]);
       await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
 
       // The gap is nudged right on the page — an editable field, not a
@@ -392,9 +386,8 @@ describe("InvoiceForm", () => {
       const user = userEvent.setup();
       renderWithProviders(<InvoiceForm />);
 
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
       await user.click(screen.getAllByRole("combobox")[0]);
-      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
-      await user.click(screen.getAllByRole("combobox")[1]);
       await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
 
       expect(screen.getByPlaceholderText("Optional — e.g. Priya Nair")).toBeInTheDocument();
@@ -421,8 +414,7 @@ describe("InvoiceForm", () => {
       const user = userEvent.setup();
       renderWithProviders(<InvoiceForm />);
 
-      await user.click(screen.getAllByRole("combobox")[0]);
-      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
 
       // No client, no due date, no line items — none of the new "Create
       // invoice" checks apply here.
@@ -441,9 +433,8 @@ describe("InvoiceForm", () => {
       const user = userEvent.setup();
       renderWithProviders(<InvoiceForm />);
 
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
       await user.click(screen.getAllByRole("combobox")[0]);
-      await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
-      await user.click(screen.getAllByRole("combobox")[1]);
       await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
 
       fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {

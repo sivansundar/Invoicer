@@ -4,8 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft } from "lucide-react";
 import { format } from "date-fns";
+import { dueDateFromTerms, inferTerms, TERM_OPTIONS } from "@/lib/invoice-terms";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,6 +112,32 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     existingInvoice?.billDate ?? format(new Date(), "yyyy-MM-dd")
   );
   const [dueDate, setDueDate] = useState(existingInvoice?.dueDate ?? "");
+
+  /**
+   * The terms control is a shortcut for setting `dueDate`, not a stored
+   * field — nothing on `Invoice` records it. It is seeded by reading the two
+   * dates back, so editing an invoice whose dates happen to be Net 30 opens
+   * on Net 30 rather than Custom.
+   *
+   * `null` means Custom: the dates describe no offered term, which is a
+   * perfectly good state and not an error.
+   */
+  const [terms, setTerms] = useState<number | null>(() =>
+    existingInvoice
+      ? inferTerms(existingInvoice.billDate, existingInvoice.dueDate)
+      : 30
+  );
+
+  /** Applies a term, or switches to Custom and leaves the date alone. */
+  const applyTerms = (days: number | null) => {
+    setTerms(days);
+    if (days === null) return;
+    const derived = dueDateFromTerms(billDate, days);
+    if (derived) {
+      setDueDate(derived);
+      clearErrors(["dueDate"]);
+    }
+  };
   const [notes, setNotes] = useState(existingInvoice?.notes ?? "");
   const [items, setItems] = useState<LineItem[]>(
     existingInvoice?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
@@ -362,29 +390,72 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 From (brand)
                 <Required />
               </Label>
-              <Select
-                value={brandId}
-                onValueChange={(v) => {
-                  setBrandId(v);
-                  clearErrors(["brand"]);
-                }}
-                disabled={isEdit}
-              >
-                <SelectTrigger
-                  className="w-full text-sm"
+              {/*
+                One click rather than a dropdown. Brands are few (the free
+                tier allows one, and the upsell exists precisely because a
+                handful is the ceiling), so the options fit on screen and
+                choosing costs one tap instead of open-scan-pick.
+
+                Editing keeps the existing read-only display: changing the
+                brand after issue would contradict the frozen snapshot the
+                invoice already carries.
+              */}
+              {isEdit ? (
+                <div className="flex h-9 items-center gap-2.5 rounded-[10px] border bg-canvas px-3 text-sm">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: brand?.accentColor ?? "var(--ink-3)" }}
+                  />
+                  <span className="truncate">{brand?.name ?? existingInvoice?.brandSnapshot.name}</span>
+                  <span className="ml-auto text-xs text-ink-3">fixed at creation</span>
+                </div>
+              ) : (
+                <div
+                  role="radiogroup"
+                  aria-label="Brand"
                   aria-invalid={!!errors.brand}
                   aria-describedby={errors.brand ? "brand-error" : undefined}
+                  className="flex flex-wrap gap-2"
                 >
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  {brands.map((b) => {
+                    const selected = b.id === brandId;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => {
+                          setBrandId(b.id);
+                          clearErrors(["brand"]);
+                        }}
+                        className={cn(
+                          "flex min-w-0 flex-1 items-center gap-2.5 rounded-[11px] border bg-surface px-3 py-2.5 text-left transition-colors",
+                          selected
+                            ? "border-blue ring-3 ring-blue/15"
+                            : "hover:border-ink-3"
+                        )}
+                      >
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: b.accentColor }}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">{b.name}</span>
+                          <span className="block truncate text-xs text-ink-3">
+                            {b.invoicePrefix}
+                          </span>
+                        </span>
+                        {selected && (
+                          <span className="inline-flex size-[18px] shrink-0 items-center justify-center rounded-full bg-blue">
+                            <Check className="size-3 text-white" strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {errors.brand && (
                 <p id="brand-error" className="text-xs text-destructive">
                   Required
@@ -623,8 +694,19 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 type="date"
                 value={billDate}
                 onChange={(e) => {
-                  setBillDate(e.target.value);
+                  const next = e.target.value;
+                  setBillDate(next);
                   clearErrors(["billDate"]);
+                  // Moving the bill date while a term is active moves the due
+                  // date with it; that is what "Net 30" means. On Custom the
+                  // hand-picked date is left exactly where it was put.
+                  if (terms !== null) {
+                    const derived = dueDateFromTerms(next, terms);
+                    if (derived) {
+                      setDueDate(derived);
+                      clearErrors(["dueDate"]);
+                    }
+                  }
                 }}
                 className="text-sm"
                 aria-invalid={!!errors.billDate}
@@ -636,17 +718,53 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 </p>
               )}
             </div>
+            <div className="flex-[1_1_190px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Payment terms</Label>
+              <div
+                role="group"
+                aria-label="Payment terms"
+                className="flex h-9 items-center gap-0.5 rounded-[10px] bg-field p-[3px]"
+              >
+                {[...TERM_OPTIONS, null].map((days) => {
+                  const selected = terms === days;
+                  return (
+                    <button
+                      key={days ?? "custom"}
+                      type="button"
+                      onClick={() => applyTerms(days)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "h-[30px] flex-1 rounded-[8px] text-[13px] font-medium transition-colors",
+                        selected
+                          ? "bg-surface text-ink shadow-[var(--shadow-pill)]"
+                          : "text-ink-2 hover:text-ink"
+                      )}
+                    >
+                      {days === null ? "Custom" : `Net ${days}`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex-[1_1_150px] space-y-1.5" id={FIELD_DOM_ID.dueDate}>
               <Label className="text-xs text-muted-foreground">
                 Due date
                 <Required />
+                {terms !== null && (
+                  <span className="ml-1.5 font-normal text-ink-3">from terms</span>
+                )}
               </Label>
               <Input
                 type="date"
                 value={dueDate}
                 onChange={(e) => {
-                  setDueDate(e.target.value);
+                  const next = e.target.value;
+                  setDueDate(next);
                   clearErrors(["dueDate"]);
+                  // Re-read rather than forcing Custom: typing the date a term
+                  // would have produced should land back on that term.
+                  setTerms(inferTerms(billDate, next));
                 }}
                 className="text-sm"
                 aria-invalid={!!errors.dueDate}
