@@ -99,13 +99,39 @@ export function LocalImportPrompt() {
 
   if (!initial.collections || initial.dismissed) return null;
 
-  const corruptKeys = initial.collections.corruptKeys;
+  // Bound to a local const, not re-read as `initial.collections` below:
+  // TypeScript's null narrowing from the guard above doesn't carry across
+  // the closure boundary into `handleImport`, but a plain const does.
+  const collections = initial.collections;
+  const corruptKeys = collections.corruptKeys;
   const corrupt = corruptKeys.length > 0;
 
   const handleImport = async () => {
     setStage({ name: "importing" });
 
-    const prepared = prepareImport(initial.collections);
+    // `prepareImport` only ever sees `readLocalCollections`'s parsed arrays,
+    // never the fact that a key was unreadable in the first place. On a
+    // device where every readable key is empty AND something was corrupt,
+    // it correctly concludes there is nothing to import and incorrectly
+    // reports the reason as "the file was empty" — the one explanation that
+    // is definitely wrong. Answered here, where `corruptKeys` is known,
+    // rather than by teaching a shared function about a condition only this
+    // caller can ever be in.
+    const readableTotal =
+      collections.brands.length +
+      collections.clients.length +
+      collections.templates.length +
+      collections.invoices.length;
+
+    if (readableTotal === 0 && corrupt) {
+      setStage({
+        name: "failed",
+        error: `nothing on this device could be read (${corruptKeys.join(", ")})`,
+      });
+      return;
+    }
+
+    const prepared = prepareImport(collections);
     if (!prepared.ok) {
       setStage({ name: "failed", error: prepared.error });
       return;

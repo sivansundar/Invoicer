@@ -276,6 +276,25 @@ describe("LocalImportPrompt", () => {
     expect(await screen.findByText(/couldn.t be read/i)).toBeInTheDocument();
   });
 
+  // The trap: the existing "tells a corrupt-only device its data was
+  // unreadable" test above only checks that the corrupt note appears — that
+  // holds identically whether or not this bug is fixed, since the note was
+  // already shown alongside the (wrong) "file was empty" failure. This test
+  // is the one that actually distinguishes the two states, by asserting the
+  // wrong reason is gone, not just that the right one is present.
+  it("does not tell a corrupt-only device that its data was empty", async () => {
+    // readLocalCollections returns non-null here (corrupt keys have to be
+    // reported), but every parsed array is empty, so prepareImport says "the
+    // file was empty" — the one thing that is definitely not true.
+    localStorage.setItem("invoicer_invoices", '[{"id":"a"');
+
+    renderWithProviders(<LocalImportPrompt />);
+    await userEvent.click(screen.getByRole("button", { name: /import them/i }));
+
+    await waitFor(() => expect(screen.getByText(/couldn't be read/i)).toBeInTheDocument());
+    expect(screen.queryByText(/the file was empty/i)).not.toBeInTheDocument();
+  });
+
   // The all-clean case must still work — the fix above must not make the
   // gate permanently closed. Duplicates the coverage of the existing test
   // at the top of this file (kept passing, unmodified) as an explicit
