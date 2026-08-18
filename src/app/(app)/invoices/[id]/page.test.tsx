@@ -198,7 +198,7 @@ describe("InvoiceDetailPage", () => {
     await user.click(await screen.findByRole("button", { name: "Send one now" }));
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith("write failed"));
-    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("sent to"));
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("recorded for"));
     expect((await storage.getInvoices()).find((i) => i.id === "i1")?.reminders).toEqual([]);
   });
 

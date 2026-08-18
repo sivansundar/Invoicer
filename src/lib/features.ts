@@ -7,7 +7,15 @@
  * BOTH ARE NOW ON, AND BOTH ARE STILL FACADES. Turning them on made the
  * screens reachable; it did not add an email provider or a payment provider.
  * Every call site that fakes something is labelled `MOCK:` — grep for it
- * before assuming any of this talks to the outside world.
+ * before assuming any of this talks to the outside world. The features the
+ * mockups show but the model cannot yet support are labelled `TODO(slug):`
+ * at the place they would be built; `grep -rn "TODO(" src` lists all five:
+ *
+ * - `TODO(payment-provider)` — `hooks/use-plan.ts`
+ * - `TODO(email-provider)` — `app/(app)/invoices/[id]/page.tsx`
+ * - `TODO(payment-link)` — `app/(app)/invoices/[id]/page.tsx`
+ * - `TODO(open-tracking)` — `lib/followup-history.ts`
+ * - `TODO(reminder-sequence)` — `lib/types.ts`
  *
  * - `billing`: the sidebar plan card, every "Pro" pill, and the upsell
  *   dialog (`plan-card.tsx` / `pro-dialog.tsx` / `use-plan.ts`).

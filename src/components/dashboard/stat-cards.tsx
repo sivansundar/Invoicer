@@ -33,7 +33,13 @@ export function StatCards({ invoices: allInvoices }: { invoices: Invoice[] }) {
   const collection = collectionRate(invoices);
   const avgDays = avgDaysToPay(invoices);
 
-  const issuedThisYear = invoices.filter((invoice) => invoice.status !== "draft").length;
+  // Named for what it counts. It used to be `issuedThisYear`, which was a
+  // claim the filter did not make — every non-draft invoice in whatever the
+  // caller handed down, which was the whole book. The dashboard now scopes
+  // by financial year before calling this, so the old name would finally be
+  // true, but the count still means "issued in the scope above", not "this
+  // year", and only the scope row can say which scope that is.
+  const issued = invoices.filter((invoice) => invoice.status !== "draft").length;
 
   return (
     <div className="flex gap-4 max-xl:grid max-xl:grid-cols-2 max-sm:grid-cols-1">
@@ -85,7 +91,7 @@ export function StatCards({ invoices: allInvoices }: { invoices: Invoice[] }) {
       <MetricCard
         icon={FileText}
         label="Invoices issued"
-        value={String(issuedThisYear)}
+        value={String(issued)}
         delta={<DeltaChip direction="flat">{invoices.length} total</DeltaChip>}
         vs="excludes drafts"
       />

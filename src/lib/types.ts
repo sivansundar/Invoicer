@@ -123,6 +123,16 @@ export interface EmailTemplate {
   createdAt: string;
 }
 
+/**
+ * TODO(reminder-sequence): the mockups show a named 3-step sequence — Due
+ * soon → Gentle nudge → Final notice — where the wording escalates with the
+ * ordinal. This model has one cadence and one template per brand, so every
+ * reminder in a chain sends identical copy and only its position varies
+ * (which is why `recoveryByOrdinal` in `lib/followup-history.ts` is
+ * well-defined and a per-step recovery comparison is not). Needs a schema
+ * change: an ordered list of steps, each with its own offset and template,
+ * replacing `templateId` plus a single cadence.
+ */
 export interface FollowupConfig {
   enabled: boolean;
   mode: "weekly" | "custom";

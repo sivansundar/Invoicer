@@ -14,6 +14,7 @@ import {
   resolveYearScope,
   type YearScope,
 } from "@/lib/dashboard-scope";
+import { fyLabel } from "@/lib/reports";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 
@@ -48,6 +49,12 @@ export default function DashboardPage() {
     [invoices, activeYear]
   );
 
+  // Only the revenue chart is told which scope it was handed. Every other
+  // section buckets by the same axis the scope narrows on, so the row above
+  // speaks for them; the chart buckets by payment date over its own trailing
+  // range, and two unnamed time windows on one card read as one.
+  const scopeLabel = activeYear === null ? "All years" : fyLabel(activeYear);
+
   if (loading || brandsLoading) return <DashboardSkeleton />;
 
   return (
@@ -72,7 +79,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="px-8">
-        <RevenueChart invoices={scoped} />
+        <RevenueChart invoices={scoped} scopeLabel={scopeLabel} />
       </div>
 
       <div className="flex flex-col gap-3.5">

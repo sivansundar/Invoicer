@@ -107,21 +107,40 @@ Beyond the list above, each package declined something the mockup shows:
   rather than made real: nothing collapses, and there is no help destination
   to point at.
 
-## Known gaps, not addressed by this phase
+## Known gaps — all four now fixed
 
-- `stat-cards.tsx` names a variable `issuedThisYear` while counting every
-  non-draft invoice ever. Now that the dashboard is FY-scoped by default the
-  name happens to be true, but the card never names the year in its label.
-- `revenue-chart.tsx` keeps a trailing 12-month window that now sits inside
-  an FY scope. At the default year they agree; select an older FY and the
-  chart correctly shows near-nothing. Nothing is fabricated, but the card
-  says only "Paid invoices only · approximate across currencies" and never
-  names a year, so the two scopes read as one.
-- A brand deleted while it is the selected brand filter leaves a stale id in
-  localStorage: every dashboard section filters to nothing while the brand
-  switcher and the scope row both display "All brands". Pre-existing — the
-  switcher has always resolved a missing brand to `null` for display without
-  clearing the stored value.
-- `brand-switcher.tsx` still comments that brand creation is unrestricted
-  "while billing is hidden". `FEATURES.billing` is now `true`; the code is
-  right, the comment is stale.
+Each was flagged by the agent that found it but sat outside that package's
+file ownership. Fixed in a follow-up pass:
+
+- `stat-cards.tsx` named a variable `issuedThisYear` while counting every
+  non-draft invoice in whatever it was handed. Renamed to `issued`, which is
+  what it counts — the scope row above says which scope that is.
+- `revenue-chart.tsx` carries the dashboard's only second time window: the
+  page narrows by *bill* date, the columns bucket by *payment* date over a
+  trailing range. Both are now named on the card, so an older year's
+  near-empty chart reads as the true answer rather than a bug.
+- A stored brand filter could outlive the brand it names. **Narrower than
+  first reported:** deleting a brand from its own form already cleared the
+  filter (`brand-form.tsx`), so only the paths that never went through that
+  handler leaked — another tab, another device, or an import replacing the
+  book. `brand-switcher.tsx` now reconciles it, guarded on the brands query
+  having loaded (an empty list mid-load looks exactly like a deleted brand).
+- The stale `brand-switcher.tsx` comment claiming billing is hidden.
+
+One more found while in there: the invoice detail's "Send one now" toast
+said `"<template>" sent to <client>` — a claim no email supports. It now says
+`recorded for`. The button label still reads "Send one now"; that is the last
+place in the UI implying dispatch.
+
+## Features the model cannot yet support
+
+Labelled `TODO(slug):` at the place each would be built —
+`grep -rn "TODO(" src` lists all five:
+
+| Slug | Where | Blocked on |
+|---|---|---|
+| `payment-provider` | `hooks/use-plan.ts` | a checkout that charges, a webhook that sets the tier from the provider's truth, and a real `renewsOn` (today's is hardcoded) |
+| `email-provider` | `app/(app)/invoices/[id]/page.tsx` | a transport, a per-reminder delivery record, and a scheduler for the queued sends nothing dispatches |
+| `payment-link` | `app/(app)/invoices/[id]/page.tsx` | same gap as billing — no provider, so no link to copy |
+| `open-tracking` | `lib/followup-history.ts` | open webhooks, and a reminder record richer than a date string |
+| `reminder-sequence` | `lib/types.ts` | a schema change: an ordered list of steps each with its own offset and template, replacing one cadence plus one `templateId` |
