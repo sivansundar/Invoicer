@@ -116,7 +116,10 @@ export function LocalImportPrompt() {
     // reports the reason as "the file was empty" — the one explanation that
     // is definitely wrong. Answered here, where `corruptKeys` is known,
     // rather than by teaching a shared function about a condition only this
-    // caller can ever be in.
+    // caller can ever be in. `&& corrupt` is implied by
+    // `readLocalCollections`'s current null-return contract (see
+    // `local-data.ts`) whenever this line is reached — kept explicit as
+    // defence-in-depth in case that contract ever changes.
     const readableTotal =
       collections.brands.length +
       collections.clients.length +
