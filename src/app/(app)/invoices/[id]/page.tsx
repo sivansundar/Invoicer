@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { Bell, Check, ChevronLeft } from "lucide-react";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
-import { StatusBadge } from "@/components/invoices/status-badge";
+import { StatusPill } from "@/components/ui/primitives";
 import { InvoiceDetailSkeleton } from "@/components/ui/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -221,7 +221,7 @@ export default function InvoiceDetailPage() {
     <>
       <div className="flex flex-wrap items-stretch flex-1 min-h-0">
         {/* Left pane */}
-        <div className="flex-[1_1_460px] min-w-0 p-6 flex flex-col gap-4">
+        <div className="flex-[1_1_460px] min-w-0 p-8 flex flex-col gap-4">
           <div>
             <Link
               href="/dashboard"
@@ -231,14 +231,14 @@ export default function InvoiceDetailPage() {
               All invoices
             </Link>
             <div className="flex items-center gap-2 mt-3">
-              <h1 className="text-2xl font-semibold tracking-[-0.02em] font-mono">
+              <h2 className="font-mono text-[22px] font-semibold tracking-[-0.02em]">
                 {invoice.invoiceNumber}
-              </h1>
+              </h2>
               {/* effectiveStatus, not the raw stored status — the due line
                   right below already derives its "overdue" wording from
                   daysLate, and the badge must not contradict it by saying
                   "Sent" next to "N days overdue". */}
-              <StatusBadge status={effectiveStatus(invoice)} />
+              <StatusPill status={effectiveStatus(invoice)} />
             </div>
             <p className={cn("text-sm mt-1.5", line.destructive ? "text-destructive" : "text-muted-foreground")}>
               {line.text}

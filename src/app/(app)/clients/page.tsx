@@ -23,14 +23,11 @@ function ClientsPageContent() {
   if (loading) return <ListPageSkeleton />;
 
   return (
-    <div className="p-6 max-w-[1000px] flex flex-col gap-5">
+    <div className="flex max-w-[1100px] flex-col gap-5 p-8">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Clients</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Saved once, auto-filled on every invoice.
-          </p>
-        </div>
+        <p className="max-w-[560px] text-[14.5px] text-ink-2">
+          Saved once, auto-filled on every invoice.
+        </p>
         <Button asChild className="gap-1.5">
           <Link href="/clients/create">
             <Plus className="size-4" />

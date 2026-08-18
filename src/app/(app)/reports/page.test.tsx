@@ -42,7 +42,9 @@ describe("ReportsPage", () => {
     expect(skeletonCount(container)).toBeGreaterThan(0);
     expect(screen.queryByText("Financial year summary")).not.toBeInTheDocument();
 
-    await waitFor(() => expect(screen.getByText("Reports")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Financial year summary")).toBeInTheDocument()
+    );
     expect(screen.getByText("Financial year summary")).toBeInTheDocument();
     expect(skeletonCount(container)).toBe(0);
   });
@@ -58,7 +60,9 @@ describe("ReportsPage", () => {
     const invalidate = vi.spyOn(client, "invalidateQueries");
 
     const { container } = renderWithProviders(<ReportsPage />, { queryClient: client });
-    await waitFor(() => expect(screen.getByText("Reports")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Financial year summary")).toBeInTheDocument()
+    );
 
     uploadBackup(container, {
       version: 2,

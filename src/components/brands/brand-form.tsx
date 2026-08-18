@@ -251,7 +251,7 @@ export function BrandForm({ brand }: BrandFormProps) {
   return (
     <div className="flex flex-wrap items-stretch flex-1 min-h-0">
       {/* Left pane: the form */}
-      <div className="flex-[1_1_460px] min-w-0 p-6 max-w-[660px]">
+      <div className="flex-[1_1_460px] min-w-0 p-8 max-w-[660px]">
         <Link
           href="/brands"
           className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
@@ -259,9 +259,9 @@ export function BrandForm({ brand }: BrandFormProps) {
           <ChevronLeft className="size-3.5" />
           Brands
         </Link>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+        <h2 className="mt-3 text-lg font-semibold tracking-[-0.015em]">
           {isEdit ? `Edit ${brand.name}` : "New brand"}
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
           {isEdit
             ? "Changes apply to invoices you create from here on — past invoices keep their original details."

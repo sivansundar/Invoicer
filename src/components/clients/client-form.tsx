@@ -140,7 +140,7 @@ export function ClientForm({ client }: ClientFormProps) {
 
   return (
     <>
-      <div className="p-6 max-w-[660px]">
+      <div className="p-8 max-w-[660px]">
         <Link
           href="/clients"
           className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
@@ -148,9 +148,9 @@ export function ClientForm({ client }: ClientFormProps) {
           <ChevronLeft className="size-3.5" />
           Clients
         </Link>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+        <h2 className="mt-3 text-lg font-semibold tracking-[-0.015em]">
           {isEdit ? `Edit ${client.companyName}` : "New client"}
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
           {isEdit
             ? "Changes apply from here on — invoices already sent keep their own copy of the original details."
