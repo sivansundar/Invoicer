@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ReportsPage from "./page";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, testQueryClientOptions } from "@/test/render";
 import { resetFakeSeam, seed } from "@/test/fake-seam";
 import { validBrand as brand, validInvoice as invoice } from "@/test/factories";
 
@@ -54,7 +54,7 @@ describe("ReportsPage", () => {
     // rendered from an empty cache would keep showing it.
     seed({ brands: [brand()] });
 
-    const client = new QueryClient();
+    const client = new QueryClient({ defaultOptions: testQueryClientOptions });
     const invalidate = vi.spyOn(client, "invalidateQueries");
 
     const { container } = renderWithProviders(<ReportsPage />, { queryClient: client });
@@ -69,6 +69,12 @@ describe("ReportsPage", () => {
     });
 
     await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
-    expect(invalidate).toHaveBeenCalled();
+    // No arguments: the unfiltered `invalidateQueries()` is the load-bearing
+    // part. An import writes brands, clients, templates and invoices
+    // together (reports/page.tsx documents why), so a regression that
+    // narrows this to a single `queryKey` would still satisfy a bare
+    // `toHaveBeenCalled()` while reintroducing the stale-cache bug this test
+    // exists to catch.
+    expect(invalidate).toHaveBeenCalledWith();
   });
 });
