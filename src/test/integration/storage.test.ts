@@ -67,6 +67,42 @@ describe("brand-logos bucket", () => {
     expect(data?.signedUrl).toContain(`${brandA}/aaa.png`);
   });
 
+  // LOGO_URL_TTL_SECONDS (src/lib/storage.ts) is 3600, so waiting it out
+  // isn't an option — sign with an explicit short TTL instead. use-logo-src
+  // refetches 10 minutes before that 3600s lapses (LOGO_URL_STALE_MS); that
+  // margin is reasoned about, not proven. This proves the half that can be:
+  // expiry is real, and a lapsed URL fails rather than quietly continuing to
+  // serve the object.
+  it("a signed logo URL stops resolving once its TTL has passed", async () => {
+    const path = `${brandA}/expiry-check.png`;
+    const { error: uploadError } = await userA.storage.from(BUCKET).upload(path, PNG, {
+      contentType: "image/png",
+      upsert: true,
+    });
+    expect(uploadError).toBeNull();
+
+    const { data, error } = await userA.storage.from(BUCKET).createSignedUrl(path, 1);
+    expect(error).toBeNull();
+
+    const fresh = await fetch(data!.signedUrl);
+    expect(fresh.status).toBe(200);
+
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const stale = await fetch(data!.signedUrl);
+    // Confirmed against the running Storage API rather than assumed: an
+    // expired signed URL comes back 400 with an InvalidJWT body ("exp"
+    // claim timestamp check failed) — the signature itself is a JWT, and
+    // this is Storage rejecting it as expired, not a generic auth failure.
+    // Not "expired" in the body text, despite that being the natural
+    // guess — pin what the API actually says so a future upgrade that
+    // changes the wording breaks this test for the right reason.
+    expect(stale.status).toBe(400);
+    const body = await stale.json();
+    expect(body.error).toBe("InvalidJWT");
+    expect(body.message).toMatch(/exp.*claim.*timestamp/i);
+  });
+
   // The falsification tests. These are the point of the task.
   it("denies a second user uploading under someone else's brand id", async () => {
     const { error } = await userB.storage.from(BUCKET).upload(`${brandA}/evil.png`, PNG, {
