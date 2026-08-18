@@ -166,7 +166,23 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["http://127.0.0.1:3000", "http://localhost:3000/**"]
+#
+# Both loopback spellings need the `/**` wildcard, and that is not cosmetic.
+# The app sends `emailRedirectTo = ${window.location.origin}/callback?next=…`
+# (see the login page). Matching here is exact unless a pattern is given, so a
+# bare "http://127.0.0.1:3000" does NOT admit ".../callback?next=%2Fdashboard":
+# GoTrue rejects the redirect and falls back to `site_url`, the magic link
+# lands on the marketing page instead of the callback, and no session is ever
+# exchanged. That is indistinguishable from "the magic link is broken".
+#
+# localhost carried the wildcard and 127.0.0.1 did not, so the flow worked or
+# failed purely on which spelling you happened to type in the address bar.
+additional_redirect_urls = [
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3000/**",
+  "http://localhost:3000",
+  "http://localhost:3000/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
