@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getCrumb, showNewInvoiceAction } from "./site-header";
+import { getCrumb, getHeaderAction, showExportAction } from "./site-header";
 
-// Every row of the design handoff's breadcrumb table (task-10-brief.md).
+// Every row of the design handoff's breadcrumb table (task-10-brief.md), plus
+// the two routes the redesign adds.
 const CRUMB_CASES: Array<[path: string, crumb: string]> = [
-  ["/dashboard", "Dashboard"],
+  ["/dashboard", "Overview"],
+  ["/invoices", "Invoices"],
   ["/invoices/create", "New invoice"],
   ["/invoices/abc123", "Invoice"],
   ["/invoices/abc123/edit", "Edit invoice"],
@@ -14,6 +16,7 @@ const CRUMB_CASES: Array<[path: string, crumb: string]> = [
   ["/clients/create", "New client"],
   ["/clients/abc123/edit", "New client"],
   ["/followups", "Follow-ups"],
+  ["/followups/brands/abc123", "Follow-up history"],
   ["/followups/templates/overdue", "Email template"],
   ["/reports", "Reports"],
 ];
@@ -39,27 +42,61 @@ describe("getCrumb", () => {
     expect(getCrumb("/invoices/abc123/edit")).toBe("Edit invoice");
     expect(getCrumb("/invoices/abc123/edit")).not.toBe("Invoice");
   });
+
+  it("does not let the follow-up brand route read as a template", () => {
+    expect(getCrumb("/followups/brands/abc123")).toBe("Follow-up history");
+  });
 });
 
-describe("showNewInvoiceAction", () => {
-  it("shows the action on the dashboard", () => {
-    expect(showNewInvoiceAction("/dashboard")).toBe(true);
+describe("getHeaderAction", () => {
+  it("offers a new invoice on the invoice-shaped screens", () => {
+    for (const path of ["/dashboard", "/invoices", "/invoices/abc123"]) {
+      expect(getHeaderAction(path)).toEqual({
+        label: "New invoice",
+        href: "/invoices/create",
+      });
+    }
   });
 
-  it("shows the action on an invoice detail route", () => {
-    expect(showNewInvoiceAction("/invoices/abc123")).toBe(true);
+  it("varies the action with the screen", () => {
+    expect(getHeaderAction("/brands")?.label).toBe("New brand");
+    expect(getHeaderAction("/clients")?.label).toBe("New client");
+    expect(getHeaderAction("/followups")?.label).toBe("New template");
   });
 
-  it("hides the action on the create route", () => {
-    expect(showNewInvoiceAction("/invoices/create")).toBe(false);
+  // A form's own submit is the primary action; a second one in the header
+  // would compete with it.
+  it("offers nothing on a create or edit form", () => {
+    for (const path of [
+      "/invoices/create",
+      "/invoices/abc123/edit",
+      "/brands/create",
+      "/brands/abc123/edit",
+      "/clients/create",
+      "/clients/abc123/edit",
+      "/followups/templates/create",
+    ]) {
+      expect(getHeaderAction(path)).toBeNull();
+    }
   });
 
-  it("hides the action on an invoice edit route", () => {
-    expect(showNewInvoiceAction("/invoices/abc123/edit")).toBe(false);
+  it("offers nothing on read-only screens", () => {
+    expect(getHeaderAction("/reports")).toBeNull();
+    expect(getHeaderAction("/followups/brands/abc123")).toBeNull();
+  });
+});
+
+describe("showExportAction", () => {
+  it("shows export where there is something to export", () => {
+    expect(showExportAction("/dashboard")).toBe(true);
+    expect(showExportAction("/invoices")).toBe(true);
+    expect(showExportAction("/reports")).toBe(true);
+    expect(showExportAction("/followups")).toBe(true);
   });
 
-  it("hides the action on unrelated routes", () => {
-    expect(showNewInvoiceAction("/brands")).toBe(false);
-    expect(showNewInvoiceAction("/clients")).toBe(false);
+  it("hides export on forms and single records", () => {
+    expect(showExportAction("/invoices/create")).toBe(false);
+    expect(showExportAction("/brands")).toBe(false);
+    expect(showExportAction("/clients")).toBe(false);
   });
 });
