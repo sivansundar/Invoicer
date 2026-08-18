@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { writeImport, type PendingConflict } from "./import-pipeline";
-import { resetFakeSeam, getInvoices, getBrands, getClients, getTemplates } from "@/test/fake-seam";
+import {
+  resetFakeSeam,
+  seed,
+  getInvoices,
+  getBrands,
+  getClients,
+  getTemplates,
+} from "@/test/fake-seam";
+import { validBrand as brand } from "@/test/factories";
 import type { Invoice } from "./types";
 
 // Same fake as `import-export.test.tsx` — this exercises `writeImport`
@@ -166,5 +174,79 @@ describe("writeImport — skips the lookup for a collection with nothing incomin
     expect(getTemplates).not.toHaveBeenCalled();
     // The one lookup that IS needed here still ran.
     expect(getInvoices).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("writeImport — conflict detection is scoped per brand", () => {
+  beforeEach(() => {
+    resetFakeSeam();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("does not treat the same number under a different brand as a conflict", async () => {
+    // `invoices_number_unique` is (org_id, brand_id, invoice_number). Two
+    // brands sharing an invoicePrefix legitimately hold the same number, so
+    // matching on the number alone finds a collision the database would
+    // never have rejected — and "overwrite" would write one brand's invoice
+    // over the other brand's row.
+    seed({
+      brands: [brand({ id: "brand-a" }), brand({ id: "brand-b" })],
+      invoices: [
+        invoice({ id: "existing-id", brandId: "brand-b", invoiceNumber: "INV-2026-001" }),
+      ],
+    });
+
+    const onConflict = vi.fn(() => ({ action: "discard" }) as const);
+
+    const summary = await writeImport(
+      {
+        brands: [],
+        clients: [],
+        templates: [],
+        invoices: [
+          invoice({ id: "incoming-id", brandId: "brand-a", invoiceNumber: "INV-2026-001" }),
+        ],
+      },
+      { remappedIds: 0, onConflict }
+    );
+
+    expect(onConflict).not.toHaveBeenCalled();
+    expect(summary.invoices.imported).toBe(1);
+    expect(summary.invoices.discarded).toBe(0);
+
+    const stored = await getInvoices();
+    expect(stored).toHaveLength(2);
+    expect(stored.find((i) => i.brandId === "brand-b")!.id).toBe("existing-id");
+  });
+
+  it("still detects a conflict when the brand matches too", async () => {
+    // The other half of the same behaviour — narrowing the key must not stop
+    // a real collision from being found.
+    seed({
+      brands: [brand({ id: "brand-a" })],
+      invoices: [
+        invoice({ id: "existing-id", brandId: "brand-a", invoiceNumber: "INV-2026-001" }),
+      ],
+    });
+
+    const onConflict = vi.fn(() => ({ action: "discard" }) as const);
+
+    const summary = await writeImport(
+      {
+        brands: [],
+        clients: [],
+        templates: [],
+        invoices: [
+          invoice({ id: "incoming-id", brandId: "brand-a", invoiceNumber: "INV-2026-001" }),
+        ],
+      },
+      { remappedIds: 0, onConflict }
+    );
+
+    expect(onConflict).toHaveBeenCalledTimes(1);
+    expect(summary.invoices.discarded).toBe(1);
   });
 });

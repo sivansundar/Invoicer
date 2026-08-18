@@ -37,8 +37,8 @@ export interface ImportCollections {
 
 /**
  * One conflicting pair — an incoming invoice and the existing one it
- * collides with, matched by invoice number. Also the shape the file
- * importer's dialog renders one round of "Existing vs Incoming" from.
+ * collides with, matched by brand and invoice number. Also the shape the
+ * file importer's dialog renders one round of "Existing vs Incoming" from.
  */
 export interface PendingConflict {
   incoming: Invoice;
@@ -305,10 +305,30 @@ async function writeCollection<T extends { id: string }>(
 }
 
 /**
+ * The identity a conflict is judged on. `invoices_number_unique` is
+ * `(org_id, brand_id, invoice_number)` — numbering is per brand, so two
+ * brands can legitimately hold the same number and matching on the number
+ * alone finds a "conflict" the database would never have rejected. Worse,
+ * resolving that phantom with "overwrite" writes the incoming invoice over
+ * a row belonging to a different brand.
+ *
+ * Exported so the file importer's own detection pass (`import-export.tsx`)
+ * matches on the same key this function does. Two definitions of "the same
+ * invoice" is exactly the drift `writeInvoices`' identity-matching comment
+ * exists to prevent.
+ *
+ * NUL-joined because neither a brand id nor an invoice number can contain
+ * one, so no two distinct pairs can produce the same string.
+ */
+export function conflictKey(invoice: Invoice): string {
+  return `${invoice.brandId}\u0000${invoice.invoiceNumber}`;
+}
+
+/**
  * Writes every incoming invoice, resolving a number collision through
  * `onConflict` — or, with none supplied, by treating it as an update. See
- * `matchByIdentity`/`matchByNumber` below for how a conflict is found —
- * deliberately two different strategies rather than one.
+ * `matchByIdentity`/`matchByBrandAndNumber` below for how a conflict is
+ * found — deliberately two different strategies rather than one.
  */
 async function writeInvoices(
   invoices: Invoice[],
@@ -332,7 +352,7 @@ async function writeInvoices(
   //
   // - With no `knownConflicts` (the local-data prompt, and any other caller
   //   with no detection pass of its own), this fetches `getInvoices()` once
-  //   and matches by invoice number itself — the only case where
+  //   and matches by brand and invoice number itself — the only case where
   //   self-detection is correct, because nothing upstream has done it yet.
   //   Skipped entirely when there is nothing to match: `writeImport` calls
   //   this with `invoices: []` for its brands/clients/templates-only pass,
@@ -343,15 +363,15 @@ async function writeInvoices(
   const matchByIdentity = knownConflicts
     ? new Map(knownConflicts.map((c) => [c.incoming, c.existing]))
     : null;
-  const matchByNumber =
+  const matchByBrandAndNumber =
     knownConflicts || invoices.length === 0
       ? null
-      : new Map((await getInvoices()).map((inv) => [inv.invoiceNumber, inv] as const));
+      : new Map((await getInvoices()).map((inv) => [conflictKey(inv), inv] as const));
 
   const findMatch = (incoming: Invoice): Invoice | null =>
     matchByIdentity
       ? (matchByIdentity.get(incoming) ?? null)
-      : (matchByNumber!.get(incoming.invoiceNumber) ?? null);
+      : (matchByBrandAndNumber!.get(conflictKey(incoming)) ?? null);
 
   let saved = 0;
   let overwritten = 0;
@@ -387,8 +407,10 @@ async function writeInvoices(
       // Overwrite the existing row in place, keeping its id, rather than
       // inserting the incoming record and deleting the old one.
       //
-      // The conflict was detected BY invoice number, so both rows carry
-      // the same one — and `invoices_number_unique` will not hold two.
+      // The conflict was detected by brand AND invoice number — the exact
+      // key `invoices_number_unique` (org_id, brand_id, invoice_number)
+      // enforces — so both rows collide on that constraint and it will not
+      // hold two.
       // Insert-then-delete is therefore impossible, and delete-then-
       // insert would leave nothing at all if the insert failed. Updating
       // in place is a single transaction with no window where the

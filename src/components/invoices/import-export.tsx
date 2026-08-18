@@ -7,6 +7,7 @@ import { getInvoices, getBrands, getClients, getTemplates } from "@/lib/storage"
 import {
   prepareImport,
   writeImport,
+  conflictKey,
   type ImportCollections,
   type CollectionWriteResult,
   type PendingConflict,
@@ -176,13 +177,18 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     setPendingRemapped(remappedIds);
 
     const existing = await getInvoices();
-    const existingByNumber = new Map(existing.map((inv) => [inv.invoiceNumber, inv]));
+    // The same key `writeInvoices` matches on, and the same one
+    // `invoices_number_unique` enforces — see `conflictKey`. Keying on the
+    // number alone made two brands sharing a prefix look like a conflict,
+    // and offered the user an "Overwrite" that would have written across
+    // brands.
+    const existingByConflictKey = new Map(existing.map((inv) => [conflictKey(inv), inv]));
 
     const newConflicts: PendingConflict[] = [];
     const newNonConflicting: Invoice[] = [];
 
     for (const inv of incoming) {
-      const match = existingByNumber.get(inv.invoiceNumber);
+      const match = existingByConflictKey.get(conflictKey(inv));
       if (match) {
         newConflicts.push({ incoming: inv, existing: match });
       } else {
@@ -192,7 +198,10 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
     setNonConflicting(newNonConflicting);
     setConflicts(newConflicts);
-    setExistingNumbers(new Set(existingByNumber.keys()));
+    // Independent of `existingByConflictKey` above: a rename target must be
+    // free of every existing invoice's number, not just ones sharing the
+    // incoming invoice's brand, so this stays keyed on the number alone.
+    setExistingNumbers(new Set(existing.map((inv) => inv.invoiceNumber)));
     setResolutions([]);
     setConflictIndex(0);
     setRenameMode(false);

@@ -97,6 +97,50 @@ describe("ImportExport — rename conflict resolution", () => {
   });
 });
 
+describe("ImportExport — conflict detection is scoped per brand", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetFakeSeam();
+    toast.mockClear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("shows no conflict dialog when the collision is only across brands", async () => {
+    // The dialog asks the user to choose between two invoices that do not
+    // collide. "Overwrite" here would write brand A's invoice over brand B's
+    // row — see conflictKey in @/lib/import-pipeline.
+    seed({
+      invoices: [
+        invoice({ id: "aaaaaaa1-0000-4000-8000-0000000000e1", brandId: "brand-b", invoiceNumber: "INV-2026-001" }),
+      ],
+    });
+
+    const { container } = renderWithProviders(<ImportExport onImportDone={() => {}} />);
+    uploadFile(
+      container,
+      {
+        version: 2,
+        brands: [],
+        clients: [],
+        templates: [],
+        invoices: [
+          invoice({ id: "aaaaaaa1-0000-4000-8000-0000000000f1", brandId: "brand-a", invoiceNumber: "INV-2026-001" }),
+        ],
+      },
+      "invoicer-backup.json"
+    );
+
+    await waitFor(() => expect(screen.getByText("Import Complete")).toBeInTheDocument());
+    expect(screen.queryByText("Invoice Already Exists")).not.toBeInTheDocument();
+
+    const stored = await storage.getInvoices();
+    expect(stored).toHaveLength(2);
+  });
+});
+
 describe("ImportExport — full backup envelope", () => {
   beforeEach(() => {
     window.localStorage.clear();
