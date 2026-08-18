@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -199,12 +200,27 @@ export function BrandFollowupCard({
                 ? "No unpaid invoices right now"
                 : `${queuedCount} of ${unpaidInvoices.length} unpaid invoices queued`}
             </span>
-            <span className="tabular-nums">
-              {remindersSent === 0 ? "Nothing sent yet" : `${remindersSent} reminders sent so far`}
-            </span>
           </div>
         </>
       )}
+
+      {/*
+        Outside the enabled/disabled branch on purpose: switching reminders off
+        does not erase what already went out, so the history stays reachable.
+      */}
+      <div className="flex flex-wrap items-center gap-3 border-t pt-3.5">
+        <span className="flex-1 text-[13px] text-muted-foreground tabular-nums">
+          {remindersSent === 0 ? "Nothing sent yet" : `${remindersSent} reminders sent so far`}
+        </span>
+        {remindersSent > 0 && (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/followups/brands/${brand.id}`}>
+              <Clock className="size-3.5" />
+              View all {remindersSent} sent
+            </Link>
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
