@@ -44,3 +44,8 @@ next-env.d.ts
 
 # agent worktrees
 .claude/worktrees/
+
+# Seeded design canvas — a 2.7MB generated artifact. The artboard sources
+# that produce it live on the mockup branch under design/; regenerate with
+# `node build.mjs` there rather than committing the output.
+design/invoicer-redesign.html
