@@ -8,6 +8,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { Check, Send } from "lucide-react";
+import { IconTile, Panel, SectionLabel } from "@/components/ui/primitives";
 import { BrandFollowupCard } from "@/components/followups/brand-followup-card";
 import { TemplateList } from "@/components/followups/template-list";
 import { FollowupQueue } from "@/components/followups/followup-queue";
@@ -47,20 +49,28 @@ function FollowupsPageContent() {
         Let each brand chase its own unpaid invoices by email. Paid invoices drop out on their own.
       </p>
 
-      <div className="border rounded-[14px] bg-gradient-to-t from-black/[0.05] to-card dark:from-white/[0.06] shadow-xs px-6 py-5">
-        <p className="text-sm font-medium tabular-nums">
-          {queue.length === 0
-            ? "Nothing queued — every unpaid invoice is either paused or out of reminders"
-            : `${queue.length} ${queue.length === 1 ? "invoice" : "invoices"} queued · next goes out ${format(queue[0].scheduled, "EEE, d MMM")}`}
-        </p>
-        <p className="text-[13px] text-muted-foreground mt-0.5 tabular-nums">
-          {activeBrandCount} of {brands.length} {brands.length === 1 ? "brand" : "brands"} chasing
-          automatically
-        </p>
-      </div>
+      <Panel className="flex flex-wrap items-center gap-4 px-5 py-[18px]">
+        <IconTile icon={queue.length === 0 ? Check : Send} tone={queue.length === 0 ? "green" : "amber"} />
+        <div className="min-w-[240px] flex-1">
+          <div className="text-[15.5px] font-semibold tracking-[-0.012em] tabular-nums">
+            {queue.length === 0
+              ? "Nothing queued"
+              : `${queue.length} ${queue.length === 1 ? "invoice" : "invoices"} queued`}
+          </div>
+          <div className="mt-1 text-[13px] text-ink-2 tabular-nums">
+            {queue.length === 0
+              ? "Every unpaid invoice is either paused or out of reminders."
+              : `Next goes out ${format(queue[0].scheduled, "EEE, d MMM")} · ${activeBrandCount} of ${brands.length} ${brands.length === 1 ? "brand" : "brands"} chasing automatically`}
+          </div>
+        </div>
+      </Panel>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Per brand</h2>
+      {queue.length > 0 && (
+        <FollowupQueue entries={queue} templates={templates} onSaveInvoice={saveInvoice} />
+      )}
+
+      <div className="flex flex-col gap-3.5">
+        <SectionLabel>Schedules by brand</SectionLabel>
         <div className="flex flex-col gap-3">
           {brands.map((brand) => (
             <BrandFollowupCard
@@ -75,10 +85,6 @@ function FollowupsPageContent() {
       </div>
 
       <TemplateList templates={templates} brands={brands} />
-
-      {queue.length > 0 && (
-        <FollowupQueue entries={queue} templates={templates} onSaveInvoice={saveInvoice} />
-      )}
     </div>
   );
 }
