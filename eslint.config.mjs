@@ -25,21 +25,20 @@ const eslintConfig = defineConfig([
     "supabase/.temp/**",
   ]),
   {
-    // These files render a user-uploaded brand logo that is stored (and
-    // read back) as a base64 data URI, not a remote/static asset — there is
-    // no origin for `next/image` to optimize against, and `next/image`'s
-    // data-URI support still requires `unoptimized` with none of the usual
-    // benefit (no CDN, no responsive `sizes`) for a ~36px inline thumbnail.
-    // `invoice-preview.tsx` itself is now just a design dispatcher (see
-    // `src/components/invoices/designs/`) — the two design implementations
-    // that actually render the logo `<img>` are listed here instead.
-    // Scoped to exactly these files rather than an inline `eslint-disable`,
-    // which this repo doesn't use.
-    files: [
-      "src/components/brands/brand-form.tsx",
-      "src/components/invoices/designs/modern-invoice-preview.tsx",
-      "src/components/invoices/designs/classic-invoice-preview.tsx",
-    ],
+    // This file renders a user-uploaded brand logo that is stored (and read
+    // back) as either a base64 data URI or a signed Storage URL, not a
+    // remote/static asset — there is no fixed origin for `next/image` to
+    // optimize against, `next/image`'s data-URI support still requires
+    // `unoptimized` with none of the usual benefit (no CDN, no responsive
+    // `sizes`), and a signed URL is short-lived and host-specific, so
+    // `next/image` would need `remotePatterns` per Supabase project for a
+    // ~36px inline thumbnail.
+    // `brand-logo.tsx` is the one component that renders a resolved logo
+    // (base64 or a signed Storage URL) — both invoice preview designs and
+    // `brand-form.tsx`'s own picker preview route through it instead of
+    // duplicating the element. Scoped to exactly this file rather than an
+    // inline `eslint-disable`, which this repo doesn't use.
+    files: ["src/components/brands/brand-logo.tsx"],
     rules: {
       "@next/next/no-img-element": "off",
     },

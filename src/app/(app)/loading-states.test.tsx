@@ -8,7 +8,8 @@ import { BrandFilterProvider } from "@/components/brand-filter/brand-filter-prov
 import EditBrandPage from "./brands/[id]/edit/page";
 import EditClientPage from "./clients/[id]/edit/page";
 import EditInvoicePage from "./invoices/[id]/edit/page";
-import type { Brand, Client } from "@/lib/types";
+import InvoiceDetailPage from "./invoices/[id]/page";
+import type { Brand, Client, Invoice } from "@/lib/types";
 
 vi.mock("@/lib/storage", () => import("@/test/fake-seam"));
 
@@ -41,7 +42,6 @@ function brand(overrides: Partial<Brand> = {}): Brand {
     address: "",
     email: "",
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
@@ -65,6 +65,40 @@ function client(overrides: Partial<Client> = {}): Client {
     companyName: "Acme Studio",
     address: "",
     createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+// `id: "missing"` on purpose — it matches the file-wide `useParams` mock
+// above (`{ id: "missing" }`), so this fixture is the one InvoiceDetailPage
+// actually finds without needing a per-test override of that mock.
+function invoice(overrides: Partial<Invoice> = {}): Invoice {
+  return {
+    id: "missing",
+    invoiceNumber: "INV-2026-001",
+    brandId: "b1",
+    currency: "INR",
+    status: "sent",
+    billDate: "2026-06-01",
+    dueDate: "2026-06-15",
+    client: { companyName: "Acme Studio", address: "" },
+    items: [{ id: "li1", description: "Design work", amount: 40000, tax: 18 }],
+    subtotal: 40000,
+    totalTax: 7200,
+    total: 47200,
+    createdAt: "2026-06-01T00:00:00.000Z",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+    brandSnapshot: {
+      name: "Sivan Studio",
+      address: "",
+      invoicePrefix: "SC",
+      accentColor: "#2563eb",
+      invoiceDesign: "modern",
+      bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+    },
+    clientId: null,
+    reminders: [],
+    followupsPaused: false,
     ...overrides,
   };
 }
@@ -121,7 +155,25 @@ describe("lists do not flash an empty state before their data arrives", () => {
   });
 });
 
-describe("edit screens do not claim a record is missing while loading it", () => {
+describe("detail and edit screens do not claim a record is missing while loading it", () => {
+  it("/invoices/[id] shows a skeleton first, never 'not found'", async () => {
+    seed({ brands: [brand()], clients: [client()], invoices: [invoice()] });
+
+    const { container } = renderWithProviders(<InvoiceDetailPage />);
+
+    // The first frame is the one that matters: a detail screen claiming the
+    // record is gone is not merely unstyled, it is false, on the screen
+    // where a user is most likely to believe something was lost.
+    expect(skeletonCount(container)).toBeGreaterThan(0);
+    expect(screen.queryByText(/not found/i)).not.toBeInTheDocument();
+
+    // Scoped to the heading: the invoice number also appears in the
+    // client-facing preview pane, so a bare `getByText` matches twice.
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "INV-2026-001" })).toBeInTheDocument()
+    );
+  });
+
   it.each([
     ["brand", EditBrandPage, "Brand not found."],
     ["client", EditClientPage, "Client not found."],

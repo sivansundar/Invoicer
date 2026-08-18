@@ -1,6 +1,8 @@
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
 import { writeLocalStorage } from "./local-storage";
 import { createClient } from "./supabase/client";
+import { dataUrlToBytes, logoObjectPath, sha256Hex } from "./logo-storage";
+import { LogoUploadError } from "./storage-errors";
 import {
   brandToRow,
   clientToRow,
@@ -17,6 +19,16 @@ import {
 } from "./supabase/mappers";
 
 export { nextInvoiceNumber } from "./numbering";
+// `export … from` rather than a bare `export { LogoUploadError };` after the
+// `import` above — see the equivalent re-export in `@/test/fake-seam.ts` for
+// why: the bare form was observed to silently export `undefined` instead of
+// the class under vitest. The exact mechanism was not pinned down; a
+// circular-import / module-evaluation-order interaction with vitest's
+// transform is plausible (see `fake-seam.ts`'s own, confirmed circularity
+// with this module) but unconfirmed here — do not treat that as settled.
+// What's known is the symptom, and that `export … from` does not exhibit it;
+// keep it this way.
+export { LogoUploadError } from "./storage-errors";
 
 // Plan state is the last thing still in localStorage, and stays there by
 // design: it is a mock with no billing integration and no schema behind it.
@@ -131,6 +143,44 @@ export async function getBrand(id: string): Promise<Brand | null> {
   return data ? rowToBrand(data as BrandRow) : null;
 }
 
+/**
+ * Saves a brand, uploading a freshly-picked logo along the way.
+ *
+ * This is TWO writes, not one, and they are not transactional — Postgres
+ * and Storage are separate systems here, so there is no rollback if the
+ * second one fails. That is a deliberate trade-off, not an oversight:
+ *
+ * 1. The whole row (every field the caller passed, including a fresh data
+ *    URL verbatim in `logo_data`) is upserted FIRST. It has to be: the
+ *    bucket's INSERT policy is `exists (select 1 from public.brands where
+ *    id = ...)`, and a brand's id is generated client-side
+ *    (`crypto.randomUUID()`) before any row exists for it. Uploading before
+ *    this write — which is what an earlier draft of this function did —
+ *    means the very first save of a brand-new logo always fails RLS, since
+ *    the row it would check for does not exist yet. There is no ordering
+ *    that both satisfies that policy and keeps the two writes atomic; this
+ *    is the least-bad option, not the ideal one.
+ * 2. Only once that row exists does the upload happen, followed by a
+ *    second, narrow write that swaps `logo_data` for `logo_path`.
+ *
+ * The consequence: if step 2 throws — upload failure, network drop, RLS on
+ * the second write — this function still rejects (nothing here swallows an
+ * error), but step 1 already committed. Every other field the caller
+ * changed in the same call (address, phone, bank details, ...) is durably
+ * saved even though the promise the caller is awaiting rejects. A caller
+ * that reads "the promise rejected" as "nothing changed" is wrong about
+ * everything except the logo.
+ *
+ * That specific exception — the logo — is the one deliberately-kept
+ * fallback: because step 1 writes the fresh data URL into `logo_data`
+ * as-is, a brand whose step 2 fails is left rendering from that base64
+ * rather than with no logo at all, even though the rest of Phase 3 is
+ * about removing base64 from that column. It stays there, unmigrated,
+ * until the next successful save re-attempts the upload. See
+ * `src/test/integration/seam.test.ts`, "commits the row's other edited
+ * fields even when the logo upload step fails afterward", for what this
+ * looks like from a caller's side.
+ */
 export async function saveBrand(brand: Brand): Promise<Brand> {
   // Upsert rather than insert-or-update: the form generates the id with
   // crypto.randomUUID() before it knows whether this is a create or an
@@ -141,12 +191,74 @@ export async function saveBrand(brand: Brand): Promise<Brand> {
     .select("*")
     .single();
   throwOn(error);
-  return rowToBrand(data as BrandRow);
+  let result = rowToBrand(data as BrandRow);
+
+  // A `logo` that is a data URL is a fresh upload from the form. Convert it
+  // to an object and record the path in a second write, so `logo_data`
+  // stops accumulating base64 — and so `snapshotFromBrand` freezes a path
+  // onto every invoice issued from here on.
+  //
+  // Deliberately NOT clearing `logo_data` for brands that still have one and
+  // no new upload: that column is what those brands render from until their
+  // owner next touches the logo. Task 9 records the residue.
+  if (brand.logo?.startsWith("data:")) {
+    try {
+      const logoPath = await uploadBrandLogo(result.id, brand.logo);
+      const { data: updated, error: updateError } = await createClient()
+        .from("brands")
+        .update({ logo_path: logoPath, logo_data: null })
+        .eq("id", result.id)
+        .select("*")
+        .single();
+      throwOn(updateError);
+      result = rowToBrand(updated as BrandRow);
+    } catch (err) {
+      // `result` is the row the first write already committed. Rethrowing
+      // bare would lose that fact — see the class comment.
+      throw new LogoUploadError(result, err);
+    }
+  }
+
+  return result;
 }
 
 export async function deleteBrand(id: string): Promise<void> {
   const { error } = await createClient().from("brands").delete().eq("id", id);
   throwOn(error);
+}
+
+const LOGO_BUCKET = "brand-logos";
+
+/** How long a signed logo URL is valid. Paired with a shorter `staleTime` in
+ *  `useLogoSrc` so a URL is refetched before it expires on screen. */
+export const LOGO_URL_TTL_SECONDS = 3600;
+
+/**
+ * Uploads a logo and returns its object path.
+ *
+ * Content-addressed, so uploading the same image twice is idempotent and
+ * lands on the same path — `upsert` makes that a no-op write rather than a
+ * conflict, which is why the bucket needs an UPDATE policy as well as
+ * INSERT.
+ */
+export async function uploadBrandLogo(brandId: string, dataUrl: string): Promise<string> {
+  const bytes = dataUrlToBytes(dataUrl);
+  const path = logoObjectPath(brandId, await sha256Hex(bytes));
+
+  const { error } = await createClient()
+    .storage.from(LOGO_BUCKET)
+    .upload(path, bytes as BufferSource, { contentType: "image/png", upsert: true });
+  throwOn(error);
+  return path;
+}
+
+/** A signed URL for a logo object. The bucket is private; there is no public URL. */
+export async function getLogoUrl(path: string): Promise<string> {
+  const { data, error } = await createClient()
+    .storage.from(LOGO_BUCKET)
+    .createSignedUrl(path, LOGO_URL_TTL_SECONDS);
+  throwOn(error);
+  return data!.signedUrl;
 }
 
 // Clients

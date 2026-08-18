@@ -12,6 +12,12 @@ import type { Brand, Client, EmailTemplate, Invoice } from "@/lib/types";
  * back as undefined, whether RLS hides another tenant's row.
  */
 
+// A valid 1x1 transparent PNG, base64-encoded — real bytes, so
+// `dataUrlToBytes`/`sha256Hex` exercise the actual decode-and-hash path
+// rather than an arbitrary string standing in for one.
+const TINY_PNG_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
 let alice: TestUser;
 let bob: TestUser;
 
@@ -41,7 +47,6 @@ function brand(overrides: Partial<Brand> = {}): Brand {
       ifscCode: "HDFC0001234",
     },
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
     followup: {
@@ -92,13 +97,17 @@ describe("brands through the seam", () => {
   it("round-trips every field, including the jsonb ones", async () => {
     const original = brand();
 
+    // The fixture's default `logo` is a fresh data URL, which `saveBrand`
+    // uploads and replaces with a path rather than round-tripping verbatim
+    // — see the dedicated logo tests below for that behaviour on its own.
     const saved = await storage.saveBrand(original);
-    expect(saved).toEqual(original);
+    expect(saved).toEqual({ ...original, logo: undefined, logoPath: saved.logoPath });
+    expect(saved.logoPath).toMatch(/\.png$/);
 
     const read = await storage.getBrand(original.id);
     // bank_details and followup are jsonb — this is what proves they survive
     // the trip as structured values rather than stringified blobs.
-    expect(read).toEqual(original);
+    expect(read).toEqual(saved);
     expect(read!.bankDetails.ifscCode).toBe("HDFC0001234");
     expect(read!.followup.weekday).toBe(3);
   });
@@ -149,6 +158,76 @@ describe("brands through the seam", () => {
 
   it("returns null for an id that does not exist", async () => {
     expect(await storage.getBrand(crypto.randomUUID())).toBeNull();
+  });
+
+  it("uploads a logo and reads it back as a signed URL", async () => {
+    const created = brand({ logo: TINY_PNG_DATA_URL });
+    const saved = await storage.saveBrand(created);
+
+    expect(saved.logoPath).toMatch(new RegExp(`^${saved.id}/[0-9a-f]{64}\\.png$`));
+    expect(saved.logo).toBeUndefined();
+    await expect(storage.getLogoUrl(saved.logoPath!)).resolves.toContain(saved.logoPath);
+  });
+
+  it("re-uploading identical bytes is idempotent, not a conflict", async () => {
+    const first = await storage.saveBrand(brand({ logo: TINY_PNG_DATA_URL }));
+    const second = await storage.saveBrand({ ...first, logo: TINY_PNG_DATA_URL });
+
+    // Asserted before the equality check on purpose: without it, a
+    // `saveBrand` that never uploads at all would leave both sides
+    // `undefined` and pass this test for the wrong reason.
+    expect(first.logoPath).toMatch(/\.png$/);
+    expect(second.logoPath).toBe(first.logoPath);
+  });
+
+  it("commits the row's other edited fields even when the logo upload step fails afterward", async () => {
+    // `saveBrand` is two writes, not one transaction (see its doc comment):
+    // the whole row lands first, then the logo upload, then a second write
+    // that swaps logo_data for logo_path. This pins what a caller actually
+    // gets when the second half fails — the promise still rejects, but the
+    // first write is not rolled back.
+    const created = await storage.saveBrand(brand({ phone: "+91 70000 00000", logo: undefined }));
+
+    // Forces the upload call itself to fail — a real object-store outage,
+    // not an RLS denial — without touching the `.from("brands")` calls the
+    // row writes go through, so both of those stay genuinely real.
+    const fromSpy = vi.spyOn(alice.client.storage, "from").mockReturnValue({
+      upload: vi
+        .fn()
+        .mockResolvedValue({ data: null, error: { message: "simulated storage outage" } }),
+    } as never);
+
+    // Caught rather than asserted with `.rejects.toThrow()` so the rejection
+    // itself — not just the fact that one happened — can be inspected below:
+    // this is what pins the real `LogoUploadError` class and its payload,
+    // not just the fake's mirror of them.
+    let caught: unknown;
+    try {
+      await storage.saveBrand({ ...created, phone: "+91 60000 00000", logo: TINY_PNG_DATA_URL });
+    } catch (err) {
+      caught = err;
+    } finally {
+      fromSpy.mockRestore();
+    }
+
+    expect(caught).toBeInstanceOf(storage.LogoUploadError);
+    // `err.brand` is the row the first write already committed — pinning
+    // that it carries a field edited in this very call (not a stale read of
+    // `created`) is what proves the commit-before-upload ordering the doc
+    // comment on `saveBrand` describes, not just that *some* row survives.
+    expect((caught as InstanceType<typeof storage.LogoUploadError>).brand.phone).toBe(
+      "+91 60000 00000"
+    );
+
+    // The rejection is honest about the logo, but not about the rest of the
+    // call: the phone edit from the failed call is durably committed...
+    const persisted = await storage.getBrand(created.id);
+    expect(persisted!.phone).toBe("+91 60000 00000");
+    // ...and the fresh logo survives too, just not migrated — it's still
+    // sitting in logo_data exactly as submitted, which is what lets the
+    // brand keep rendering a logo instead of losing it.
+    expect(persisted!.logo).toBe(TINY_PNG_DATA_URL);
+    expect(persisted!.logoPath).toBeUndefined();
   });
 
   it("never returns another org's brands", async () => {

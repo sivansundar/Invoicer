@@ -411,28 +411,84 @@ finding. Also confirm the Data API exposes the new tables — depending on proje
 
 ## 8 — Brand logos
 
+> **Amended 2026-08-13, before Phase 3.** Two decisions below replace what this section
+> originally said. Both are recorded rather than silently edited, because each looks like a
+> mistake against the other's reasoning.
+
 Private Storage bucket `brand-logos`. Objects are **content-addressed**:
 
 ```
-brand-logos/{org_id}/{brand_id}/{sha256}.png
+brand-logos/{brand_id}/{sha256}.png
 ```
 
 Replacing a logo writes a new object rather than overwriting one. Already-issued invoices keep
 resolving the logo they were issued with, which preserves the immutability `BrandSnapshot`
 already promises. A mutable path would silently rewrite the appearance of sent invoices.
 
-Policies on `storage.objects` scope by the first path segment:
+### 8.1 Why the path is not keyed by `org_id`
+
+This section originally specified `brand-logos/{org_id}/{brand_id}/{sha256}.png`, with policies
+calling `private.is_org_member` on the first segment. That collides with the invariant Phase 2
+was built on: **`org_id` never appears in application code.** Every table fills it from a column
+default (`private.current_org_id()`); a Storage object path has no such default, so the client
+would have to learn its own `org_id` and build the path from it.
+
+Keying by `brand_id` removes the need:
 
 ```sql
-using ((select private.is_org_member(((storage.foldername(name))[1])::uuid)))
+using (
+  exists (
+    select 1 from public.brands b
+    where b.id = ((storage.foldername(name))[1])::uuid
+  )
+)
 ```
+
+Policy expressions evaluate with the **querying role's** privileges, so `brands`' own RLS filters
+this subquery to the caller's org. The tenancy check is real, and no application code touches
+`org_id`.
+
+**This must be falsified, not assumed.** A policy that fails *open* looks identical to one that
+works, and Phase 1 already shipped an RLS helper that was wrong in exactly this way. The
+integration suite has to prove that user B, holding user A's brand UUID, can neither read nor
+write an object under it.
+
+The cost is org-wide erasure: deleting one prefix no longer removes an org's objects, so the
+DPDP path must list the org's brands and delete per brand. Noted for the legal phase.
 
 **Upsert needs INSERT + SELECT + UPDATE policies** — granting only INSERT makes replacement
 fail silently.
 
+### 8.2 `BrandSnapshot` carries a path *and* tolerates base64
+
+`snapshotFromBrand` copies the logo into **every invoice's** frozen `brand_snapshot`, so the
+bytes scale with invoice count, not brand count — the problem `MAX_LOGO_STORED_BYTES`
+(`@/lib/brands`) exists to bound. Moving only `brands.logo_data` to Storage would relocate the
+current logo and leave the bulk in Postgres.
+
+So `BrandSnapshot` gains `logoPath?` and **keeps `logo?`**:
+
+- New invoices snapshot the path. Bytes stop being duplicated into Postgres.
+- Snapshots already holding base64 keep rendering from it. There is no backfill.
+
+The dual path is not a transitional compromise — **§11's importer brings in pre-Postgres
+invoices whose snapshots carry base64, indefinitely.** Renderers must tolerate both however this
+was decided, so a backfill would not buy a single code path.
+
+One resolver (`useLogoSrc`) serves both, so the branch lives in one place rather than in two
+preview components and two PDF components.
+
+`Brand.logo` stays a data URL in memory: the form must preview a file before it is uploaded.
+Conversion happens at the seam.
+
 Access is via `createSignedUrl`. One implementation detail: `@react-pdf/renderer` currently
 embeds the base64 logo straight from the record. With Storage it must fetch the object and
-convert it to a data URL before rendering, or PDF generation breaks.
+convert it to a data URL before rendering, or PDF generation breaks. **The failure mode is a
+missing logo on a document already sent**, so this gets a test rather than an eyeball.
+
+`downsampleImage` re-encodes every upload through a canvas to PNG, so `.png` is accurate and no
+SVG ever reaches the bucket — the inline-script caveat in `validateLogoFile` does not follow us
+into Storage.
 
 ## 9 — Invoice numbering
 
@@ -522,6 +578,27 @@ validate, `migrate.ts` to normalise v1→v2, then upload.
 the user has verified the result. Deleting someone's only copy of their invoices on the
 strength of an upload nobody has confirmed is not a risk worth taking.
 
+> **Amended 2026-08-13, before Phase 3.**
+
+Phase 2 built the rest of this pipeline for backup restore and it is already tested:
+`remapNonUuidIds` (`@/lib/import-remap`) rewrites legacy non-uuid ids and follows their
+references, and `buildBackup`/the import path in `import-export.tsx` runs validate → normalise →
+default `currency` → remap → write. The prompt reuses that path; it does not grow a second one.
+
+**Dismissal is tracked in `localStorage`, not the database.** The prompt is about *this device's*
+data. A database flag would silently suppress it on a second browser holding different local
+data — which is the one case where asking again is correct.
+
+Two limitations carried from Phase 2's import work apply here unchanged and are stated in
+`docs/PHASE3-CARRYOVER.md`: importing the same data twice duplicates records whose ids were
+rewritten, and import is not all-or-nothing because conflict resolution spans interactive dialog
+round-trips.
+
+Phase 2 deliberately stopped touching local data — `Shell` no longer runs the v1→v2 migration on
+mount, because that rewrote a user's local copy before they had chosen to bring it into their
+account. For anyone still on the old build that is their only copy. **Nothing in this phase may
+write to `invoicer_*` keys either.**
+
 ## 12 — Landing page
 
 Marketing routes are static RSC — no Supabase client, no client bundle, indexable.
@@ -608,14 +685,32 @@ Blocking. Not post-launch cleanup.
 | 6 | Landing page, SEO, `metadataBase`, PostHog, Sentry |
 | 7 | Launch gates (§15), then launch |
 
+**How this maps to what actually shipped.** Branches did not land one-per-row — phases 1 and 2
+went together because auth is untestable without the schema, and the numbering RPC moved up out
+of phase 4 because phase 3's seam had to call it rather than be rewritten later.
+
+| Branch | Spec phases | Landed as |
+|---|---|---|
+| `feat/saas-phase1-auth` | 1 + 2 | PR #7 → `v1` |
+| `feat/saas-phase2-data` | 3, plus numbering from 4 | PR #8 → `v1` |
+| `feat/saas-phase3-logos-import` | rest of 4 (logos), 5 | in progress |
+| — | 6 | not started |
+| — | 7 | not started |
+
+Reconcile against the branch column, not the phase numbers.
+
 ## 17 — Risks
 
-1. **Phase 3 is the schedule risk.** Everything else is additive; that phase touches every
-   screen, and the loading-state pass is easy to underestimate.
+1. ~~**Phase 3 is the schedule risk.**~~ **Retired** — shipped in PR #8. The estimate held, but
+   the loading-state pass was not where the time went: it went into discovering that three
+   separate tests passed for the wrong reason. See the process note in
+   `docs/PHASE3-CARRYOVER.md`.
 2. **`/` → `/dashboard` breaks existing bookmarks.** Unavoidable once the landing page owns
    the root.
-3. **Retiring local-only mode contradicts the repo's public promise.** Communicate it; do not
-   let people discover it.
+3. ~~**Retiring local-only mode contradicts the repo's public promise.**~~ **Partly addressed** —
+   PR #8 rewrote the README, removing "your data never leaves your machine" and adding a
+   migration section. Still owed: telling existing users, which the §11 prompt is the vehicle
+   for.
 4. **You will be holding other people's financial data.** §15 is not optional and not a
    launch-day scramble.
 5. **The provisional-invoice-number behaviour change** (§9) is subtle and user-visible. Worth

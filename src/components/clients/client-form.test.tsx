@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientForm } from "./client-form";
@@ -127,6 +127,7 @@ describe("ClientForm", () => {
       renderWithProviders(<ClientForm client={client()} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
+      await user.click(screen.getByRole("button", { name: /^delete$/i }));
 
       await waitFor(() => expect(push).toHaveBeenCalledWith("/clients"));
 
@@ -149,6 +150,7 @@ describe("ClientForm", () => {
       renderWithProviders(<ClientForm client={client()} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
+      await user.click(screen.getByRole("button", { name: /^delete$/i }));
 
       // Order matters: nulling references before confirming the delete
       // persisted would risk unlinking invoices from a client that's still
@@ -157,6 +159,50 @@ describe("ClientForm", () => {
       expect(storage.saveInvoice).not.toHaveBeenCalled();
       expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("removed"));
       expect(push).not.toHaveBeenCalled();
+    });
+
+    it("does not delete until the confirmation is accepted", async () => {
+      // Deleting a client also nulls `clientId` on every invoice that
+      // references it. Invoice delete confirms; this is strictly more
+      // consequential and did not.
+      seed({ clients: [client()] });
+
+      const user = userEvent.setup();
+      renderWithProviders(<ClientForm client={client()} />);
+      await user.click(screen.getByRole("button", { name: /delete client/i }));
+
+      expect(storage.deleteClient).not.toHaveBeenCalled();
+      expect(await screen.findByText(/cannot be undone/i)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /^delete$/i }));
+      // The mutation's second arg is TanStack Query's own call context
+      // (queryClient/meta/mutationKey), not something this component
+      // controls — only the id passed to `remove` matters here.
+      await waitFor(() =>
+        expect(storage.deleteClient).toHaveBeenCalledWith("c1", expect.anything())
+      );
+    });
+
+    it("deletes nothing when the confirmation is cancelled", async () => {
+      seed({ clients: [client()] });
+
+      const user = userEvent.setup();
+      renderWithProviders(<ClientForm client={client()} />);
+      await user.click(screen.getByRole("button", { name: /delete client/i }));
+
+      // Without this, the test would pass identically whether the dialog
+      // opened or not — the form has its own always-present Cancel button
+      // (unrelated to deletion) with the same accessible name, so a
+      // page-wide `getByRole` query resolves to *something* even when the
+      // confirmation flow never ran. Scoping to the dialog itself, after
+      // confirming it's open, is what actually proves this test exercises
+      // the confirm-then-cancel path.
+      const dialog = await screen.findByRole("dialog");
+      within(dialog).getByText(/cannot be undone/i);
+
+      await user.click(within(dialog).getByRole("button", { name: /cancel/i }));
+
+      expect(storage.deleteClient).not.toHaveBeenCalled();
     });
 
     it("reports a partial failure honestly instead of claiming full success", async () => {
@@ -178,6 +224,7 @@ describe("ClientForm", () => {
       renderWithProviders(<ClientForm client={client()} />);
 
       await user.click(screen.getByRole("button", { name: "Delete client" }));
+      await user.click(screen.getByRole("button", { name: /^delete$/i }));
 
       // The client itself is still gone — that write succeeded and isn't
       // undone — but the summary must name the shortfall, not claim a plain

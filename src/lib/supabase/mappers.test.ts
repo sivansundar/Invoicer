@@ -27,7 +27,6 @@ function brand(overrides: Partial<Brand> = {}): Brand {
       ifscCode: "HDFC0000123",
     },
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
     followup: {
@@ -98,19 +97,26 @@ describe("brand mapping", () => {
     expect("gst_number" in row).toBe(true);
   });
 
-  it("carries the logo through logo_data, not logo_path", () => {
+  it("carries the base64 logo through logo_data", () => {
     const row = brandToRow(brand({ logo: "data:image/png;base64,AAAA" }));
 
     expect(row.logo_data).toBe("data:image/png;base64,AAAA");
-    expect("logo_path" in row).toBe(false);
+  });
+
+  it("carries logo_path in both directions", () => {
+    const row = brandToRow(brand({ logoPath: "b/abc.png" }));
+    expect(row.logo_path).toBe("b/abc.png");
+    expect(rowToBrand({ ...(row as BrandRow), logo_path: "b/abc.png" }).logoPath).toBe(
+      "b/abc.png"
+    );
+  });
+
+  it("nulls logo_path when the brand has none, so the column can be cleared", () => {
+    expect(brandToRow(brand({ logoPath: undefined })).logo_path).toBeNull();
   });
 
   it("never writes org_id — the column default owns tenancy", () => {
     expect("org_id" in brandToRow(brand())).toBe(false);
-  });
-
-  it("drops the dead nextInvoiceNumber field rather than persisting it", () => {
-    expect("next_invoice_number" in brandToRow(brand({ nextInvoiceNumber: 47 }))).toBe(false);
   });
 
   it("reads a null email as an empty string, since Brand.email is required", () => {

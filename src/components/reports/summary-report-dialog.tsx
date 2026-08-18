@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { FileBarChart } from "lucide-react";
+import { toast } from "sonner";
 import { Invoice, Brand, InvoiceStatus } from "@/lib/types";
 import {
   FY_MONTHS,
@@ -144,7 +145,7 @@ export function SummaryReportDialog({ invoices, brands }: SummaryReportDialogPro
       setPreviewUrl(URL.createObjectURL(blob));
       setStep("preview");
     } catch {
-      alert("Failed to generate the report. Please try again.");
+      toast("Failed to generate the report. Please try again.");
     } finally {
       setGenerating(false);
     }

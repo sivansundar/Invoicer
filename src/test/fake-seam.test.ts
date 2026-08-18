@@ -25,6 +25,17 @@ describe("the fake seam matches @/lib/storage", () => {
     expect(exportsOf(fake)).toEqual(exportsOf(real));
   });
 
+  it("re-exports the SAME LogoUploadError class, not a lookalike", () => {
+    // The name-parity and typeof checks below both pass for a fake that
+    // declares its own `class LogoUploadError extends Error {}` — a class
+    // and an arrow function both report typeof "function". A locally
+    // redefined class would silently defeat every `instanceof
+    // LogoUploadError` check in callers like `brand-form.tsx`, which is the
+    // entire reason `storage-errors.ts` exists as its own module. Identity,
+    // not shape, is the guarantee that matters here.
+    expect(fake.LogoUploadError).toBe(real.LogoUploadError);
+  });
+
   it("exports a function wherever the real module does", () => {
     for (const name of exportsOf(real)) {
       const realExport = (real as Record<string, unknown>)[name];

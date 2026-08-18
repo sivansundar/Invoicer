@@ -15,6 +15,14 @@ export const queryKeys = {
   clients: ["clients"] as const,
   invoices: ["invoices"] as const,
   templates: ["templates"] as const,
+  /**
+   * Signed URLs expire, so this key is per-path and the caller sets a
+   * `staleTime` below the expiry. Keyed by object path rather than brand id
+   * because the path is content-addressed — two brands sharing an image
+   * share the URL, and a replaced logo is a different key rather than a
+   * stale entry.
+   */
+  logoUrl: (path: string) => ["logo-url", path] as const,
 };
 
 /**

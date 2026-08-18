@@ -23,10 +23,16 @@ export interface Brand {
   phone?: string;
   gstNumber?: string;
   panNumber?: string;
-  logo?: string; // base64 data URL
+  logo?: string; // base64 data URL — a fresh upload, or a pre-Storage brand
+  /**
+   * Storage object path, `{brand_id}/{sha256}.png`. Set once the logo is in
+   * the bucket. `logo` above stays for two reasons: the form must preview a
+   * file before it is uploaded, and brands written before Storage existed
+   * still carry base64 in `logo_data`.
+   */
+  logoPath?: string;
   bankDetails: BankDetails;
   invoicePrefix: string;
-  nextInvoiceNumber: number;
   createdAt: string;
   accentColor: string;
   followup: FollowupConfig;
@@ -142,6 +148,13 @@ export interface BrandSnapshot {
   gstNumber?: string;
   panNumber?: string;
   logo?: string;
+  /**
+   * Set on snapshots frozen after logos moved to Storage. Snapshots frozen
+   * before that carry base64 in `logo` and keep rendering from it — and will
+   * keep arriving indefinitely, because the §11 importer brings in
+   * pre-Postgres invoices. Both shapes are permanent; see spec §8.2.
+   */
+  logoPath?: string;
   invoicePrefix: string;
   accentColor: string;
   bankDetails: BankDetails;

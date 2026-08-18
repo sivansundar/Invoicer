@@ -39,6 +39,12 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54421
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from supabase status>
 ```
 
+`NEXT_PUBLIC_SITE_URL` (optional locally, required in any deployed environment) sets
+`metadataBase` in `src/app/layout.tsx` so relative Open Graph/Twitter image paths resolve
+against the right host. Unset, `next dev` falls back to `http://localhost:3000`, which is only
+ever correct locally — a deployed build without it points social share cards at a host the
+crawler cannot reach.
+
 Create **`.env.test.local`** (gitignored) — what the integration suite needs. It uses the
 service-role key and a direct Postgres connection; the app uses neither:
 
@@ -115,3 +121,9 @@ Replay migrations from scratch with `supabase db reset`.
 - **The build must show `ƒ Proxy (Middleware)`.** Its absence means `src/proxy.ts` is not being
   detected — the auth guard would be silently inert. It lives in `src/`, not the repo root,
   because this project uses a `src/app` layout.
+- **PostgREST is not ready the instant `supabase db reset` returns.** Immediately after a reset,
+  the REST and Storage APIs answer with "Could not query the database for the schema cache"
+  until PostgREST reloads its schema cache, which is not instantaneous. This took three
+  consecutive integration runs to clear during one branch's work, not one, so a fixed retry
+  count is not enough headroom — any script or pipeline that resets the database and then hits
+  `/rest/v1/` or Storage needs to poll until it actually answers before proceeding.

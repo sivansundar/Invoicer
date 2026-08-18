@@ -1,6 +1,39 @@
 import { vi } from "vitest";
 import type { Brand, Client, EmailTemplate, Invoice, PlanState } from "@/lib/types";
 import { formatInvoiceNumber, parseInvoiceNumber } from "@/lib/numbering";
+import { LogoUploadError } from "@/lib/storage-errors";
+
+/**
+ * Re-exported from `@/lib/storage-errors`, not from `@/lib/storage` itself.
+ *
+ * `vi.mock("@/lib/storage", () => import("@/test/fake-seam"))` (used by
+ * every consumer of this fake) intercepts EVERY import of `@/lib/storage`
+ * within that test file's module graph. Re-exporting straight from
+ * `@/lib/storage` looks like the obvious move, but under that mock it turns
+ * into this very file importing itself while still mid-load, and the two
+ * loads deadlock waiting on each other (confirmed: it hangs `vitest run`
+ * rather than failing). `@/lib/storage-errors` is never mocked, so both this
+ * fake and the real `@/lib/storage` import and re-export the SAME class
+ * object in every context — `instanceof LogoUploadError` stays reliable
+ * even against a partial mock of `@/lib/storage` (e.g. `vi.importActual`
+ * plus one overridden export) that a locally-duplicated class here would
+ * silently defeat. `fake-seam.test.ts` checks this module exports the same
+ * names as the real one, so a future edit that drops or renames this would
+ * be caught there.
+ *
+ * Written as `export { X } from "…"` rather than a separate bare
+ * `export { X };` after the `import` above — the two are usually
+ * interchangeable, but the bare form here was observed to silently export
+ * `undefined` instead of the class under vitest. The precise mechanism was
+ * not pinned down, but this module's confirmed circular relationship with
+ * `@/lib/storage` (described above) is a plausible source: vitest's
+ * transform rewrites imported bindings, and a circular import can snapshot
+ * one before it's assigned. That is a plausible explanation, not a
+ * confirmed one — don't treat it as settled. What's confirmed is the
+ * symptom, and that the `export … from` form does not exhibit it; keep it
+ * this way.
+ */
+export { LogoUploadError } from "@/lib/storage-errors";
 
 /**
  * An in-memory stand-in for `@/lib/storage`, for unit tests.
@@ -116,12 +149,49 @@ export const getBrand = vi.fn(async (id: string): Promise<Brand | null> => {
 
 export const saveBrand = vi.fn(async (brand: Brand): Promise<Brand> => {
   maybeFail("saveBrand");
-  return upsert(state.brands, brand);
+  // Mirrors the real seam's non-atomic, two-write ordering (see the doc
+  // comment on `saveBrand` in `@/lib/storage.ts`): the whole row — a fresh
+  // data URL included, verbatim — commits FIRST, before the upload is even
+  // attempted. Only once that row exists does the upload run, followed by a
+  // second write that swaps the base64 for the path. A `uploadBrandLogo`
+  // failure after this point therefore leaves the row committed with its
+  // base64 intact, exactly like a caller of the real seam would see —
+  // upserting only after a successful upload (an earlier version of this
+  // fake) would instead lose the row entirely on that failure, which the
+  // real seam never does.
+  let result = upsert(state.brands, brand);
+  if (brand.logo?.startsWith("data:")) {
+    try {
+      const logoPath = await uploadBrandLogo(brand.id, brand.logo);
+      result = upsert(state.brands, { ...brand, logoPath, logo: undefined });
+    } catch (err) {
+      // The real seam wraps this exact failure so a caller can tell "the
+      // row is committed, the logo isn't" from "nothing was written". A
+      // fake that rethrows bare would let a caller-side regression pass.
+      throw new LogoUploadError(result, err);
+    }
+  }
+  return result;
 });
 
 export const deleteBrand = vi.fn(async (id: string): Promise<void> => {
   maybeFail("deleteBrand");
   state.brands = state.brands.filter((b) => b.id !== id);
+});
+
+export const LOGO_URL_TTL_SECONDS = 3600;
+
+export const uploadBrandLogo = vi.fn(async (brandId: string, dataUrl: string): Promise<string> => {
+  maybeFail("uploadBrandLogo");
+  // Deterministic but not a real digest — component tests care that a path
+  // is produced and threaded through, not that it hashes correctly. The real
+  // hashing has its own unit tests in `logo-storage.test.ts`.
+  return `${brandId}/${dataUrl.length}.png`;
+});
+
+export const getLogoUrl = vi.fn(async (path: string): Promise<string> => {
+  maybeFail("getLogoUrl");
+  return `https://signed.test/${path}`;
 });
 
 // Clients

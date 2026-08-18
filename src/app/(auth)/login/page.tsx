@@ -15,6 +15,10 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
+  // Separate from `pending` above: the email form and this button can be in
+  // flight independently, and one shared flag would disable the form the
+  // user is still typing into.
+  const [googlePending, setGooglePending] = useState(false);
 
   const callbackUrl = () =>
     `${window.location.origin}/callback?next=${encodeURIComponent(next)}`;
@@ -37,12 +41,19 @@ function LoginForm() {
   }
 
   async function handleGoogle() {
+    setGooglePending(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: callbackUrl() },
     });
-    if (error) toast(error.message);
+    // Deliberately not cleared on success: a resolved promise means the
+    // browser is about to navigate away, and re-enabling the button in the
+    // frames before that happens invites a second OAuth flow.
+    if (error) {
+      setGooglePending(false);
+      toast(error.message);
+    }
   }
 
   if (sent) {
@@ -80,8 +91,8 @@ function LoginForm() {
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <Button type="button" variant="outline" onClick={handleGoogle}>
-        Continue with Google
+      <Button type="button" variant="outline" onClick={handleGoogle} disabled={googlePending}>
+        {googlePending ? "Redirecting…" : "Continue with Google"}
       </Button>
     </div>
   );

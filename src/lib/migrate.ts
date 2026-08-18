@@ -111,6 +111,7 @@ export function snapshotFromBrand(brand: Brand): BrandSnapshot {
     gstNumber: brand.gstNumber,
     panNumber: brand.panNumber,
     logo: brand.logo,
+    logoPath: brand.logoPath,
     invoicePrefix: brand.invoicePrefix,
     accentColor: brand.accentColor,
     bankDetails: brand.bankDetails,
