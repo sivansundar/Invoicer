@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
 import { invoicesToUnlink } from "@/lib/clients";
@@ -31,6 +39,7 @@ export function ClientForm({ client }: ClientFormProps) {
   const [email, setEmail] = useState(client?.email ?? "");
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(client?.gstNumber ?? "");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const clientInvoices = isEdit ? invoicesToUnlink(client.id, invoices) : [];
 
@@ -130,129 +139,169 @@ export function ClientForm({ client }: ClientFormProps) {
   };
 
   return (
-    <div className="p-6 max-w-[660px]">
-      <Link
-        href="/clients"
-        className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
-      >
-        <ChevronLeft className="size-3.5" />
-        Clients
-      </Link>
-      <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
-        {isEdit ? `Edit ${client.companyName}` : "New client"}
-      </h1>
-      <p className="text-sm text-muted-foreground mt-1">
-        {isEdit
-          ? "Changes apply from here on — invoices already sent keep their own copy of the original details."
-          : "Add them once — they'll appear in every invoice form."}
-      </p>
+    <>
+      <div className="p-6 max-w-[660px]">
+        <Link
+          href="/clients"
+          className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground w-fit"
+        >
+          <ChevronLeft className="size-3.5" />
+          Clients
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] mt-3">
+          {isEdit ? `Edit ${client.companyName}` : "New client"}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isEdit
+            ? "Changes apply from here on — invoices already sent keep their own copy of the original details."
+            : "Add them once — they'll appear in every invoice form."}
+        </p>
 
-      <form
-        onSubmit={handleSubmit}
-        className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-5 mt-6"
-      >
-        <div className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Company name</Label>
-            <Input
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="e.g. Acme Studio"
+        <form
+          onSubmit={handleSubmit}
+          className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-5 mt-6"
+        >
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Company name</Label>
+              <Input
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="e.g. Acme Studio"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Contact person</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Optional"
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Address</Label>
+            <Textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Street, city, PIN"
+              rows={3}
               className="text-sm"
             />
           </div>
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Contact person</Label>
+
+          <div className="flex gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="accounts@company.com"
+                className="text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Phone</Label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Optional"
+                className="text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">GST number</Label>
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={gstNumber}
+              onChange={(e) => setGstNumber(e.target.value)}
               placeholder="Optional"
-              className="text-sm"
+              className="text-sm max-w-[280px]"
             />
           </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Address</Label>
-          <Textarea
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Street, city, PIN"
-            rows={3}
-            className="text-sm"
-          />
-        </div>
-
-        <div className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Email</Label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="accounts@company.com"
-              className="text-sm"
-            />
+          <div className="flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/clients")}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm">
+              {isEdit ? "Save changes" : "Add client"}
+            </Button>
           </div>
-          <div className="flex-1 min-w-[200px] space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Phone</Label>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Optional"
-              className="text-sm"
-            />
+        </form>
+
+        {isEdit && (
+          <div className="flex items-center gap-3 mt-4">
+            <span className="text-[13px] text-muted-foreground">
+              {clientInvoices.length === 0
+                ? "No invoices reference this client yet"
+                : `${clientInvoices.length} ${
+                    clientInvoices.length === 1 ? "invoice keeps" : "invoices keep"
+                  } its own copy of these details — deleting won't change them`}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                "ml-auto",
+                "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
+              )}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete client
+            </Button>
           </div>
-        </div>
+        )}
+      </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">GST number</Label>
-          <Input
-            value={gstNumber}
-            onChange={(e) => setGstNumber(e.target.value)}
-            placeholder="Optional"
-            className="text-sm max-w-[280px]"
-          />
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/clients")}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" size="sm">
-            {isEdit ? "Save changes" : "Add client"}
-          </Button>
-        </div>
-      </form>
-
-      {isEdit && (
-        <div className="flex items-center gap-3 mt-4">
-          <span className="text-[13px] text-muted-foreground">
-            {clientInvoices.length === 0
-              ? "No invoices reference this client yet"
-              : `${clientInvoices.length} ${
-                  clientInvoices.length === 1 ? "invoice keeps" : "invoices keep"
-                } its own copy of these details — deleting won't change them`}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className={cn(
-              "ml-auto",
-              "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
-            )}
-            onClick={handleDelete}
-          >
-            Delete client
-          </Button>
-        </div>
-      )}
-    </div>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete client</DialogTitle>
+            <DialogDescription>
+              {/* Names the cascade explicitly. `handleDelete` nulls `clientId`
+                  on every referencing invoice, and a user who only expects
+                  the client record to go is not consenting to that. */}
+              Are you sure you want to delete {client?.companyName}?{" "}
+              {clientInvoices.length > 0
+                ? `${clientInvoices.length} invoice${clientInvoices.length === 1 ? "" : "s"} ` +
+                  `will keep their own copy of these details but will no longer be linked to a client. `
+                : ""}
+              This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setDeleteOpen(false);
+                handleDelete().catch(() => {
+                  // handleDelete already toasts every rejection it can
+                  // produce; this only stops a bug in the handler from
+                  // surfacing as an unhandled rejection.
+                });
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
