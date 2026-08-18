@@ -34,8 +34,8 @@ function GoogleMark() {
 function Tick({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-ink">
-        <Check className="size-3 text-canvas" strokeWidth={3} />
+      <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-ink text-canvas">
+        <Check className="size-3" strokeWidth={3} />
       </span>
       <span className="text-[14.5px] text-ink-2">{children}</span>
     </div>
@@ -171,7 +171,7 @@ export default function LoginPage() {
       <div className="relative hidden min-w-0 flex-1 flex-col overflow-hidden p-11 lg:flex xl:p-14">
         <div
           aria-hidden
-          className="absolute inset-0"
+          className="absolute inset-0 dark:hidden"
           style={{
             background: `
               radial-gradient(90% 80% at 8% 6%, oklch(0.88 0.075 235) 0%, transparent 58%),
@@ -181,10 +181,22 @@ export default function LoginPage() {
               oklch(0.955 0.02 250)`,
           }}
         />
+        <div
+          aria-hidden
+          className="absolute inset-0 hidden dark:block"
+          style={{
+            background: `
+              radial-gradient(90% 80% at 8% 6%, oklch(0.34 0.09 250) 0%, transparent 58%),
+              radial-gradient(85% 75% at 96% 4%, oklch(0.32 0.075 90) 0%, transparent 60%),
+              radial-gradient(110% 95% at 78% 100%, oklch(0.31 0.08 26) 0%, transparent 62%),
+              radial-gradient(100% 90% at 20% 92%, oklch(0.30 0.075 300) 0%, transparent 60%),
+              oklch(0.185 0.02 260)`,
+          }}
+        />
         {/* The same fine grain the setup card uses, so the panel is not a flat wash. */}
         <div
           aria-hidden
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-30 dark:opacity-[0.06]"
           style={{
             backgroundImage: "radial-gradient(oklch(1 0 0) 1px, transparent 1px)",
             backgroundSize: "5px 5px",
@@ -192,47 +204,47 @@ export default function LoginPage() {
         />
 
         <div className="relative flex items-center gap-3">
-          <span className="inline-flex size-10 items-center justify-center rounded-[11px] bg-[oklch(0.19_0.004_70)] text-base font-semibold text-white">
+          <span className="inline-flex size-10 items-center justify-center rounded-[11px] bg-ink text-base font-semibold text-canvas">
             I
           </span>
-          <span className="text-[17px] font-semibold tracking-[-0.015em] text-[oklch(0.19_0.004_70)]">
+          <span className="text-[17px] font-semibold tracking-[-0.015em] text-ink">
             Invoicer
           </span>
         </div>
 
         <div className="relative flex max-w-[520px] flex-1 flex-col justify-center">
-          <h2 className="font-display text-[54px] leading-[1.04] tracking-[-0.018em] text-[oklch(0.19_0.004_70)] text-pretty">
+          <h2 className="font-display text-[54px] leading-[1.04] tracking-[-0.018em] text-ink text-pretty">
             Bill under every name you work as.
           </h2>
-          <p className="mt-5 max-w-[440px] text-[16.5px] leading-relaxed text-[oklch(0.32_0.008_70)] text-pretty">
+          <p className="mt-5 max-w-[440px] text-[16.5px] leading-relaxed text-ink-2 text-pretty">
             Keep each business separate — its own logo, GST number, bank details and invoice series
             — and run them all from one dashboard.
           </p>
 
-          <div className="mt-8 flex flex-col gap-3.5 [&_span]:!text-[oklch(0.32_0.008_70)]">
+          <div className="mt-8 flex flex-col gap-3.5 [&_span]:!text-ink-2">
             <Tick>A frozen brand snapshot on every invoice</Tick>
             <Tick>Print-ready PDFs with your bank details</Tick>
             <Tick>Reminders that chase late payers for you</Tick>
           </div>
 
           {/* Proof in the product's own vocabulary rather than a stock quote. */}
-          <div className="mt-10 max-w-[392px] rounded-[15px] border border-white/70 bg-white p-[17px_19px] shadow-[0_10px_28px_oklch(0.19_0.02_250_/_0.10)]">
+          <div className="mt-10 max-w-[392px] rounded-[15px] border bg-surface p-[17px_19px] shadow-[0_10px_28px_oklch(0.19_0.02_250_/_0.10)] dark:shadow-[0_10px_28px_oklch(0_0_0_/_0.35)]">
             <div className="flex items-center gap-2.5">
               <span className="size-[9px] shrink-0 rounded-full bg-blue" />
-              <span className="text-[13.5px] text-[oklch(0.32_0.008_70)]">Sundar Consulting</span>
+              <span className="text-[13.5px] text-ink-2">Sundar Consulting</span>
               <span className="flex-1" />
               <StatusPill status="paid" />
             </div>
             <div className="mt-3.5 flex items-end gap-3">
               <div className="min-w-0 flex-1">
-                <div className="font-mono text-[13px] text-[oklch(0.5_0.008_70)]">SC-2026-041</div>
-                <div className="mt-0.5 text-[26px] font-semibold tracking-[-0.03em] text-[oklch(0.19_0.004_70)] tabular-nums">
+                <div className="font-mono text-[13px] text-ink-3">SC-2026-041</div>
+                <div className="mt-0.5 text-[26px] font-semibold tracking-[-0.03em] text-ink tabular-nums">
                   ₹1,20,000
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[12.5px] text-[oklch(0.5_0.008_70)]">Settled in</div>
-                <div className="mt-0.5 text-[14.5px] font-medium text-[oklch(0.19_0.004_70)] tabular-nums">
+                <div className="text-[12.5px] text-ink-3">Settled in</div>
+                <div className="mt-0.5 text-[14.5px] font-medium text-ink tabular-nums">
                   11 days
                 </div>
               </div>
@@ -240,7 +252,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="relative text-[13px] text-[oklch(0.5_0.008_70)]">
+        <div className="relative text-[13px] text-ink-3">
           Your data lives in your own account, in Postgres.
         </div>
       </div>
