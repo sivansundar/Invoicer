@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { useExportBackup } from "./use-export-backup";
 import { Invoice } from "@/lib/types";
 import { getInvoices, getBrands, getClients, getTemplates } from "@/lib/storage";
 import {
@@ -112,6 +113,7 @@ function toCollectionResult(
 }
 
 export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
+  const { exportBackup, pending: exportPending } = useExportBackup();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [nonConflicting, setNonConflicting] = useState<Invoice[]>([]);
@@ -144,21 +146,6 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
 
   const [summary, setSummary] = useState<DialogSummary | null>(null);
   const [showSummary, setShowSummary] = useState(false);
-
-  const handleExport = async () => {
-    const backup = await buildBackup();
-    const blob = new Blob([JSON.stringify(backup, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `invoicer-backup-${new Date().toISOString().split("T")[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
 
   /**
    * Shared by the legacy bare-array path and the full-backup envelope path
@@ -462,18 +449,11 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         variant="outline"
         size="sm"
         className="text-xs gap-1.5"
-        onClick={() => {
-          handleExport().catch((err: unknown) => {
-            toast(
-              err instanceof Error
-                ? `Export failed — ${err.message}`
-                : "Export failed. Nothing was downloaded."
-            );
-          });
-        }}
+        disabled={exportPending}
+        onClick={exportBackup}
       >
         <Download className="h-3.5 w-3.5" />
-        Export
+        {exportPending ? "Exporting…" : "Export"}
       </Button>
 
       {/* Conflict Resolution Dialog */}

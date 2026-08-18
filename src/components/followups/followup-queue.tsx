@@ -4,6 +4,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Panel, SectionLabel } from "@/components/ui/primitives";
 import type { FollowupQueueEntry } from "@/lib/followup-queue";
 import { timeLabel } from "@/lib/followups";
 import type { EmailTemplate, Invoice } from "@/lib/types";
@@ -36,11 +37,11 @@ export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQue
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold">Going out next</h2>
+    <div className="flex flex-col gap-3.5">
+      <SectionLabel>Going out next</SectionLabel>
 
-      <div className="border rounded-[14px] bg-card overflow-hidden">
-        <div className="flex items-center h-10 px-4 bg-muted border-b text-sm font-medium">
+      <Panel className="overflow-hidden">
+        <div className="flex items-center border-b px-5 py-3 text-[12.5px] font-medium text-ink-3">
           <div className="flex-[0_0_130px]">Invoice</div>
           <div className="flex-[1.3]">Client</div>
           <div className="flex-1">Reminder</div>
@@ -53,7 +54,7 @@ export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQue
           return (
             <div
               key={entry.invoice.id}
-              className="flex items-center px-4 py-3 border-b last:border-b-0 text-sm"
+              className="flex items-center border-b px-5 py-3.5 text-sm last:border-b-0"
             >
               <div className="flex-[0_0_130px] flex items-center gap-1.5 pr-2">
                 <span
@@ -88,7 +89,7 @@ export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQue
             </div>
           );
         })}
-      </div>
+      </Panel>
     </div>
   );
 }
