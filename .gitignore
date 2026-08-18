@@ -44,3 +44,6 @@ next-env.d.ts
 
 # agent worktrees
 .claude/worktrees/
+
+# Seeded design canvas (2MB payload; regenerate from design/)
+design/invoicer-redesign.html

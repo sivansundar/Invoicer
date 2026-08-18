@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: oklch(0.52 0.008 70); text-decoration: none; }
+    a:hover { color: oklch(0.19 0.004 70); }
+    .iv, .iv * { box-sizing: border-box; }
+    .iv { -webkit-font-smoothing: antialiased; }
+  </style>
+</helmet>
+
+<div class="iv" style="--blue: {{accent}};
+      --canvas:      oklch(0.955 0.004 70);
+      --surface:     oklch(1 0 0);
+      --ink:         oklch(0.19 0.004 70);
+      --ink-2:       oklch(0.52 0.008 70);
+      --ink-3:       oklch(0.66 0.008 70);
+      --line:        oklch(0.898 0.004 70);
+      --line-2:      oklch(0.932 0.004 70);
+      --field:       oklch(0.928 0.004 70);
+      --blue-soft:   oklch(0.945 0.028 258);
+      --green:       oklch(0.60 0.145 152);
+      --green-soft:  oklch(0.945 0.038 152);
+      --amber:       oklch(0.715 0.148 62);
+      --amber-soft:  oklch(0.950 0.045 62);
+      --red:         oklch(0.585 0.205 27);
+      --red-soft:    oklch(0.950 0.032 27);
+      --violet:      oklch(0.575 0.185 295);
+      --violet-soft: oklch(0.950 0.032 295);
+      --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+      --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.06), 0 0 0 1px oklch(0.898 0.004 70);
+
+    width: 1440px; height: 900px; display: flex; overflow: hidden;
+    background: var(--canvas); color: var(--ink);
+    font-family: Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 14px; letter-spacing: -0.005em; ">
+
+  <!-- LEFT: the callout -->
+  <div style="flex:1 1 50%;min-width:0;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:44px 56px;
+      background:
+        radial-gradient(90% 80% at 8% 6%, oklch(0.88 0.075 235) 0%, transparent 58%),
+        radial-gradient(85% 75% at 96% 4%, oklch(0.94 0.085 92) 0%, transparent 60%),
+        radial-gradient(110% 95% at 78% 100%, oklch(0.90 0.065 26) 0%, transparent 62%),
+        radial-gradient(100% 90% at 20% 92%, oklch(0.91 0.055 300) 0%, transparent 60%),
+        oklch(0.955 0.02 250)">
+
+    <!-- fine dot texture, the same grain the reference uses on its gradient cards -->
+    <div style="position:absolute;inset:0;pointer-events:none;opacity:0.28;
+        background-image:radial-gradient(oklch(1 0 0) 1px, transparent 1px);background-size:5px 5px"></div>
+
+    <div style="position:relative;display:flex;align-items:center;gap:11px">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;background:var(--ink);color:#fff;font-size:16px;font-weight:600">I</span>
+      <span style="font-size:17px;font-weight:600;letter-spacing:-0.015em;color:var(--ink)">Invoicer</span>
+    </div>
+
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:center;max-width:520px">
+      <h2 style="margin:0;font-size:46px;line-height:1.08;font-weight:600;letter-spacing:-0.032em;color:var(--ink);text-wrap:pretty">Bill under every name you work as.</h2>
+      <p style="margin:20px 0 0;font-size:16.5px;line-height:1.55;color:var(--ink-2);max-width:440px;text-wrap:pretty">
+        Keep each business separate — its own logo, GST number, bank details and invoice series — and run them all from one dashboard.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:13px;margin-top:32px">
+        <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex-shrink:0;border-radius:999px;background:var(--ink);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span style="font-size:14.5px;color:var(--ink-2)">A frozen brand snapshot on every invoice</span>
+      </div>
+        <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex-shrink:0;border-radius:999px;background:var(--ink);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span style="font-size:14.5px;color:var(--ink-2)">Print-ready PDFs with your bank details</span>
+      </div>
+        <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;flex-shrink:0;border-radius:999px;background:var(--ink);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span style="font-size:14.5px;color:var(--ink-2)">Reminders that chase late payers for you</span>
+      </div>
+      </div>
+
+      <!-- Product-vocabulary proof, not a stock testimonial -->
+      <div style="margin-top:40px;max-width:392px;background:var(--surface);border:1px solid oklch(1 0 0 / 0.7);border-radius:15px;box-shadow:0 10px 28px oklch(0.19 0.02 250 / 0.10), 0 2px 6px oklch(0.19 0.02 250 / 0.06);padding:17px 19px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="width:9px;height:9px;border-radius:999px;background:var(--blue);flex-shrink:0"></span>
+          <span style="font-size:13.5px;color:var(--ink-2)">Sundar Consulting</span>
+          <span style="flex:1"></span>
+          <span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--green-soft);color:var(--green);font-size:12.5px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:999px;background:var(--green)"></span>Paid</span>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:12px;margin-top:14px">
+          <div style="flex:1;min-width:0">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;color:var(--ink-3)">SC-2026-041</div>
+            <div style="font-size:26px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums;color:var(--ink);margin-top:3px">₹1,20,000</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12.5px;color:var(--ink-3)">Settled in</div>
+            <div style="font-size:14.5px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:2px">11 days</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:relative;font-size:13px;color:var(--ink-3)">Your data lives in your own account, in Postgres.</div>
+  </div>
+
+  <!-- RIGHT: sign in -->
+  <div style="flex:1 1 50%;min-width:0;background:var(--canvas);border-left:1px solid var(--line);display:flex;flex-direction:column;padding:44px 56px">
+
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
+      <span style="font-size:13.5px;color:var(--ink-3)">New here? The same button makes your account.</span>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center">
+      <div style="width:100%;max-width:396px;margin:0 auto">
+
+        <h1 style="margin:0;font-size:30px;font-weight:600;letter-spacing:-0.025em;color:var(--ink)">Sign in</h1>
+        <p style="margin:9px 0 0;font-size:15px;line-height:1.5;color:var(--ink-2)">One click with Google, or a link in your inbox. No password to remember.</p>
+
+        <!-- Fastest path first -->
+        <button style="display:flex;align-items:center;justify-content:center;gap:11px;width:100%;height:48px;margin-top:28px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-card);font-family:inherit;font-size:15px;font-weight:500;color:var(--ink)">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="none" style="flex-shrink:0"><path d="M12 11v2.8h6.5a5.6 5.6 0 0 1-2.4 3.7l3.9 3a9.9 9.9 0 0 0 3-7.4c0-.7-.1-1.4-.2-2z" fill="#4285F4" stroke="none"/><path d="M12 22c3.2 0 5.9-1 7.9-2.8l-3.9-3A6.2 6.2 0 0 1 12 17.2a6.1 6.1 0 0 1-5.8-4.2l-4 3.1A10 10 0 0 0 12 22" fill="#34A853" stroke="none"/><path d="M6.2 13a6 6 0 0 1 0-3.8l-4-3.1a10 10 0 0 0 0 9z" fill="#FBBC05" stroke="none"/><path d="M12 6.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4A10 10 0 0 0 2.2 6.1l4 3.1A6.1 6.1 0 0 1 12 6.8" fill="#EA4335" stroke="none"/></svg>Continue with Google
+        </button>
+
+        <div style="display:flex;align-items:center;gap:14px;margin:22px 0">
+          <span style="flex:1;height:1px;background:var(--line)"></span>
+          <span style="font-size:12.5px;color:var(--ink-3)">or use email</span>
+          <span style="flex:1;height:1px;background:var(--line)"></span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:7px">
+        <label style="font-size:13.5px;font-weight:500;color:var(--ink)">Email</label>
+        <div style="display:flex;align-items:center;height:44px;padding:0 14px;border-radius:11px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-card);font-size:14.5px;color:var(--ink-3)">you@example.com</div>
+        
+      </div>
+          <button style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;height:48px;border:0;border-radius:12px;background:var(--blue);color:#fff;font-family:inherit;font-size:15px;font-weight:500;box-shadow:0 1px 2px rgb(0 0 0 / 0.12)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Email me a sign-in link
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;gap:9px;margin-top:18px;padding:13px 15px;border-radius:12px;background:var(--surface);border:1px solid var(--line)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span style="font-size:13px;line-height:1.5;color:var(--ink-2)">The link is good for one hour and signs you in on this device. Signing in on your phone? Open the email there instead.</span>
+        </div>
+
+        <p style="margin:24px 0 0;font-size:12.5px;line-height:1.55;color:var(--ink-3);text-align:center">
+          By continuing you agree to the <a href="#" style="text-decoration:underline;text-underline-offset:2px">Terms</a> and <a href="#" style="text-decoration:underline;text-underline-offset:2px">Privacy Policy</a>.
+        </p>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;color:var(--ink-3)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>Trouble signing in?
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"oklch(0.52 0.16 258)","options":["#2f5fd0","#1a7f64","#b4530f","#5b41c8"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? 'oklch(0.52 0.16 258)' };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+  <style>
+    /* Values lifted verbatim from src/app/globals.css :root */
+    .today {
+      --background: oklch(1 0 0);
+      --foreground: oklch(0.145 0 0);
+      --card: oklch(1 0 0);
+      --primary: oklch(0.205 0 0);
+      --primary-foreground: oklch(0.985 0 0);
+      --muted: oklch(0.97 0 0);
+      --muted-foreground: oklch(0.556 0 0);
+      --accent: oklch(0.97 0 0);
+      --destructive: oklch(0.577 0.245 27.325);
+      --border: oklch(0.922 0 0);
+      --chart-1: oklch(0.546 0.215 262.881);
+      --sidebar: oklch(0.985 0 0);
+      --sidebar-accent: oklch(0.97 0 0);
+      --sidebar-border: oklch(0.922 0 0);
+    }
+    body { margin: 0; }
+    a { color: oklch(0.205 0 0); } a:hover { color: oklch(0.145 0 0); }
+    .today, .today * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div class="today" style="width: 1440px; height: 1100px; display: flex; background: var(--sidebar); font-family: Geist, ui-sans-serif, system-ui, sans-serif; color: var(--foreground); -webkit-font-smoothing: antialiased; overflow: hidden">
+
+  <!-- Sidebar: 16rem wide, variant=inset so it sits in a 8px gutter -->
+  <div style="width: 256px; flex-shrink: 0; display: flex; flex-direction: column; padding: 8px; color: var(--foreground)">
+
+    <!-- SidebarHeader: flex-col gap-2 p-2 -->
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px">
+      <!-- BrandSwitcher -->
+      <div style="display: flex; align-items: center; gap: 8px; border-radius: 8px; padding: 8px; text-align: left">
+        <span style="display: flex; height: 32px; width: 32px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 8px; background: var(--primary); font-size: 12px; line-height: 16px; font-weight: 500; color: var(--primary-foreground)">SC</span>
+        <span style="display: flex; min-width: 0; flex: 1; flex-direction: column">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Sundar Consulting</span>
+          <span style="font-size: 12px; line-height: 16px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">42 invoices</span>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </div>
+
+      <!-- Quick create row -->
+      <div style="display: flex; align-items: center; gap: 8px">
+        <button style="flex: 1; height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 6px; background: var(--primary); color: var(--primary-foreground); font-family: inherit; font-size: 14px; line-height: 20px; font-weight: 500; padding: 0 10px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+          Quick create
+        </button>
+        <button style="height: 32px; width: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; background: var(--background); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); color: var(--foreground)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- SidebarContent: nav menu, gap-1, no horizontal padding (no SidebarGroup) -->
+    <div style="display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 8px">
+      <div style="display: flex; width: 100%; min-width: 0; flex-direction: column; gap: 4px">
+        <div style="display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 6px; padding: 8px; height: 32px; font-size: 14px; line-height: 20px; font-weight: 500; background: var(--sidebar-accent)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          <span>Dashboard</span>
+        </div>
+        <div style="display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 6px; padding: 8px; height: 32px; font-size: 14px; line-height: 20px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+          <span>Invoices</span>
+        </div>
+        <div style="display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 6px; padding: 8px; height: 32px; font-size: 14px; line-height: 20px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+          <span>Brands</span>
+        </div>
+        <div style="display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 6px; padding: 8px; height: 32px; font-size: 14px; line-height: 20px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Clients</span>
+        </div>
+        <div style="display: flex; width: 100%; align-items: center; gap: 8px; border-radius: 6px; padding: 8px; height: 32px; font-size: 14px; line-height: 20px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 16v5"/><path d="M16 14v7"/><path d="M20 10v11"/><path d="M8 12v9"/><path d="M4 16v5"/></svg>
+          <span>Reports</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SidebarFooter: UserMenu only (FEATURES.billing is false, so no PlanCard) -->
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 8px">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px">
+        <span style="display: flex; height: 32px; width: 32px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border); background: var(--accent); font-size: 12px; line-height: 16px; font-weight: 500">SS</span>
+        <span style="display: flex; min-width: 0; flex: 1; flex-direction: column">
+          <span style="font-size: 14px; line-height: 20px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">Sivan Sundar</span>
+          <span style="font-size: 12px; line-height: 16px; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap">hello@sivansundar.com</span>
+        </span>
+        <span style="display: flex; height: 32px; width: 32px; align-items: center; justify-content: center; border-radius: 6px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SidebarInset: m-2 ml-0 rounded-xl shadow-sm bg-background -->
+  <div style="flex: 1; min-width: 0; margin: 8px 8px 8px 0; border-radius: 12px; background: var(--background); box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; overflow: hidden">
+
+    <!-- SiteHeader: h-12 border-b px-6 -->
+    <div style="display: flex; height: 48px; flex-shrink: 0; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); padding: 0 24px">
+      <span style="display: inline-flex; height: 28px; width: 28px; align-items: center; justify-content: center; border-radius: 6px; margin-left: -6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+      </span>
+      <div style="margin: 0 8px; height: 16px; width: 1px; background: var(--border)"></div>
+      <h1 style="margin: 0; font-size: 16px; line-height: 24px; font-weight: 500">Dashboard</h1>
+      <div style="flex: 1"></div>
+      <span style="display: inline-flex; height: 32px; width: 32px; align-items: center; justify-content: center; border-radius: 6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      </span>
+      <span style="display: inline-flex; height: 32px; align-items: center; gap: 8px; border-radius: 6px; padding: 0 12px; font-size: 14px; line-height: 20px; font-weight: 500">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        New invoice
+      </span>
+    </div>
+
+    <!-- Page body: py-6, gap-6 -->
+    <div style="display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 24px; padding: 24px 0">
+
+      <!-- StatCards: auto-fit minmax(240px,1fr), gap-4, px-6 -->
+      <div style="padding: 0 24px">
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px">
+
+          <div style="border: 1px solid var(--border); border-radius: 14px; background: linear-gradient(to top, rgb(0 0 0 / 0.05), var(--card)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 24px; display: flex; flex-direction: column; gap: 20px">
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: start">
+              <span style="grid-column: 1; grid-row: 1; font-size: 14px; line-height: 20px; color: var(--muted-foreground)">Total revenue</span>
+              <span style="grid-column: 1; grid-row: 2; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2">₹8,42,500</span>
+              <span style="grid-column: 2; grid-row: 1 / span 2; justify-self: end; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 9999px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                12.4%
+              </span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 20px">
+              <span style="font-weight: 500">Up on last month</span>
+              <span style="color: var(--muted-foreground)">Paid invoices, all brands</span>
+            </div>
+          </div>
+
+          <div style="border: 1px solid var(--border); border-radius: 14px; background: linear-gradient(to top, rgb(0 0 0 / 0.05), var(--card)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 24px; display: flex; flex-direction: column; gap: 20px">
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: start">
+              <span style="grid-column: 1; grid-row: 1; font-size: 14px; line-height: 20px; color: var(--muted-foreground)">Outstanding</span>
+              <span style="grid-column: 1; grid-row: 2; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2">₹1,96,000</span>
+              <span style="grid-column: 2; grid-row: 1 / span 2; justify-self: end; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 9999px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums">7 open</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 20px">
+              <span style="font-weight: 500">Awaiting payment</span>
+              <span style="color: var(--muted-foreground)">Sent and awaiting payment</span>
+            </div>
+          </div>
+
+          <div style="border: 1px solid var(--border); border-radius: 14px; background: linear-gradient(to top, rgb(0 0 0 / 0.05), var(--card)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 24px; display: flex; flex-direction: column; gap: 20px">
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: start">
+              <span style="grid-column: 1; grid-row: 1; font-size: 14px; line-height: 20px; color: var(--muted-foreground)">Overdue</span>
+              <span style="grid-column: 1; grid-row: 2; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; color: var(--destructive)">₹64,000</span>
+              <span style="grid-column: 2; grid-row: 1 / span 2; justify-self: end; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 9999px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums">2 late</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 20px">
+              <span style="font-weight: 500">Needs a gentle nudge</span>
+              <span style="color: var(--muted-foreground)">Oldest is 34 days late</span>
+            </div>
+          </div>
+
+          <div style="border: 1px solid var(--border); border-radius: 14px; background: linear-gradient(to top, rgb(0 0 0 / 0.05), var(--card)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 24px; display: flex; flex-direction: column; gap: 20px">
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; align-items: start">
+              <span style="grid-column: 1; grid-row: 1; font-size: 14px; line-height: 20px; color: var(--muted-foreground)">Collection rate</span>
+              <span style="grid-column: 1; grid-row: 2; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2">81%</span>
+              <span style="grid-column: 2; grid-row: 1 / span 2; justify-self: end; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 9999px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500; font-variant-numeric: tabular-nums">34/42</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 20px">
+              <span style="font-weight: 500">Most invoices get paid</span>
+              <span style="color: var(--muted-foreground)">Paid vs issued, all brands</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- RevenueChart card -->
+      <div style="padding: 0 24px">
+        <div style="border: 1px solid var(--border); border-radius: 14px; background: var(--card); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 24px; display: flex; flex-direction: column; gap: 24px">
+          <div style="display: flex; align-items: start; justify-content: space-between; gap: 16px">
+            <div>
+              <h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 600">Revenue collected</h3>
+              <p style="margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--muted-foreground)">₹8,42,500 collected over the last 12 months</p>
+            </div>
+            <div style="display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden">
+              <span style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; background: var(--accent)">12 months</span>
+              <span style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500">6 months</span>
+              <span style="height: 32px; padding: 0 12px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500">3 months</span>
+            </div>
+          </div>
+          <div style="height: 250px; width: 100%; position: relative">
+            <svg viewBox="0 0 1100 220" preserveAspectRatio="none" style="position: absolute; inset: 0 0 24px; width: 100%; height: calc(100% - 24px)">
+              <defs>
+                <linearGradient id="todayFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stop-color="oklch(0.546 0.215 262.881)" stop-opacity="0.8"/>
+                  <stop offset="95%" stop-color="oklch(0.546 0.215 262.881)" stop-opacity="0.05"/>
+                </linearGradient>
+              </defs>
+              <g stroke="oklch(0.922 0 0)" stroke-width="1" stroke-dasharray="4 4">
+                <line x1="0" y1="10" x2="1100" y2="10"/><line x1="0" y1="62" x2="1100" y2="62"/><line x1="0" y1="114" x2="1100" y2="114"/><line x1="0" y1="166" x2="1100" y2="166"/><line x1="0" y1="218" x2="1100" y2="218"/>
+              </g>
+              <path d="M0 176 L100 150 L200 168 L300 104 L400 122 L500 70 L600 92 L700 44 L800 62 L900 30 L1000 52 L1100 22 L1100 220 L0 220 Z" fill="url(#todayFill)"/>
+              <path d="M0 176 L100 150 L200 168 L300 104 L400 122 L500 70 L600 92 L700 44 L800 62 L900 30 L1000 52 L1100 22" fill="none" stroke="oklch(0.546 0.215 262.881)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+            </svg>
+            <div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted-foreground)">
+              <span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- InvoiceDataTable -->
+      <div style="display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 24px">
+          <div style="display: inline-flex; align-items: center; height: 36px; background: var(--accent); border-radius: 10px; padding: 3px">
+            <span style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; background: var(--card); box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)">All<span style="background: var(--border); border-radius: 9999px; padding: 0 6px; font-size: 11px; font-variant-numeric: tabular-nums">42</span></span>
+            <span style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground)">Paid<span style="background: var(--border); border-radius: 9999px; padding: 0 6px; font-size: 11px; font-variant-numeric: tabular-nums">34</span></span>
+            <span style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground)">Sent<span style="background: var(--border); border-radius: 9999px; padding: 0 6px; font-size: 11px; font-variant-numeric: tabular-nums">5</span></span>
+            <span style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground)">Draft<span style="background: var(--border); border-radius: 9999px; padding: 0 6px; font-size: 11px; font-variant-numeric: tabular-nums">1</span></span>
+            <span style="height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; color: var(--muted-foreground)">Overdue<span style="background: var(--border); border-radius: 9999px; padding: 0 6px; font-size: 11px; font-variant-numeric: tabular-nums">2</span></span>
+          </div>
+          <div style="flex: 1"></div>
+          <div style="height: 32px; width: 180px; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: var(--muted-foreground)">Search invoices</div>
+          <span style="height: 32px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--background); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 0 10px; font-size: 14px; font-weight: 500">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H3"/><path d="M15 12H3"/><path d="M17 18H3"/></svg>
+            Columns
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </span>
+          <span style="height: 32px; display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; background: var(--background); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); padding: 0 12px; font-size: 14px; font-weight: 500">Export</span>
+        </div>
+
+        <div style="padding: 0 24px">
+          <div style="border: 1px solid var(--border); border-radius: 14px; background: var(--card); overflow: hidden">
+            <div style="display: flex; align-items: center; height: 40px; padding: 0 16px; background: var(--muted); border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 500">
+              <div style="flex: 0 0 130px">Invoice</div>
+              <div style="flex: 1.5">Client</div>
+              <div style="flex: 1">Brand</div>
+              <div style="flex: 1">Due</div>
+              <div style="flex: 1; text-align: right">Amount</div>
+              <div style="flex: 0 0 100px; text-align: right">Status</div>
+            </div>
+            <sc-for list="{{rows}}" as="row" hint-placeholder-count="5">
+              <div style="display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px">
+                <div style="flex: 0 0 130px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: var(--muted-foreground); padding-right: 8px">{{row.number}}</div>
+                <div style="flex: 1.5; font-weight: 500; padding-right: 8px">{{row.client}}</div>
+                <div style="flex: 1; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); padding-right: 8px">
+                  <span style="display: inline-block; width: 6px; height: 6px; flex-shrink: 0; border-radius: 9999px; background: var(--foreground)"></span>
+                  <span>{{row.brand}}</span>
+                </div>
+                <div style="flex: 1; color: var(--muted-foreground); padding-right: 8px">{{row.due}}</div>
+                <div style="flex: 1; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; padding-right: 8px">{{row.amount}}</div>
+                <div style="flex: 0 0 100px; text-align: right">
+                  <span style="display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 9999px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500">{{row.statusLabel}}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 16px; padding: 0 24px; flex-wrap: wrap">
+          <div style="flex: 1; font-size: 14px; color: var(--muted-foreground)">Showing <span style="font-variant-numeric: tabular-nums">1–5 of 42</span></div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted-foreground)">Rows per page
+            <span style="width: 70px; height: 32px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; padding: 0 8px; color: var(--foreground)">10</span>
+          </div>
+          <span style="font-size: 14px; color: var(--muted-foreground); font-variant-numeric: tabular-nums">Page 1 of 5</span>
+          <div style="display: flex; gap: 4px">
+            <span style="width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted-foreground)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span>
+            <span style="width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1024}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rows: [
+        { number: 'SC-2026-042', client: 'Northwind Studio', brand: 'SC', due: '12 Sep 2026', amount: '₹1,20,000', statusLabel: 'Sent' },
+        { number: 'SC-2026-041', client: 'Kestrel Labs', brand: 'SC', due: '28 Aug 2026', amount: '₹64,000', statusLabel: 'Overdue' },
+        { number: 'SC-2026-040', client: 'Meridian Foods', brand: 'SC', due: '15 Aug 2026', amount: '₹38,500', statusLabel: 'Paid' },
+        { number: 'AV-2026-018', client: 'Harbourline Ltd', brand: 'AV', due: '02 Sep 2026', amount: '$4,200', statusLabel: 'Sent' },
+        { number: 'AV-2026-017', client: 'Calder & Co', brand: 'AV', due: '21 Aug 2026', amount: 'S$2,850', statusLabel: 'Paid' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
