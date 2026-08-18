@@ -298,7 +298,7 @@ describe("BrandForm — logo upload", () => {
     expect(saved.logo).toBeUndefined();
   });
 
-  it("keeps the form usable when the upload fails, rather than losing the brand", async () => {
+  it("commits the brand row even when the logo upload fails", async () => {
     // Regression coverage for the non-atomic `saveBrand`: the brand row can
     // commit even though the promise this awaits rejects (see the doc
     // comment on `saveBrand` in `@/lib/storage`, mirrored by the fake's own
@@ -309,9 +309,10 @@ describe("BrandForm — logo upload", () => {
     // this file). `handleSubmit`'s own handling of this rejection
     // (`LogoUploadError`) is a separate concern — see "says the brand saved
     // when only its logo upload failed" below — so this test deliberately
-    // does not assert on `toast` or `push` and instead polls storage
-    // directly, so it stays about the row surviving underneath the rejected
-    // promise, independent of how the form chooses to report that rejection.
+    // does not assert on the failure `toast`/`push` and instead polls
+    // storage directly, so it stays about the row surviving underneath the
+    // rejected promise, independent of how the form chooses to report that
+    // rejection.
     failNext("uploadBrandLogo", "upload failed");
     renderForm();
 
@@ -328,12 +329,25 @@ describe("BrandForm — logo upload", () => {
     });
     expect(committed.logo).toBe("data:image/png;base64,aGk=");
     expect(committed.logoPath).toBeUndefined();
+    // Whatever `handleSubmit` says about the logo, it must not be the
+    // unqualified success toast — that would claim the logo made it too.
+    expect(toast).not.toHaveBeenCalledWith(
+      expect.stringContaining("is ready — first invoice will be")
+    );
   });
 
   it("says the brand saved when only its logo upload failed", async () => {
     // saveBrand commits the row before it uploads. Reporting that rejection
     // as "couldn't save" sends the user back to retype fields that are
     // already in the database.
+    //
+    // Asserted against the exact user-facing string, not a loose pattern:
+    // `LogoUploadError`'s own message ("Saved, but the logo could not be
+    // uploaded") also matches /saved, but the logo/i, so a pattern here
+    // would keep passing even if `handleSubmit` stopped special-casing
+    // `LogoUploadError` and fell through to its generic `err.message`
+    // fallback instead — which is exactly the regression this test exists
+    // to catch.
     failNext("uploadBrandLogo", "bucket unreachable");
     renderForm();
 
@@ -342,7 +356,9 @@ describe("BrandForm — logo upload", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create brand" }));
 
     await waitFor(() =>
-      expect(toast).toHaveBeenCalledWith(expect.stringMatching(/saved, but the logo/i))
+      expect(toast).toHaveBeenCalledWith(
+        "Acme Studio saved, but the logo couldn't be uploaded — replace it to try again"
+      )
     );
     expect(toast).not.toHaveBeenCalledWith(expect.stringMatching(/couldn't save this brand/i));
     expect(push).toHaveBeenCalledWith("/brands");
@@ -375,6 +391,13 @@ describe("BrandForm — logo upload", () => {
       return brands;
     });
     expect(afterFirstAttempt[0].logo).toBe("data:image/png;base64,aGk=");
+
+    // The first attempt's own `LogoUploadError` handling already called
+    // `push("/brands")` (see "says the brand saved when only its logo
+    // upload failed"), so waiting on that same call again below would be a
+    // no-op assertion satisfied before the retry even happens. Cleared here
+    // so the wait below can only pass once the retry itself calls it.
+    push.mockClear();
 
     // The retry's upload is not armed to fail, so this attempt succeeds.
     await userEvent.click(screen.getByRole("button", { name: "Create brand" }));

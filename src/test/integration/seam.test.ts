@@ -198,13 +198,27 @@ describe("brands through the seam", () => {
         .mockResolvedValue({ data: null, error: { message: "simulated storage outage" } }),
     } as never);
 
+    // Caught rather than asserted with `.rejects.toThrow()` so the rejection
+    // itself — not just the fact that one happened — can be inspected below:
+    // this is what pins the real `LogoUploadError` class and its payload,
+    // not just the fake's mirror of them.
+    let caught: unknown;
     try {
-      await expect(
-        storage.saveBrand({ ...created, phone: "+91 60000 00000", logo: TINY_PNG_DATA_URL })
-      ).rejects.toThrow();
+      await storage.saveBrand({ ...created, phone: "+91 60000 00000", logo: TINY_PNG_DATA_URL });
+    } catch (err) {
+      caught = err;
     } finally {
       fromSpy.mockRestore();
     }
+
+    expect(caught).toBeInstanceOf(storage.LogoUploadError);
+    // `err.brand` is the row the first write already committed — pinning
+    // that it carries a field edited in this very call (not a stale read of
+    // `created`) is what proves the commit-before-upload ordering the doc
+    // comment on `saveBrand` describes, not just that *some* row survives.
+    expect((caught as InstanceType<typeof storage.LogoUploadError>).brand.phone).toBe(
+      "+91 60000 00000"
+    );
 
     // The rejection is honest about the logo, but not about the rest of the
     // call: the phone edit from the failed call is durably committed...

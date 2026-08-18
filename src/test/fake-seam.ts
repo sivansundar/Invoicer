@@ -1,33 +1,34 @@
 import { vi } from "vitest";
 import type { Brand, Client, EmailTemplate, Invoice, PlanState } from "@/lib/types";
 import { formatInvoiceNumber, parseInvoiceNumber } from "@/lib/numbering";
+import { LogoUploadError } from "@/lib/storage-errors";
 
 /**
- * Mirrors `@/lib/storage`'s `LogoUploadError` rather than re-exporting it.
+ * Re-exported from `@/lib/storage-errors`, not from `@/lib/storage` itself.
  *
- * `vi.mock("@/lib/storage", () => import("@/test/fake-seam"))` (see every
- * test file that drives this fake) intercepts EVERY import of
- * `@/lib/storage` within that test file's module graph — including one
- * written here. `export { LogoUploadError } from "@/lib/storage"` looks
- * like the obvious move, but under that mock it turns into this very file
- * importing itself while it is still mid-load, and the two loads deadlock
- * waiting on each other (confirmed: it hangs `vitest run` rather than
- * failing). A caller-facing `instanceof LogoUploadError` check never needs
- * this to be the SAME class object as the real one — under the mock,
- * `@/lib/storage` resolves to this module for every consumer, so the throw
- * below and any `catch` elsewhere both see this class. `fake-seam.test.ts`
- * only asserts the two modules export the same NAMES and export-shapes, not
- * reference equality.
+ * `vi.mock("@/lib/storage", () => import("@/test/fake-seam"))` (used by
+ * every consumer of this fake) intercepts EVERY import of `@/lib/storage`
+ * within that test file's module graph. Re-exporting straight from
+ * `@/lib/storage` looks like the obvious move, but under that mock it turns
+ * into this very file importing itself while still mid-load, and the two
+ * loads deadlock waiting on each other (confirmed: it hangs `vitest run`
+ * rather than failing). `@/lib/storage-errors` is never mocked, so both this
+ * fake and the real `@/lib/storage` import and re-export the SAME class
+ * object in every context — `instanceof LogoUploadError` stays reliable
+ * even against a partial mock of `@/lib/storage` (e.g. `vi.importActual`
+ * plus one overridden export) that a locally-duplicated class here would
+ * silently defeat. `fake-seam.test.ts` checks this module exports the same
+ * names as the real one, so a future edit that drops or renames this would
+ * be caught there.
+ *
+ * Written as `export { X } from "…"` rather than a separate bare
+ * `export { X };` after the `import` above — the two are usually
+ * interchangeable, but the bare form here was observed to silently export
+ * `undefined` instead of the class once this doc comment grew past a
+ * certain length (a transform-pipeline quirk, reproduced independently of
+ * `vi.mock`). The `export … from` form did not exhibit it; keep it this way.
  */
-export class LogoUploadError extends Error {
-  constructor(
-    readonly brand: Brand,
-    override readonly cause: unknown
-  ) {
-    super("Saved, but the logo could not be uploaded");
-    this.name = "LogoUploadError";
-  }
-}
+export { LogoUploadError } from "@/lib/storage-errors";
 
 /**
  * An in-memory stand-in for `@/lib/storage`, for unit tests.

@@ -2,6 +2,7 @@ import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
 import { writeLocalStorage } from "./local-storage";
 import { createClient } from "./supabase/client";
 import { dataUrlToBytes, logoObjectPath, sha256Hex } from "./logo-storage";
+import { LogoUploadError } from "./storage-errors";
 import {
   brandToRow,
   clientToRow,
@@ -18,6 +19,12 @@ import {
 } from "./supabase/mappers";
 
 export { nextInvoiceNumber } from "./numbering";
+// `export … from` rather than a bare `export { LogoUploadError };` after the
+// `import` above — see the equivalent re-export in `@/test/fake-seam.ts` for
+// why: the bare form was observed to silently export `undefined` once a
+// nearby doc comment grew past a certain length (a transform-pipeline quirk,
+// unrelated to `vi.mock`). `export … from` did not exhibit it.
+export { LogoUploadError } from "./storage-errors";
 
 // Plan state is the last thing still in localStorage, and stays there by
 // design: it is a mock with no billing integration and no schema behind it.
@@ -170,29 +177,6 @@ export async function getBrand(id: string): Promise<Brand | null> {
  * fields even when the logo upload step fails afterward", for what this
  * looks like from a caller's side.
  */
-/**
- * The brand row committed; its logo did not.
- *
- * `saveBrand` writes the row before it uploads, because the bucket's INSERT
- * policy needs the row to exist and a brand's id is minted client-side. A
- * failure in the upload half therefore cannot roll the first half back, and
- * a caller that reads a plain rejection as "nothing changed" is wrong about
- * every field except the logo.
- *
- * `brand` is what is actually in the database now — including the base64
- * still sitting in `logo_data`, which is what the brand renders from until
- * the next successful save re-attempts the upload.
- */
-export class LogoUploadError extends Error {
-  constructor(
-    readonly brand: Brand,
-    override readonly cause: unknown
-  ) {
-    super("Saved, but the logo could not be uploaded");
-    this.name = "LogoUploadError";
-  }
-}
-
 export async function saveBrand(brand: Brand): Promise<Brand> {
   // Upsert rather than insert-or-update: the form generates the id with
   // crypto.randomUUID() before it knows whether this is a create or an
