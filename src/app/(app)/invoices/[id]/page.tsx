@@ -6,9 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Bell, Check, ChevronLeft } from "lucide-react";
+import { Bell, Check, ChevronLeft, Clock, Send, TriangleAlert, Wallet } from "lucide-react";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
-import { StatusPill } from "@/components/ui/primitives";
+import { IconTile, LetterTile, Panel, StatusPill } from "@/components/ui/primitives";
 import { InvoiceDetailSkeleton } from "@/components/ui/page-skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,48 @@ export default function InvoiceDetailPage() {
   const template = templates.find((t) => t.id === config.templateId);
 
   const line = dueLine(invoice, daysLate(invoice));
+
+  // Derived once: the action card, the lifecycle rail and the pill must all
+  // agree, and effectiveStatus is the only thing that reclassifies a late
+  // "sent" invoice as overdue.
+  const status = effectiveStatus(invoice);
+
+  /**
+   * Drafted → Sent → (Overdue) → Paid.
+   *
+   * "Overdue" only appears once it applies — a step that is always present
+   * and usually greyed reads as something the invoice is expected to do.
+   * Dates come from what is actually recorded: createdAt for drafting,
+   * billDate for sending (the app has no separate sent-at), paidOn for
+   * payment, which is undefined on invoices settled before that field
+   * existed and renders as no date rather than a guess.
+   */
+  const lifecycle: Array<{ label: string; when: string | null; state: "done" | "now" | "todo" }> = [
+    {
+      label: "Drafted",
+      when: invoice.createdAt ? formatStoredDate(invoice.createdAt.slice(0, 10), "d MMM") : null,
+      state: "done",
+    },
+    {
+      label: "Sent",
+      when: invoice.status === "draft" ? null : formatStoredDate(invoice.billDate, "d MMM"),
+      state: invoice.status === "draft" ? "todo" : "done",
+    },
+    ...(status === "overdue"
+      ? [
+          {
+            label: "Overdue",
+            when: formatStoredDate(invoice.dueDate, "d MMM"),
+            state: "now" as const,
+          },
+        ]
+      : []),
+    {
+      label: "Paid",
+      when: invoice.paidOn ? formatStoredDate(invoice.paidOn, "d MMM") : null,
+      state: invoice.status === "paid" ? ("done" as const) : ("todo" as const),
+    },
+  ];
   const followupState = resolveFollowupState(invoice, config);
   const showFollowups =
     FEATURES.followups && (invoice.status !== "draft" || invoice.reminders.length > 0);
@@ -238,24 +280,111 @@ export default function InvoiceDetailPage() {
                   right below already derives its "overdue" wording from
                   daysLate, and the badge must not contradict it by saying
                   "Sent" next to "N days overdue". */}
-              <StatusPill status={effectiveStatus(invoice)} />
+              <StatusPill status={status} />
             </div>
-            <p className={cn("text-sm mt-1.5", line.destructive ? "text-destructive" : "text-muted-foreground")}>
-              {line.text}
+            <p className="mt-1.5 text-sm text-ink-3">
+              {invoice.client.companyName} · {formatDate(invoice.billDate)}
             </p>
           </div>
 
+          {/*
+            The one thing to do, with its button on it. The secondary row below
+            keeps everything else, so the primary action is not one of six
+            equally-weighted buttons any more.
+          */}
+          <Panel className="px-5 pt-[18px] pb-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <IconTile
+                icon={status === "overdue" ? TriangleAlert : status === "draft" ? Send : Wallet}
+                tone={status === "overdue" ? "red" : status === "draft" ? "amber" : status === "paid" ? "green" : "blue"}
+              />
+              <span className="text-[15.5px] font-semibold tracking-[-0.012em]">
+                {status === "overdue"
+                  ? `Overdue by ${daysLate(invoice)} ${daysLate(invoice) === 1 ? "day" : "days"}`
+                  : status === "draft"
+                    ? "Not sent yet"
+                    : status === "paid"
+                      ? "Settled"
+                      : "Awaiting payment"}
+              </span>
+              <span className="flex-1" />
+              {invoice.status === "draft" && canMarkSent(invoice) && (
+                <Button
+                  onClick={handleMarkSent}
+                  className="h-9 rounded-[10px] bg-ink text-canvas hover:bg-ink/90"
+                >
+                  Mark as sent
+                </Button>
+              )}
+              {(invoice.status === "sent" || invoice.status === "overdue") && (
+                <Button
+                  onClick={handleMarkPaid}
+                  className={cn(
+                    "h-9 rounded-[10px]",
+                    status === "overdue" && "bg-ink text-canvas hover:bg-ink/90"
+                  )}
+                >
+                  Mark as paid
+                </Button>
+              )}
+            </div>
+            <div className="mt-4 flex flex-wrap items-end gap-5">
+              <div>
+                <div
+                  className={cn(
+                    "text-[34px] leading-none font-semibold tracking-[-0.035em] tabular-nums",
+                    status === "overdue" && "text-red"
+                  )}
+                >
+                  {formatCurrency(invoice.total, currency)}
+                </div>
+                <div
+                  className={cn(
+                    "mt-2 text-[13.5px]",
+                    line.destructive ? "text-red" : "text-ink-2"
+                  )}
+                >
+                  {line.text}
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          {/* Lifecycle: where this invoice is, and what it has already done. */}
+          <Panel className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3.5">
+            {lifecycle.map((step, index) => (
+              <div key={step.label} className="flex items-center gap-3">
+                {index > 0 && <span className="h-px w-5 bg-line" aria-hidden />}
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex size-[18px] items-center justify-center rounded-full",
+                      step.state === "done"
+                        ? "bg-green"
+                        : step.state === "now"
+                          ? "bg-red"
+                          : "border border-line"
+                    )}
+                  >
+                    {step.state === "done" && <Check className="size-3 text-white" strokeWidth={3} />}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[13.5px]",
+                      step.state === "todo" ? "text-ink-3" : "font-medium text-ink"
+                    )}
+                  >
+                    {step.label}
+                  </span>
+                  {step.when && (
+                    <span className="text-[12.5px] text-ink-3 tabular-nums">{step.when}</span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </Panel>
+
           <div className="flex gap-2 flex-wrap items-center">
-            {invoice.status === "draft" && (
-              <Button size="sm" onClick={handleMarkSent}>
-                Mark as sent
-              </Button>
-            )}
-            {(invoice.status === "sent" || invoice.status === "overdue") && (
-              <Button size="sm" onClick={handleMarkPaid}>
-                Mark as paid
-              </Button>
-            )}
             <PDFDownloadButton invoice={invoice} snapshot={invoice.brandSnapshot} />
             {/* Editing preserves whatever status the invoice already has
                 (`InvoiceForm`'s `status` assignment) — the invoice number,
@@ -278,10 +407,12 @@ export default function InvoiceDetailPage() {
           </div>
 
           {showFollowups && (
-            <div className="border rounded-[14px] bg-card p-5 flex flex-col gap-3.5">
-              <div className="flex items-center gap-2">
-                <Bell className="size-[15px] text-muted-foreground" />
-                <span className="text-sm font-semibold flex-1">Follow-ups</span>
+            <Panel className="flex flex-col gap-3.5 p-5">
+              <div className="flex items-center gap-2.5">
+                <Bell className="size-[17px] text-ink-2" />
+                <span className="flex-1 text-[15.5px] font-semibold tracking-[-0.012em]">
+                  Follow-ups
+                </span>
                 {followupState.kind === "active" ? (
                   <Badge className="bg-accent text-foreground border-transparent">Active</Badge>
                 ) : (
@@ -320,30 +451,40 @@ export default function InvoiceDetailPage() {
                   <Button variant="ghost" size="sm" onClick={handleSendNow}>
                     Send one now
                   </Button>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    Stops the moment it&apos;s marked paid
-                  </span>
+                  <Button variant="ghost" size="sm" asChild className="ml-auto">
+                    <Link href={`/followups/brands/${invoice.brandId}`}>
+                      <Clock className="size-3.5" />
+                      All for this brand
+                    </Link>
+                  </Button>
                 </div>
               )}
-            </div>
+            </Panel>
           )}
 
           <div className="flex gap-4 flex-wrap">
-            <div className="flex-[1.2_1_220px] border rounded-[14px] bg-card p-5">
-              <p className="text-xs text-muted-foreground mb-2">Billed to</p>
-              <p className="text-sm font-medium">{invoice.client.companyName}</p>
+            <Panel className="flex-[1.2_1_220px] p-5">
+              <p className="mb-3 text-[12.5px] font-medium text-ink-3">Billed to</p>
+              <div className="flex items-center gap-2.5">
+                <LetterTile
+                  letter={invoice.client.companyName.trim().slice(0, 1).toUpperCase() || "?"}
+                  tone="blue"
+                  size={30}
+                />
+                <p className="text-sm font-medium">{invoice.client.companyName}</p>
+              </div>
               {invoice.client.name && (
-                <p className="text-[13px] text-muted-foreground mt-0.5">{invoice.client.name}</p>
+                <p className="mt-2 text-[13px] text-ink-2">{invoice.client.name}</p>
               )}
               {invoice.client.address && (
-                <p className="text-[13px] text-muted-foreground whitespace-pre-line mt-0.5">
+                <p className="mt-1 text-[13px] whitespace-pre-line text-ink-2">
                   {invoice.client.address}
                 </p>
               )}
-            </div>
+            </Panel>
 
-            <div className="flex-[1_1_200px] border rounded-[14px] bg-card p-5">
-              <p className="text-xs text-muted-foreground mb-2">From</p>
+            <Panel className="flex-[1_1_200px] p-5">
+              <p className="mb-3 text-[12.5px] font-medium text-ink-3">From</p>
               <div className="flex items-center gap-1.5">
                 <span
                   className="size-[7px] rounded-full shrink-0"
@@ -351,15 +492,29 @@ export default function InvoiceDetailPage() {
                 />
                 <span className="text-sm font-medium">{invoice.brandSnapshot.name}</span>
               </div>
-              <p className="text-[13px] text-muted-foreground whitespace-pre-line mt-1">
+              <p className="mt-2 text-[13px] whitespace-pre-line text-ink-2">
                 {invoice.brandSnapshot.address}
               </p>
-            </div>
+              <p className="mt-2 text-[12.5px] text-ink-3">Frozen at creation</p>
+            </Panel>
 
-            <div className="flex-[0_1_160px] border rounded-[14px] bg-card p-5">
-              <p className="text-xs text-muted-foreground mb-2">Dates</p>
-              <p className="text-[13px]">Billed {formatDate(invoice.billDate)}</p>
-              <p className="text-[13px] mt-1">Due {formatDate(invoice.dueDate)}</p>
+            <Panel className="flex-[0_1_180px] p-5">
+              <p className="mb-3 text-[12.5px] font-medium text-ink-3">Dates</p>
+              <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+                <span className="text-ink-3">Billed</span>
+                <span className="text-right tabular-nums">{formatDate(invoice.billDate)}</span>
+                <span className="text-ink-3">Due</span>
+                <span
+                  className={cn(
+                    "text-right tabular-nums",
+                    status === "overdue" && "font-medium text-red"
+                  )}
+                >
+                  {formatDate(invoice.dueDate)}
+                </span>
+                <span className="text-ink-3">Currency</span>
+                <span className="text-right">{currency}</span>
+              </div>
               {invoice.status === "paid" && (
                 <div className="mt-2.5 pt-2.5 border-t space-y-1">
                   <Label className="text-xs text-muted-foreground" htmlFor="paid-on">
@@ -372,49 +527,56 @@ export default function InvoiceDetailPage() {
                     min={invoice.billDate || undefined}
                     max={format(new Date(), "yyyy-MM-dd")}
                     onChange={(e) => handlePaidOnChange(e.target.value)}
-                    className="text-sm h-8"
+                    className="h-8 text-sm"
                   />
                 </div>
               )}
-            </div>
+            </Panel>
           </div>
 
-          <div className="border rounded-[14px] bg-card overflow-hidden">
-            <div className="flex items-center h-10 px-4 border-b text-sm font-medium">
+          <Panel className="overflow-hidden">
+            <div className="flex items-center border-b px-5 py-3 text-[12.5px] font-medium text-ink-3">
               <span className="flex-1">Item</span>
               <span className="w-20 text-right">Tax</span>
               <span className="w-28 text-right">Amount</span>
             </div>
             {invoice.items.map((item) => (
-              <div key={item.id} className="flex items-center px-4 py-3 border-b last:border-b-0 text-sm">
+              <div
+                key={item.id}
+                className="flex items-center border-b px-5 py-3.5 text-sm last:border-b-0"
+              >
                 <span className="flex-1">{item.description}</span>
-                <span className="w-20 text-right text-muted-foreground tabular-nums">{item.tax}%</span>
+                <span className="w-20 text-right text-ink-3 tabular-nums">{item.tax}%</span>
                 <span className="w-28 text-right tabular-nums">
                   {formatCurrency(item.amount, currency)}
                 </span>
               </div>
             ))}
-            <div className="p-4 bg-muted flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 border-t bg-canvas p-5">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-ink-2">Subtotal</span>
                 <span className="tabular-nums">{formatCurrency(invoice.subtotal, currency)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{taxLabel(invoice.items)}</span>
+                <span className="text-ink-2">{taxLabel(invoice.items)}</span>
                 <span className="tabular-nums">{formatCurrency(invoice.totalTax, currency)}</span>
               </div>
-              <div className="flex justify-between text-base font-semibold">
-                <span>Total</span>
-                <span className="tabular-nums">{formatCurrency(invoice.total, currency)}</span>
+              <div className="mt-2 flex items-baseline justify-between border-t pt-3">
+                <span className="text-[15px] font-semibold">Total</span>
+                <span className="text-xl font-semibold tracking-[-0.02em] tabular-nums">
+                  {formatCurrency(invoice.total, currency)}
+                </span>
               </div>
             </div>
-          </div>
+          </Panel>
 
           {invoice.notes && (
-            <div className="border rounded-[14px] bg-card p-5">
-              <p className="text-xs text-muted-foreground mb-2">Notes</p>
-              <p className="text-[13px] text-muted-foreground whitespace-pre-line">{invoice.notes}</p>
-            </div>
+            <Panel className="p-5">
+              <p className="mb-2 text-[12.5px] font-medium text-ink-3">Notes on the invoice</p>
+              <p className="text-[13px] leading-relaxed whitespace-pre-line text-ink-2">
+                {invoice.notes}
+              </p>
+            </Panel>
           )}
         </div>
 

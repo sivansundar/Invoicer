@@ -6,13 +6,14 @@ import {
   Bell,
   Building2,
   ChartNoAxesColumn,
+  Download,
   FileText,
   LayoutDashboard,
   Plus,
-  Share,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useExportBackup } from "@/components/invoices/use-export-backup";
 
 const INVOICE_DETAIL_RE = /^\/invoices\/[^/]+$/;
 const INVOICE_EDIT_RE = /^\/invoices\/[^/]+\/edit$/;
@@ -97,20 +98,22 @@ export function getHeaderAction(pathname: string): HeaderAction | null {
   return null;
 }
 
-/** Whether the screen has anything worth exporting. */
+/**
+ * Whether the screen offers the backup export.
+ *
+ * Deliberately not on /reports: that screen has its own Import and export
+ * card, and a second button doing the same thing two inches away reads as two
+ * different exports.
+ */
 export function showExportAction(pathname: string): boolean {
-  return (
-    pathname === "/dashboard" ||
-    pathname === "/invoices" ||
-    pathname === "/reports" ||
-    pathname.startsWith("/followups")
-  );
+  return pathname === "/dashboard" || pathname === "/invoices";
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
   const crumb = getCrumb(pathname);
   const action = getHeaderAction(pathname);
+  const { exportBackup, pending: exportPending } = useExportBackup();
 
   return (
     <header className="flex shrink-0 items-center gap-3.5 border-b px-8 py-5">
@@ -118,15 +121,15 @@ export function SiteHeader() {
       <h1 className="font-display text-[30px] leading-none tracking-[-0.018em]">{crumb}</h1>
       <div className="flex-1" />
 
-      <span className="relative inline-flex size-9 items-center justify-center rounded-full border bg-surface shadow-[var(--shadow-card)]">
-        <Bell className="size-[17px] text-ink-2" />
-        <span className="absolute top-[7px] right-2 size-[7px] rounded-full border-[1.5px] border-surface bg-blue" />
-      </span>
-
       {showExportAction(pathname) && (
-        <Button variant="outline" className="h-9 gap-2 rounded-[10px]">
-          <Share className="size-4 text-ink-2" />
-          Export
+        <Button
+          variant="outline"
+          className="h-9 gap-2 rounded-[10px]"
+          disabled={exportPending}
+          onClick={exportBackup}
+        >
+          <Download className="size-4 text-ink-2" />
+          {exportPending ? "Exporting…" : "Export"}
         </Button>
       )}
 

@@ -87,16 +87,21 @@ describe("getHeaderAction", () => {
 });
 
 describe("showExportAction", () => {
-  it("shows export where there is something to export", () => {
+  it("shows export on the screens that list invoices", () => {
     expect(showExportAction("/dashboard")).toBe(true);
     expect(showExportAction("/invoices")).toBe(true);
-    expect(showExportAction("/reports")).toBe(true);
-    expect(showExportAction("/followups")).toBe(true);
+  });
+
+  // Reports owns the Import and export card; a second button doing the same
+  // thing two inches away reads as two different exports.
+  it("hides export on reports, which has its own", () => {
+    expect(showExportAction("/reports")).toBe(false);
   });
 
   it("hides export on forms and single records", () => {
     expect(showExportAction("/invoices/create")).toBe(false);
     expect(showExportAction("/brands")).toBe(false);
     expect(showExportAction("/clients")).toBe(false);
+    expect(showExportAction("/followups")).toBe(false);
   });
 });
