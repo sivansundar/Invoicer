@@ -16,7 +16,7 @@ export default defineConfig({
     // its own node_modules, and dependencies ship their tests — that pulled
     // in 400+ foreign test files and 100+ failures that had nothing to do
     // with this app.
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Spread the defaults rather than replacing them: assigning a bare array
     // drops Vitest's own exclusions (node_modules, dist, build output), and
     // the literal "node_modules/**" that used to sit here only matched a

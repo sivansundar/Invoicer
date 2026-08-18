@@ -28,6 +28,19 @@ not be "corrected" back — it is what lets both projects run side by side.
 ## First-time setup
 
 ```bash
+npm run dev:setup
+```
+
+That starts the stack if it is not already running, reads `supabase status -o env`, and
+writes `.env.local` for you — including the `ANON_KEY` → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+rename that is easy to miss by hand. It preserves any other keys already in the file, so it is
+safe to re-run; do so after `npm run db:stop`, since the anon key changes when the stack is
+recreated.
+
+The rest of this section is what that script does, for when you would rather do it by hand or
+need to debug it.
+
+```bash
 supabase start          # first run pulls images and takes a few minutes
 supabase status -o env  # the values for the env files below
 ```

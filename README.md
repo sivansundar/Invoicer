@@ -114,13 +114,19 @@ Auth is no longer on this list: sign-in, sessions and sign-out are real. Billing
 git clone https://github.com/sivansundar/invoicer.git
 cd invoicer
 npm install
-supabase start   # first run pulls images and takes a few minutes
+npm run dev:setup   # starts Supabase and writes .env.local
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-This project does **not** use Supabase's default ports, so it can run alongside another Supabase project — see [`docs/LOCAL-DEV.md`](docs/LOCAL-DEV.md) for the port map, the two env files you need, and how to sign in locally via the mail catcher.
+`dev:setup` starts the local Supabase stack if it is not already up, reads `supabase status`, and writes the `.env.local` the app needs. Skipping it is what produces `NEXT_PUBLIC_SUPABASE_URL is not set` on the first click of the sign-in button. It is safe to re-run — do so after `npm run db:stop`, since the anon key is regenerated whenever the stack is recreated.
+
+Run the app on **port 3000**: `supabase/config.toml` allow-lists that origin for auth redirects, so a magic link opened against another port will be rejected.
+
+Signing in locally, magic links are not delivered to a real inbox — they land in the mail viewer whose URL `dev:setup` prints. Google sign-in needs real OAuth credentials and does not work against the local stack.
+
+This project does **not** use Supabase's default ports, so it can run alongside another Supabase project — see [`docs/LOCAL-DEV.md`](docs/LOCAL-DEV.md) for the port map, the second env file the integration suite needs, and the manual equivalent of `dev:setup`.
 
 ### Production Build
 
