@@ -56,7 +56,6 @@ function brand(overrides: Partial<Brand> = {}): Brand {
     address: "123 MG Road",
     email: "hello@sundar.design",
     invoicePrefix: "SDC",
-    nextInvoiceNumber: 1,
     bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",

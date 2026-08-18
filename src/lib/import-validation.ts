@@ -89,8 +89,7 @@ function isValidBankDetails(value: unknown): boolean {
  * excludes: `migrateToV2` backfills both with `??` (`accentColor ??
  * paletteColorForIndex(index)`, `followup ?? defaultFollowupConfig()`), and
  * `forceMigration()` runs immediately after every import, so a record
- * missing them is patched before anything renders it. `nextInvoiceNumber` is
- * documented dead state (nothing reads it) and is not required either.
+ * missing them is patched before anything renders it.
  */
 function isValidBrandRecord(value: unknown): value is Brand {
   if (!isRecord(value)) return false;

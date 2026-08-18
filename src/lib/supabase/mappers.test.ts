@@ -27,7 +27,6 @@ function brand(overrides: Partial<Brand> = {}): Brand {
       ifscCode: "HDFC0000123",
     },
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
     followup: {
@@ -118,10 +117,6 @@ describe("brand mapping", () => {
 
   it("never writes org_id — the column default owns tenancy", () => {
     expect("org_id" in brandToRow(brand())).toBe(false);
-  });
-
-  it("drops the dead nextInvoiceNumber field rather than persisting it", () => {
-    expect("next_invoice_number" in brandToRow(brand({ nextInvoiceNumber: 47 }))).toBe(false);
   });
 
   it("reads a null email as an empty string, since Brand.email is required", () => {

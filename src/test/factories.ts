@@ -99,7 +99,6 @@ export function validBrand(overrides: Partial<Brand> = {}): Brand {
     address: "12 MG Road, Bengaluru",
     email: "hello@sivanstudio.com",
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
     followup: {

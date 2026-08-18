@@ -16,7 +16,6 @@ const v1Brand = {
   email: "billing@sivan.studio",
   gstNumber: "29ABCDE1234F1Z5",
   invoicePrefix: "SC",
-  nextInvoiceNumber: 15,
   createdAt: "2026-01-01T00:00:00.000Z",
   bankDetails: {
     accountName: "Sivan Studio",
@@ -247,7 +246,6 @@ describe("snapshotFromBrand — invoiceDesign", () => {
     address: "44, 100 Feet Rd",
     email: "billing@sivan.studio",
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
     followup: {
@@ -298,7 +296,6 @@ describe("snapshotFromBrand — logoPath", () => {
     address: "44, 100 Feet Rd",
     email: "billing@sivan.studio",
     invoicePrefix: "SC",
-    nextInvoiceNumber: 1,
     createdAt: "2026-01-01T00:00:00.000Z",
     accentColor: "#2563eb",
     followup: {

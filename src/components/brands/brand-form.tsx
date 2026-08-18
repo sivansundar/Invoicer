@@ -120,11 +120,6 @@ export function BrandForm({ brand }: BrandFormProps) {
     // data URL.
     logoPath,
     invoicePrefix: effectivePrefix,
-    // Dead state (see `nextInvoiceNumber` — the live calculation from
-    // `@/lib/storage` is the only source of truth ever read). Carried
-    // forward on edit purely to satisfy the `Brand` shape until Task 22
-    // removes the field.
-    nextInvoiceNumber: brand?.nextInvoiceNumber ?? 1,
     accentColor,
     followup: brand?.followup ?? defaultFollowupConfig(),
     invoiceDesign,

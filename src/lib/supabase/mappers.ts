@@ -101,10 +101,6 @@ export function rowToBrand(row: BrandRow): Brand {
     invoiceDesign: row.invoice_design,
     followup: row.followup,
     createdAt: toIso(row.created_at),
-    // Dead field (see docs/POST-MERGE-NOTES.md): nothing reads it, and it has
-    // no column. Kept at 1 only because `Brand` still declares it; removing
-    // the field from the type is its own change with its own blast radius.
-    nextInvoiceNumber: 1,
   };
 }
 

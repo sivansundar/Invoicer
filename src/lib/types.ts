@@ -33,7 +33,6 @@ export interface Brand {
   logoPath?: string;
   bankDetails: BankDetails;
   invoicePrefix: string;
-  nextInvoiceNumber: number;
   createdAt: string;
   accentColor: string;
   followup: FollowupConfig;
