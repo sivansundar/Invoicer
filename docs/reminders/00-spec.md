@@ -99,3 +99,52 @@ exercised rather than asserted:
 - **Inbound reply parsing.** Replies land in the brand's own inbox, which is
   the point. Detecting "the client replied, stop chasing" needs a mailbox
   integration this deliberately does not have.
+
+## Deployment
+
+Nothing sends until these are set. Each one is a deliberate refusal-to-run
+rather than a default, because the failure mode of guessing is mail going out
+from the wrong address or an unauthenticated endpoint that sends on demand.
+
+**App environment** (Vercel):
+
+| Variable | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Sending. Absent → the endpoint returns 503 and sends nothing. |
+| `REMINDER_CRON_SECRET` | Authenticates pg_cron to the sweep endpoint. Absent → the endpoint is disabled outright. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Reading across orgs and writing send records clients may not write. |
+| `REMINDER_FROM_EMAIL` | Defaults to `notifications@invoicer.app`. |
+
+**Database**, once per project — deliberately not in a migration, because
+migrations are in git and this is a bearer token:
+
+```sql
+insert into private.app_config (key, value) values
+  ('reminder_sweep_url',    'https://<app-host>/api/reminders/run'),
+  ('reminder_sweep_secret', '<the same value as REMINDER_CRON_SECRET>');
+```
+
+Until both rows exist the hourly job runs and does nothing, silently. That is
+the intended state for a database restored into staging.
+
+**Resend**: verify `invoicer.app` as a sending domain (DKIM, SPF, DMARC) once.
+Customers never touch DNS — that is the whole point of the shared domain.
+
+## Why the sweep is an app endpoint, not an Edge Function
+
+pg_cron owns the schedule, as chosen. The work runs in the Next app because
+the sequencing rules, template rendering and provider-error classification are
+tested TypeScript that a Deno function cannot import — different module
+resolution, and this codebase's `@/` aliases and extension-less imports do not
+survive the trip. The alternative was a second implementation of
+`dueReminder` in Deno.
+
+Two implementations of "which reminder is owed today" is the exact drift every
+other decision here has been made to avoid, and it is the kind that stays
+invisible: both would be right on the day they were written and disagree
+quietly a month later.
+
+The cost is that the sweep needs the app to be up. It is bounded: what is owed
+is derived from due dates and history rather than held in a queue that drains,
+so an hour of downtime delays reminders instead of losing them. The next run
+selects the same stages.
