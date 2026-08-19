@@ -262,6 +262,95 @@ function repeatedFinal(
   };
 }
 
+
+/**
+ * The next reminder this invoice will receive, whether it is owed already or
+ * still in the future — the question a queue preview asks, as opposed to
+ * `dueReminder`'s "what do I send right now".
+ *
+ * Deliberately built on the same stage walk. A separate "when is the next one"
+ * calculation is how a screen ends up promising Tuesday for a reminder the
+ * scheduler sends on Wednesday, and that divergence is invisible until a user
+ * notices the queue was wrong all along.
+ *
+ * Returns null for anything that will never send: sequence off, invoice
+ * paused or settled, no stage left, no template chosen.
+ */
+export function nextScheduledReminder(
+  invoice: Invoice,
+  schedule: ReminderSchedule,
+  alreadySent: SentReminder[],
+  today: Date = new Date()
+): DueReminder | null {
+  // Anything already owed is, by definition, the next one.
+  const owed = dueReminder(invoice, schedule, alreadySent, today);
+  if (owed) return owed;
+
+  if (!schedule.enabled) return null;
+  if (invoice.followupsPaused) return null;
+  if (!isUnpaid(invoice)) return null;
+
+  const due = toLocalDate(invoice.dueDate);
+  if (!due) return null;
+
+  const sentStages = new Set(alreadySent.map((r) => r.stage));
+  const furthestSentIndex = REMINDER_STAGES.reduce(
+    (max, stage, index) => (sentStages.has(stage) ? index : max),
+    -1
+  );
+
+  // The earliest stage still ahead of us. Forwards this time, because a
+  // future queue wants the soonest one rather than the most escalated.
+  for (let index = 0; index < REMINDER_STAGES.length; index += 1) {
+    const stage = REMINDER_STAGES[index]!;
+    if (index <= furthestSentIndex) continue;
+    if (sentStages.has(stage)) continue;
+    const config = schedule.stages.find((s) => s.stage === stage);
+    if (!config || !stageIsSendable(config)) continue;
+
+    return {
+      stage,
+      ordinal: 1,
+      templateId: config.templateId,
+      scheduledFor: isoDate(addDays(due, config.offsetDays)),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * A one-line summary of what a brand's sequence will do, for list rows and
+ * card subtitles.
+ *
+ * Replaces `cadenceLabel`, which described a weekly cadence that no longer
+ * exists — left in place it would have gone on saying "Every week after the
+ * due date" about a sequence that fires three times on fixed offsets. A label
+ * that is merely stale is worse than one that is missing, because nobody
+ * doubts it.
+ */
+export function scheduleSummary(followup: unknown): string {
+  const schedule = reminderSchedule(followup);
+  if (!schedule.enabled) return "Reminders off";
+
+  const live = schedule.stages
+    .filter(stageIsSendable)
+    .sort((a, b) => a.offsetDays - b.offsetDays);
+  if (live.length === 0) return "No steps have a template yet";
+
+  const days = live.map((s) => s.offsetDays).join(", ");
+  const repeat =
+    schedule.repeatFinalEveryDays > 0
+      ? `, then every ${schedule.repeatFinalEveryDays} days`
+      : "";
+  return `${live.length} ${live.length === 1 ? "step" : "steps"} · ${days} days past due${repeat}`;
+}
+
+/** The stage a queue entry represents, as a 1-based position. */
+export function stagePosition(stage: ReminderStage): number {
+  return REMINDER_STAGES.indexOf(stage) + 1;
+}
+
 /**
  * Whether a manual chase is allowed.
  *

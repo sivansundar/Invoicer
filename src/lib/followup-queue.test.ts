@@ -116,10 +116,38 @@ describe("buildFollowupQueue", () => {
     expect(queue.map((entry) => entry.invoice.id)).toEqual(["inv-sooner", "inv-later"]);
   });
 
-  it("numbers the reminder counting ones already sent", () => {
+  /**
+   * Rewritten for the stage model. It used to assert `sent + 1`, unbounded —
+   * a fourth and fifth reminder were meaningful under a repeating cadence.
+   * There are exactly three stages now, so the number is which stage comes
+   * next, and two already sent means the final notice.
+   */
+  it("numbers the reminder by which stage comes next", () => {
+    const brand = makeBrand();
+    brand.followup = {
+      ...brand.followup,
+      enabled: true,
+      stages: [
+        { stage: "nudge", enabled: true, offsetDays: 3, templateId: "t1" },
+        { stage: "followup", enabled: true, offsetDays: 10, templateId: "t2" },
+        { stage: "final", enabled: true, offsetDays: 21, templateId: "t3" },
+      ],
+    };
     const inv = makeInvoice({ reminders: ["2026-06-01", "2026-06-08"] });
-    const queue = buildFollowupQueue([inv], [makeBrand()], today);
+    const queue = buildFollowupQueue([inv], [brand], today);
     expect(queue[0].reminderNumber).toBe(3);
+    expect(queue[0].stage).toBe("final");
+  });
+
+  /**
+   * The behaviour change worth pinning: a brand carried over from the single
+   * cadence has only its first stage configured, so once that has gone there
+   * is nothing queued until somebody chooses templates for the other two.
+   * Silence is correct — the alternative is inventing copy nobody wrote.
+   */
+  it("queues nothing further for a legacy brand once its one stage has sent", () => {
+    const inv = makeInvoice({ reminders: ["2026-06-01"] });
+    expect(buildFollowupQueue([inv], [makeBrand()], today)).toEqual([]);
   });
 
   it("returns an empty queue for no invoices", () => {

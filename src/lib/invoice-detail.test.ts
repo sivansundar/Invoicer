@@ -158,9 +158,16 @@ describe("resolveFollowupState", () => {
 });
 
 describe("nextSendLine", () => {
-  it("formats the scheduled slot with the configured time", () => {
+  /**
+   * No time of day any more. A stage fires on a date and the hourly sweep
+   * decides the hour, so promising "at 9:00 AM" would be a precision the
+   * scheduler never offered. The line names the stage instead, which is the
+   * thing a reader actually wants to know.
+   */
+  it("names the stage and the date it lands on", () => {
     const state = resolveFollowupState(makeInvoice(), weekly, today);
-    expect(nextSendLine(state, weekly, "Sivan Studio")).toMatch(/at 9:00 AM$/);
+    expect(nextSendLine(state, weekly, "Sivan Studio")).toMatch(/^Gentle nudge on /);
+    expect(nextSendLine(state, weekly, "Sivan Studio")).not.toMatch(/AM|PM/);
   });
 
   it("reads the paid line", () => {
@@ -178,11 +185,17 @@ describe("nextSendLine", () => {
     expect(nextSendLine(state, weekly, "Sivan Studio")).toBe("Paused for this invoice");
   });
 
-  it("reads the limit-reached line", () => {
-    const inv = makeInvoice({ reminders: ["a", "b", "c", "d"] });
+  /**
+   * "Limit" used to mean a stopAfter cap. Under the stage model it means the
+   * sequence has no move left — every stage has fired, or the ones that have
+   * not have no template. Both read the same way to a user, and both make the
+   * manual chase the obvious next step.
+   */
+  it("reads the sequence-finished line", () => {
+    const inv = makeInvoice({ reminders: ["2026-06-01", "2026-06-08", "2026-06-15"] });
     const state = resolveFollowupState(inv, weekly, today);
     expect(nextSendLine(state, weekly, "Sivan Studio")).toBe(
-      "Reminder limit reached — over to you now"
+      "The sequence is finished — over to you now"
     );
   });
 

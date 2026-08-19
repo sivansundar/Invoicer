@@ -207,6 +207,13 @@ export function createReminderStore(supabase: SupabaseClient): ReminderStore {
     },
 
     /**
+     * TODO(bounce-webhook): nothing writes to `email_suppressions` yet. This
+     * reads a table only a human can currently fill. The missing piece is an
+     * endpoint verifying Resend's signature and recording `hard_bounce` and
+     * `complaint` events — and on a shared sending domain it is the most
+     * urgent thing left, because continuing to mail dead addresses degrades
+     * delivery for every customer at once, not just the one who hit them.
+     *
      * Case-insensitively, because a suppression recorded for `AP@Kestrel.com`
      * must still stop mail addressed to `ap@kestrel.com` — the local part is
      * technically case-sensitive per RFC, but no real mail system treats it

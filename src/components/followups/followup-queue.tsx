@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Panel, SectionLabel } from "@/components/ui/primitives";
 import type { FollowupQueueEntry } from "@/lib/followup-queue";
-import { timeLabel } from "@/lib/followups";
+import { STAGE_LABEL } from "@/lib/reminder-stages";
 import type { EmailTemplate, Invoice } from "@/lib/types";
 
 const MAX_ROWS = 6;
@@ -79,7 +79,9 @@ export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQue
                     "yyyy-MM-ddT00:00" and only ever advanced by whole days),
                     never a real clock time — the configured send time comes
                     from the brand's own `followup.time` instead. */}
-                {format(entry.scheduled, "EEE, d MMM")}, {timeLabel(entry.brand.followup.time)}
+                {/* The stage, not a time of day: a stage fires on a date and
+                    the hourly sweep picks the hour. */}
+                {format(entry.scheduled, "EEE, d MMM")} · {STAGE_LABEL[entry.stage]}
               </div>
               <div className="flex-[0_0_90px] text-right">
                 <Button variant="ghost" size="sm" onClick={() => handlePause(entry.invoice)}>

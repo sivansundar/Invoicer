@@ -24,7 +24,7 @@ import {
   RECOVERY_WINDOW_DAYS,
   type ReminderEvent,
 } from "@/lib/followup-history";
-import { cadenceLabel } from "@/lib/followups";
+import { scheduleSummary } from "@/lib/reminder-stages";
 import { formatCurrencyGroups } from "@/lib/money";
 import { formatStoredDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -148,7 +148,7 @@ export default function BrandFollowupHistoryPage({
             </span>
           </div>
           <p className="mt-1 text-[13px] text-ink-3">
-            Every follow-up sent for this brand · {cadenceLabel(brand.followup)}
+            Every follow-up sent for this brand · {scheduleSummary(brand.followup)}
           </p>
         </div>
         <div className="flex-1" />
@@ -326,7 +326,7 @@ export default function BrandFollowupHistoryPage({
               </h3>
             </div>
             <p className="mt-2.5 text-[13px] leading-relaxed text-ink-2">
-              {cadenceLabel(brand.followup)}
+              {scheduleSummary(brand.followup)}
               {brand.followup.stopAfter > 0
                 ? ` · stops after ${brand.followup.stopAfter}`
                 : on

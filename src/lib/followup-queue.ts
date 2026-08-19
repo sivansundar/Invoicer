@@ -1,13 +1,22 @@
 import type { Brand, Invoice } from "./types";
-import { isUnpaid, nextSendDate } from "./followups";
+import { isUnpaid } from "./followups";
+import {
+  nextScheduledReminder,
+  reminderSchedule,
+  stagePosition,
+  type ReminderStage,
+  type SentReminder,
+} from "./reminder-stages";
 
 export interface FollowupQueueEntry {
   invoice: Invoice;
   brand: Brand;
   /** The next scheduled slot for this invoice's next reminder. */
   scheduled: Date;
-  /** 1-indexed — the reminder this slot would be, counting ones already sent. */
+  /** 1-indexed — which of the three stages this slot is. */
   reminderNumber: number;
+  /** Which stage, so the queue can name it rather than only number it. */
+  stage: ReminderStage;
 }
 
 /**
@@ -37,14 +46,29 @@ export function buildFollowupQueue(
     const brand = brands.find((b) => b.id === invoice.brandId);
     if (!brand) continue;
 
-    const scheduled = nextSendDate(invoice, brand.followup, today);
-    if (!scheduled) continue;
+    /**
+     * History comes from the invoice's own `reminders` array rather than
+     * `reminder_sends`, because this runs in the browser against records
+     * already in hand. The array is maintained as a derived copy of the send
+     * table, so the two agree on *which* stages have gone; if they ever
+     * diverge the queue shows one stage stale, never a duplicate send — the
+     * scheduler reads the real table.
+     */
+    const prior: SentReminder[] = (invoice.reminders ?? []).map((sentOn, index) => ({
+      stage: (["nudge", "followup", "final"] as const)[Math.min(index, 2)]!,
+      ordinal: 1,
+      sentOn,
+    }));
+
+    const next = nextScheduledReminder(invoice, reminderSchedule(brand.followup), prior, today);
+    if (!next) continue;
 
     entries.push({
       invoice,
       brand,
-      scheduled,
-      reminderNumber: (invoice.reminders?.length ?? 0) + 1,
+      scheduled: new Date(`${next.scheduledFor}T00:00`),
+      reminderNumber: stagePosition(next.stage),
+      stage: next.stage,
     });
   }
 

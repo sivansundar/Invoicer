@@ -1,6 +1,12 @@
 import { format } from "date-fns";
 import type { FollowupConfig, Invoice } from "./types";
-import { nextSendDate, timeLabel } from "./followups";
+import {
+  nextScheduledReminder,
+  reminderSchedule,
+  STAGE_LABEL,
+  type ReminderStage,
+  type SentReminder,
+} from "./reminder-stages";
 
 export interface DueLine {
   text: string;
@@ -85,13 +91,15 @@ export type FollowupStateKind = "active" | "paid" | "draft" | "paused" | "limit"
 export interface FollowupState {
   kind: FollowupStateKind;
   date: Date | null;
+  /** Which stage is next. Only set when `kind` is "active". */
+  stage?: ReminderStage;
 }
 
 /**
  * Resolves *why* follow-ups are or aren't scheduled, in the priority order
- * the handoff specifies for messaging — deliberately not the same order
- * `nextSendDate` short-circuits internally. `nextSendDate` only needs to know
- * IF it should schedule; a human reading the follow-ups card needs to know
+ * the handoff specifies for messaging — deliberately not the same order the
+ * stage walk short-circuits internally. The walk only needs to know IF it
+ * should schedule; a human reading the follow-ups card needs to know
  * WHICH of several possibly-simultaneous reasons is the relevant one (e.g. an
  * invoice can be both paid AND have its brand's follow-ups disabled — "paid"
  * is the reason worth surfacing).
@@ -101,13 +109,27 @@ export function resolveFollowupState(
   config: FollowupConfig,
   today: Date = new Date()
 ): FollowupState {
-  const scheduled = nextSendDate(invoice, config, today);
-  if (scheduled) return { kind: "active", date: scheduled };
+  /**
+   * Reads the same stage walk the scheduler uses, so this card and the mail
+   * that actually goes out cannot disagree about when the next reminder is
+   * due. It previously used `nextSendDate`, a separate cadence calculation
+   * that the stage model replaced.
+   */
+  const prior: SentReminder[] = (invoice.reminders ?? []).map((sentOn, index) => ({
+    stage: (["nudge", "followup", "final"] as const)[Math.min(index, 2)]!,
+    ordinal: 1,
+    sentOn,
+  }));
+  const next = nextScheduledReminder(invoice, reminderSchedule(config), prior, today);
+  if (next) return { kind: "active", date: new Date(`${next.scheduledFor}T00:00`), stage: next.stage };
+
   if (invoice.status === "paid") return { kind: "paid", date: null };
   if (invoice.status === "draft") return { kind: "draft", date: null };
   if (invoice.followupsPaused) return { kind: "paused", date: null };
-  const sent = invoice.reminders ?? [];
-  if (config.stopAfter > 0 && sent.length >= config.stopAfter) return { kind: "limit", date: null };
+  // Every stage has either fired or has no template. "Over to you now" is the
+  // honest reading either way, and it is what makes the manual chase button
+  // the obvious next move.
+  if (prior.length > 0) return { kind: "limit", date: null };
   return { kind: "off", date: null };
 }
 
@@ -120,7 +142,10 @@ export function resolveFollowupState(
 export function nextSendLine(state: FollowupState, config: FollowupConfig, brandName: string): string {
   switch (state.kind) {
     case "active":
-      return `${format(state.date as Date, "EEE, d MMM")} at ${timeLabel(config.time)}`;
+      // No time of day any more: a stage fires on a date, and the hourly
+      // sweep decides the hour. Promising "at 9:00 AM" would be a precision
+      // the scheduler never offered.
+      return `${STAGE_LABEL[state.stage ?? "nudge"]} on ${format(state.date as Date, "EEE, d MMM")}`;
     case "paid":
       return "Stopped — this invoice is paid";
     case "draft":
@@ -128,7 +153,7 @@ export function nextSendLine(state: FollowupState, config: FollowupConfig, brand
     case "paused":
       return "Paused for this invoice";
     case "limit":
-      return "Reminder limit reached — over to you now";
+      return "The sequence is finished — over to you now";
     case "off":
       return `Follow-ups are off for ${brandName}`;
   }
