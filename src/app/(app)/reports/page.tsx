@@ -1,16 +1,28 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Upload } from "lucide-react";
 import { SummaryReportDialog } from "@/components/reports/summary-report-dialog";
 import { ImportExport } from "@/components/invoices/import-export";
 import { ReportsSkeleton } from "@/components/ui/page-skeletons";
+import { ColumnChart } from "@/components/ui/column-chart";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { IconTile, Panel, SectionLabel, TickBar } from "@/components/ui/primitives";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { formatCurrency, getCurrencySymbol } from "@/lib/utils";
-import { summarize } from "@/lib/reports";
+import {
+  availableFinancialYears,
+  collectedAverage,
+  compactMoney,
+  dominantCurrency,
+  fyLabel,
+  groupByCurrency,
+  monthlyTotalsForCurrency,
+  summarize,
+} from "@/lib/reports";
 import type { Currency } from "@/lib/types";
 
 const CURRENCY_NAME: Record<Currency, string> = {
@@ -56,6 +68,69 @@ export default function ReportsPage() {
       };
     });
   }, [invoices]);
+
+  /**
+   * The month-by-month view is scoped to ONE currency and ONE financial year
+   * at a time, and both are named on screen. A single "collected by month"
+   * column adding ₹, $ and S$ together would be a number that exists nowhere
+   * in the book: there is no rate in these records, and inventing one to make
+   * a prettier chart is exactly the fabricated headline the redesign brief
+   * rules out. So the reader picks the currency; the chart and the table
+   * below it are denominated in it alone.
+   *
+   * Both selections are null until the reader makes one, and resolve to a
+   * default derived from the data — the currency carrying the most invoices,
+   * and the most recent financial year present. Storing the default in state
+   * instead would freeze it at first render, before the invoices arrive.
+   */
+  const [pickedCurrency, setPickedCurrency] = useState<Currency | null>(null);
+  const [pickedYear, setPickedYear] = useState<number | null>(null);
+
+  const currencies = useMemo(
+    () => groupByCurrency(invoices).map((group) => group.currency),
+    [invoices]
+  );
+  const years = useMemo(() => availableFinancialYears(invoices), [invoices]);
+
+  // A currency or year that has just vanished (an import replaced the book)
+  // falls back to the default rather than showing an empty year of dashes.
+  const activeCurrency =
+    (pickedCurrency && currencies.includes(pickedCurrency) ? pickedCurrency : null) ??
+    dominantCurrency(invoices) ??
+    "INR";
+  const activeYear =
+    (pickedYear !== null && years.some((y) => y.startYear === pickedYear) ? pickedYear : null) ??
+    years[0]?.startYear ??
+    null;
+
+  const monthly = useMemo(
+    () =>
+      activeYear === null
+        ? []
+        : monthlyTotalsForCurrency(invoices, activeCurrency, activeYear),
+    [invoices, activeCurrency, activeYear]
+  );
+
+  const monthlyTotals = useMemo(
+    () =>
+      monthly.reduce(
+        (acc, row) => ({
+          issued: acc.issued + row.issued,
+          collected: acc.collected + row.collected,
+          outstanding: acc.outstanding + row.outstanding,
+          count: acc.count + row.count,
+        }),
+        { issued: 0, collected: 0, outstanding: 0, count: 0 }
+      ),
+    [monthly]
+  );
+
+  const monthlyAverage = useMemo(() => collectedAverage(monthly), [monthly]);
+  const activeMonths = monthly.filter((row) => row.count > 0).length;
+  const yearPct =
+    monthlyTotals.issued === 0
+      ? null
+      : Math.round((monthlyTotals.collected / monthlyTotals.issued) * 100);
 
   // Both queries, not just one: these render together and the summary is
   // built from brands and invoices at once, and rendering with one of them
@@ -105,6 +180,213 @@ export default function ReportsPage() {
               </Panel>
             ))}
           </div>
+        </div>
+      )}
+
+      {monthly.length > 0 && activeYear !== null && (
+        <div className="flex flex-col gap-3.5">
+          <SectionLabel>Month by month</SectionLabel>
+
+          <Panel className="px-[22px] pt-5 pb-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-[15.5px] font-semibold tracking-[-0.012em]">
+                  Collected by month, in {CURRENCY_NAME[activeCurrency]}
+                </h3>
+                <div className="mt-1.5 flex flex-wrap items-baseline gap-2.5">
+                  <span className="text-[30px] leading-none font-semibold tracking-[-0.032em] tabular-nums">
+                    {formatCurrency(monthlyTotals.collected, activeCurrency)}
+                  </span>
+                  <span className="text-[13px] text-ink-3 tabular-nums">
+                    of {formatCurrency(monthlyTotals.issued, activeCurrency)} issued ·{" "}
+                    {fyLabel(activeYear)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {currencies.length > 1 && (
+                  <ToggleGroup
+                    type="single"
+                    value={activeCurrency}
+                    onValueChange={(value) => {
+                      if (value) setPickedCurrency(value as Currency);
+                    }}
+                    aria-label="Currency"
+                    className="inline-flex overflow-hidden rounded-[10px] border"
+                  >
+                    {currencies.map((currency) => (
+                      <ToggleGroupItem
+                        key={currency}
+                        value={currency}
+                        className="h-8 px-3 text-[13px] font-medium data-[state=on]:bg-field"
+                      >
+                        {currency}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                )}
+                {years.length > 1 && (
+                  <NativeSelect
+                    size="sm"
+                    aria-label="Financial year"
+                    value={String(activeYear)}
+                    onChange={(event) => setPickedYear(Number(event.target.value))}
+                    className="rounded-[10px] text-[13px]"
+                  >
+                    {years.map((year) => (
+                      <NativeSelectOption key={year.startYear} value={String(year.startYear)}>
+                        {year.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3.5">
+              <ColumnChart
+                data={monthly.map((row) => ({ label: row.shortLabel, value: row.collected }))}
+                name={`Collected (${activeCurrency})`}
+                color="var(--green)"
+                format={(value) => compactMoney(value, activeCurrency)}
+                average={monthlyAverage}
+                averageLabel={
+                  monthlyAverage === null
+                    ? undefined
+                    : `avg ${compactMoney(monthlyAverage, activeCurrency)}`
+                }
+              />
+            </div>
+
+            <div className="mt-3 border-t pt-3.5 text-[12.5px] leading-relaxed text-ink-3">
+              {activeCurrency} invoices only — amounts are never added across currencies. Each
+              month holds what was <em className="not-italic text-ink-2">billed</em> that month
+              and has since been paid, so a month reconciles against its own row below.
+              {monthlyAverage !== null && activeMonths > 0 && (
+                <> The average line is across the {activeMonths} month
+                  {activeMonths === 1 ? "" : "s"} with invoices, not all twelve.</>
+              )}
+            </div>
+          </Panel>
+
+          <Panel className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-[13.5px]">
+                <caption className="sr-only">
+                  {fyLabel(activeYear)} month by month, in {CURRENCY_NAME[activeCurrency]}
+                </caption>
+                <thead>
+                  <tr className="border-b text-[12.5px] font-medium text-ink-3">
+                    <th scope="col" className="px-5 py-3 text-left font-medium">
+                      Month
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-medium">
+                      Issued
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-medium">
+                      Collected
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-medium">
+                      Outstanding
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-left font-medium">
+                      Collection rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthly.map((row) => (
+                    <tr key={row.month} className="border-b last:border-b-0">
+                      <th
+                        scope="row"
+                        className="px-5 py-3 text-left text-[13.5px] font-medium whitespace-nowrap"
+                      >
+                        {row.shortLabel}{" "}
+                        <span className="text-ink-3 tabular-nums">{row.calendarYear}</span>
+                      </th>
+                      {/* An empty month is a dash, not a zero: nothing was
+                          billed, which is different from billing nothing. */}
+                      <td className="px-5 py-3 text-right tabular-nums">
+                        {row.count === 0 ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          formatCurrency(row.issued, activeCurrency)
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums">
+                        {row.count === 0 ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          formatCurrency(row.collected, activeCurrency)
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums">
+                        {row.count === 0 || row.outstanding === 0 ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          formatCurrency(row.outstanding, activeCurrency)
+                        )}
+                      </td>
+                      <td className="px-5 py-3">
+                        {row.collectionPct === null ? (
+                          <span className="text-ink-3">—</span>
+                        ) : (
+                          <span className="flex items-center gap-2.5">
+                            <TickBar
+                              pct={row.collectionPct}
+                              tone={
+                                row.collectionPct >= 80
+                                  ? "green"
+                                  : row.collectionPct >= 50
+                                    ? "amber"
+                                    : "red"
+                              }
+                              width={92}
+                            />
+                            <span className="text-[12.5px] text-ink-2 tabular-nums">
+                              {row.collectionPct}%
+                            </span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t bg-surface-2 text-[13.5px] font-medium">
+                    <th scope="row" className="px-5 py-3 text-left font-semibold whitespace-nowrap">
+                      {fyLabel(activeYear)}
+                    </th>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {monthlyTotals.count === 0 ? (
+                        <span className="text-ink-3">—</span>
+                      ) : (
+                        formatCurrency(monthlyTotals.issued, activeCurrency)
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {monthlyTotals.count === 0 ? (
+                        <span className="text-ink-3">—</span>
+                      ) : (
+                        formatCurrency(monthlyTotals.collected, activeCurrency)
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      {monthlyTotals.count === 0 || monthlyTotals.outstanding === 0 ? (
+                        <span className="text-ink-3">—</span>
+                      ) : (
+                        formatCurrency(monthlyTotals.outstanding, activeCurrency)
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-[12.5px] text-ink-2 tabular-nums">
+                      {yearPct === null ? <span className="text-ink-3">—</span> : `${yearPct}%`}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </Panel>
         </div>
       )}
 

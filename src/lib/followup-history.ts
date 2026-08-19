@@ -25,6 +25,14 @@ export const RECOVERY_WINDOW_DAYS = 7;
 /** Below this many reminders at an ordinal, a recovery rate is noise. */
 export const MIN_SAMPLE_FOR_RATE = 3;
 
+/**
+ * TODO(open-tracking): the mockups show an "Opened, not paid" outcome —
+ * the reminder was read and ignored, which is a different problem from a
+ * reminder that never arrived. Not buildable today: `invoice.reminders` is
+ * a list of dates, nothing records delivery or opens, and nothing sends the
+ * email in the first place. Needs an email provider with open webhooks and
+ * a reminder record richer than a date string.
+ */
 export type ReminderOutcome = "paid" | "escalated" | "pending" | "unknown";
 
 export interface ReminderEvent {

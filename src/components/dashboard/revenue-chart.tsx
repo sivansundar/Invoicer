@@ -32,7 +32,22 @@ function compactInr(value: number): string {
   return `₹${Math.round(value)}`;
 }
 
-export function RevenueChart({ invoices: allInvoices }: { invoices: Invoice[] }) {
+export function RevenueChart({
+  invoices: allInvoices,
+  scopeLabel,
+}: {
+  invoices: Invoice[];
+  /**
+   * What the caller already narrowed the invoices to — "FY 2026-27", or
+   * "All years". Named on the card because this is the one place on the
+   * dashboard carrying two different time windows at once: the caller
+   * selects invoices by *bill* date, and the columns below bucket them by
+   * *payment* date over a trailing range. Without both stated, an older
+   * year's near-empty chart reads as a bug rather than as the true answer
+   * to "how much of that year's billing was collected recently".
+   */
+  scopeLabel?: string;
+}) {
   const { brandId } = useBrandFilter();
   const { brands } = useBrands();
   const invoices = brandId
@@ -113,6 +128,7 @@ export function RevenueChart({ invoices: allInvoices }: { invoices: Invoice[] })
           </div>
           <div className="mt-3.5 border-t pt-3.5 text-[12.5px] text-ink-3">
             Paid invoices only · approximate across currencies
+            {scopeLabel ? ` · ${scopeLabel}` : ""}
           </div>
         </Panel>
       )}
@@ -148,6 +164,11 @@ export function RevenueChart({ invoices: allInvoices }: { invoices: Invoice[] })
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+        </div>
+
+        <div className="mt-1.5 text-[12.5px] text-ink-3">
+          By month paid, last {range} months
+          {scopeLabel ? ` · invoices billed in ${scopeLabel}` : ""}
         </div>
 
         <div className="mt-3.5">

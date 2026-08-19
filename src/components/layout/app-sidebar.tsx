@@ -1,15 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
   Building2,
   ChartNoAxesColumn,
-  ChevronUp,
   FileText,
   LayoutDashboard,
-  LifeBuoy,
   LayoutPanelLeft,
   Search,
   Users,
@@ -23,7 +22,9 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { BrandSwitcher } from "./brand-switcher";
+import { CommandPalette } from "./command-palette";
 import { PlanCard } from "./plan-card";
+import { SetupCard } from "./setup-card";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useBrands } from "@/hooks/use-brands";
@@ -128,6 +129,7 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const { invoices } = useInvoices();
   const { brands } = useBrands();
   const { clients } = useClients();
@@ -163,27 +165,36 @@ export function AppSidebar() {
 
       <SidebarContent className="gap-0">
         <div className="px-3 pt-3.5">
-          <Link
-            href="/invoices"
-            className="flex h-10 items-center gap-2.5 rounded-[11px] bg-field px-3 text-[14.5px] text-ink-3 transition-colors hover:text-ink-2"
+          {/* Was a link to /invoices wearing a `/` hint that nothing listened
+              for. The hint is now the shortcut CommandPalette registers. */}
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            aria-haspopup="dialog"
+            aria-keyshortcuts="/"
+            className="flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-[11px] bg-field px-3 text-left text-[14.5px] text-ink-3 transition-colors hover:text-ink-2"
           >
             <Search className="size-[17px]" />
             <span className="flex-1">Search</span>
             <span className="inline-flex size-[22px] items-center justify-center rounded-md border bg-surface text-xs">
               /
             </span>
-          </Link>
+          </button>
         </div>
+        <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
 
         {groups.map((group, index) => (
           <div key={group.label}>
             {index > 0 && <div className="h-px bg-line" />}
             <div className="flex flex-col gap-0.5 px-3 py-3.5">
-              <div className="flex h-[26px] items-center justify-between px-[11px]">
+              {/* The mockup puts a collapse chevron here. Nothing collapses,
+                  and three groups of six items is not a list anyone needs to
+                  fold away, so the label stands on its own rather than
+                  advertising an affordance that isn't there. */}
+              <div className="flex h-[26px] items-center px-[11px]">
                 <span className="text-[13px] font-medium tracking-[-0.005em] text-ink-3">
                   {group.label}
                 </span>
-                <ChevronUp className="size-[15px] text-ink-3" />
               </div>
               {group.items.map((item) => (
                 <NavLink key={item.href} item={item} active={isNavItemActive(pathname, item.href)} />
@@ -194,15 +205,14 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="gap-1 p-3">
+        {/* Self-hiding: nothing renders while the records load, once every
+            step is done, or after it has been skipped. */}
+        <SetupCard />
         {FEATURES.billing && <PlanCard />}
         <div className="flex items-center gap-[11px] rounded-[10px] px-[11px] py-2 text-[14.5px] text-ink-2">
           <LayoutPanelLeft className="size-[18px]" />
           <span className="flex-1">Appearance</span>
           <ThemeToggle />
-        </div>
-        <div className="flex h-[38px] items-center gap-[11px] rounded-[10px] px-[11px] text-[14.5px] text-ink-2">
-          <LifeBuoy className="size-[18px]" />
-          <span className="flex-1">Help &amp; support</span>
         </div>
         <UserMenu />
       </SidebarFooter>

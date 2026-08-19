@@ -229,9 +229,21 @@ export default function InvoiceDetailPage() {
     );
   };
 
-  // MOCK: no email is ever sent. This only records today's date on the
-  // invoice's reminder history and toasts as if it had gone out.
-  // Also unreachable while FEATURES.followups is off — see handleTogglePause.
+  // MOCK: no email is ever sent. This only appends today's date to the
+  // invoice's reminder history — "sent" throughout this codebase means
+  // "recorded against the invoice".
+  //
+  // TODO(email-provider): the outbound integration goes here. Until it
+  // exists, nothing in the UI may say or imply that a reminder was emailed,
+  // delivered, opened or read. Rendering the template body against the
+  // invoice is already done (`renderTemplate` in `lib/followups.ts`); what
+  // is missing is a transport, a per-reminder delivery record, and a
+  // scheduler for the queued sends `buildFollowupQueue` computes but nothing
+  // dispatches.
+  //
+  // TODO(payment-link): the mockups also offer "Copy payment link" beside
+  // this action. Blocked on the same gap as billing — there is no payment
+  // provider, so there is no link to copy.
   const handleSendNow = async () => {
     const updated: Invoice = {
       ...invoice,
@@ -244,7 +256,9 @@ export default function InvoiceDetailPage() {
       toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
       return;
     }
-    toast(`"${template?.name ?? "Reminder"}" sent to ${invoice.client.companyName}`);
+    // Deliberately not "sent to <client>": nothing was transmitted. The
+    // follow-ups screen was corrected to say the same thing.
+    toast(`"${template?.name ?? "Reminder"}" recorded for ${invoice.client.companyName}`);
   };
 
   const handleDelete = async () => {

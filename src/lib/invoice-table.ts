@@ -5,6 +5,20 @@ export type InvoiceTab = "all" | InvoiceStatus;
 
 export const INVOICE_TABS: InvoiceTab[] = ["all", "paid", "sent", "draft", "overdue"];
 
+/**
+ * The tab a `?tab=` search param asks for, or `"all"` when it asks for
+ * nothing this table has.
+ *
+ * The dashboard's "Needs you" cards link at `/invoices?tab=overdue` and
+ * friends. Until this existed the table held its tab in state and never read
+ * the URL, so all three buttons landed on the same default tab and the param
+ * was decoration. An unrecognised value falls back rather than throwing: a
+ * hand-edited or stale URL should show the invoice list, not an error.
+ */
+export function parseInvoiceTab(value: string | null | undefined): InvoiceTab {
+  return INVOICE_TABS.find((tab) => tab === value) ?? "all";
+}
+
 export interface InvoiceTablePipelineParams {
   invoices: Invoice[];
   /** Same shape as StatCards/RevenueChart: null means "all brands". */

@@ -30,6 +30,7 @@ import { computeTotals } from "@/lib/invoice-preview";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { snapshotFromBrand } from "@/lib/migrate";
 import { paletteColorForIndex } from "@/lib/palette";
+import { recentClients, type ChipTone } from "@/lib/recent-clients";
 import { DEFAULT_INVOICE_DESIGN } from "@/lib/invoice-design";
 import {
   describeInvoiceValidationError,
@@ -85,6 +86,17 @@ const EMPTY_SNAPSHOT: BrandSnapshot = {
 // Sentinel "Billed to" select value for the manual-entry option. Never a
 // real client id (those are `crypto.randomUUID()`), so it can't collide.
 const MANUAL_CLIENT_VALUE = "manual";
+
+// The accent `toneForClient` picked, as a class. Only the design system's
+// five accents appear here; the chip's dot is the one place a client gets a
+// colour of its own on this form.
+const CHIP_DOT: Record<ChipTone, string> = {
+  blue: "bg-blue",
+  amber: "bg-amber",
+  violet: "bg-violet",
+  green: "bg-green",
+  red: "bg-red",
+};
 
 export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const router = useRouter();
@@ -167,8 +179,20 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
     });
   };
 
+  // The one way "Billed to" ever changes, whether it was the select or a
+  // recent-client chip that changed it — the chips are a shortcut into this
+  // state, not a second copy of it.
+  const chooseClient = (value: string) => {
+    setSelectValue(value);
+    setClientPatch({});
+    clearErrors(["client", "companyName", "address"]);
+  };
+
   const brand = brands.find((b) => b.id === brandId);
   const isManualClient = selectValue === MANUAL_CLIENT_VALUE;
+  // Empty until a saved client has actually been invoiced; the row below
+  // then renders nothing at all rather than a "Recent" label over no chips.
+  const recents = recentClients(invoices, clients);
   const selectedClient = isManualClient ? undefined : clients.find((c) => c.id === selectValue);
 
   // Which of the selected saved client's invoice-relevant fields it doesn't
@@ -475,14 +499,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 Billed to
                 <Required />
               </Label>
-              <Select
-                value={selectValue}
-                onValueChange={(v) => {
-                  setSelectValue(v);
-                  setClientPatch({});
-                  clearErrors(["client", "companyName", "address"]);
-                }}
-              >
+              <Select value={selectValue} onValueChange={chooseClient}>
                 <SelectTrigger
                   className="w-full text-sm"
                   aria-invalid={!!errors.client}
@@ -507,6 +524,39 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               )}
             </div>
           </div>
+
+          {recents.length > 0 && (
+            /*
+              Billing someone again is the common case, so the handful of
+              clients you actually bill are one click away instead of behind
+              an open-scan-pick of the select above. Both controls write the
+              same `selectValue`, so picking a chip moves the select and
+              picking in the select lights the chip.
+            */
+            <div role="group" aria-label="Recent clients" className="flex flex-wrap items-center gap-2">
+              <span className="mr-0.5 text-xs text-ink-3">Recent</span>
+              {recents.map((recent) => {
+                const selected = selectValue === recent.id;
+                return (
+                  <button
+                    key={recent.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => chooseClient(recent.id)}
+                    className={cn(
+                      "inline-flex h-[30px] max-w-full items-center gap-2 rounded-full border px-3 text-[13px] transition-colors",
+                      selected
+                        ? "border-blue bg-surface text-ink ring-3 ring-blue/15"
+                        : "border-transparent bg-field text-ink-2 hover:text-ink"
+                    )}
+                  >
+                    <span className={cn("size-1.5 shrink-0 rounded-full", CHIP_DOT[recent.tone])} />
+                    <span className="truncate">{recent.companyName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {isManualClient && (
             <div className="border rounded-xl bg-card p-3 flex flex-col gap-3">

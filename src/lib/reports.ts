@@ -1,5 +1,6 @@
 import { Invoice, InvoiceStatus, Currency } from "./types";
 import { effectiveStatus } from "./dashboard";
+import { getCurrencySymbol } from "./utils";
 
 // Financial year runs April → March (Indian FY). A financial year is identified
 // by its starting calendar year: FY 2025-26 has startYear 2025 and spans
@@ -155,4 +156,142 @@ export function groupByCurrency(invoices: Invoice[]): { currency: Currency; invo
   return [...groups.entries()]
     .map(([currency, list]) => ({ currency, invoices: list }))
     .sort((a, b) => CURRENCY_ORDER.indexOf(a.currency) - CURRENCY_ORDER.indexOf(b.currency));
+}
+
+/**
+ * Which currency a book is mostly kept in: the one with the most invoices.
+ * Ties fall to `CURRENCY_ORDER` because `groupByCurrency` already sorts that
+ * way and `reduce` keeps the incumbent on an equal count. Returns null for an
+ * empty book — there is no currency to default a single-currency view to.
+ */
+export function dominantCurrency(invoices: Invoice[]): Currency | null {
+  const groups = groupByCurrency(invoices);
+  if (groups.length === 0) return null;
+  return groups.reduce((best, group) =>
+    group.invoices.length > best.invoices.length ? group : best
+  ).currency;
+}
+
+export interface MonthlyCurrencyRow {
+  /** JS month index (0 = January). */
+  month: number;
+  /** Full month name, e.g. "April". */
+  label: string;
+  /** Three-letter name for a chart axis, e.g. "Apr". */
+  shortLabel: string;
+  /** The calendar year this FY month lands in. */
+  calendarYear: number;
+  issued: number;
+  collected: number;
+  outstanding: number;
+  /** Invoices behind `issued`. 0 means the month is empty, not worth zero. */
+  count: number;
+  /** `collected / issued` as a percentage, or null when nothing was issued. */
+  collectionPct: number | null;
+}
+
+const ALL_STATUSES: InvoiceStatus[] = ["draft", "sent", "paid", "overdue"];
+
+/**
+ * One financial year of a SINGLE currency, month by month, April first.
+ *
+ * Single currency on purpose: this app bills in INR, USD and SGD, and a
+ * column that adds ₹, $ and S$ together is a number that does not exist.
+ * The caller picks one currency (see `dominantCurrency`) and says so in the
+ * UI; everything here is denominated in that currency alone.
+ *
+ * Bucketed by **bill date**, not by the date payment arrived. That is the
+ * cohort reading — "of what I billed in April, how much has landed" — and it
+ * is what makes the three money columns reconcile
+ * (`issued = collected + outstanding`) and the per-month collection rate
+ * bounded at 100%. A cash-basis bucket (`paidOn`, as `monthlyPaidSeries`
+ * uses on the dashboard) would let a month collect money it never issued and
+ * turn that rate into a meaningless ratio of two unrelated cohorts.
+ *
+ * Drafts are excluded: nothing was issued and nobody owes anything yet.
+ * Status is `effectiveStatus`, so an unpaid invoice past its due date counts
+ * as outstanding whatever the stored value says. Every one of the twelve
+ * months is returned, empty ones included — an absent month reads as a gap
+ * in the data rather than as a month where nothing was billed.
+ */
+export function monthlyTotalsForCurrency(
+  invoices: Invoice[],
+  currency: Currency,
+  startYear: number,
+  today: Date = new Date()
+): MonthlyCurrencyRow[] {
+  // Reuses the financial-year window `filterInvoices` already implements
+  // (April → March, with Jan–Mar resolving to the next calendar year).
+  const inYear = filterInvoices(
+    invoices,
+    { startYear, fromMonth: 3, toMonth: 2, statuses: ALL_STATUSES, brandId: null },
+    today
+  );
+
+  const rows: MonthlyCurrencyRow[] = FY_MONTHS.map(({ month, label }) => ({
+    month,
+    label,
+    shortLabel: label.slice(0, 3),
+    calendarYear: calendarYearForFyMonth(startYear, month),
+    issued: 0,
+    collected: 0,
+    outstanding: 0,
+    count: 0,
+    collectionPct: null,
+  }));
+  const byMonth = new Map(rows.map((row) => [row.month, row]));
+
+  for (const inv of inYear) {
+    if ((inv.currency ?? "INR") !== currency) continue;
+    const status = effectiveStatus(inv, today);
+    if (status === "draft") continue;
+    const parsed = parseBillYearMonth(inv.billDate);
+    if (!parsed) continue;
+    const row = byMonth.get(parsed.month);
+    if (!row) continue;
+    row.issued += inv.total;
+    row.count += 1;
+    if (status === "paid") row.collected += inv.total;
+    else row.outstanding += inv.total;
+  }
+
+  for (const row of rows) {
+    row.collectionPct =
+      row.issued === 0 ? null : Math.round((row.collected / row.issued) * 100);
+  }
+
+  return rows;
+}
+
+/**
+ * Mean collected across the months that actually had invoices. Averaging over
+ * all twelve would divide a part-finished financial year by months it has not
+ * reached yet and quietly halve the line. Null when no month had any.
+ */
+export function collectedAverage(rows: MonthlyCurrencyRow[]): number | null {
+  const active = rows.filter((row) => row.count > 0);
+  if (active.length === 0) return null;
+  return active.reduce((sum, row) => sum + row.collected, 0) / active.length;
+}
+
+/**
+ * Short money for chart axes, where a full ₹12,50,000 on every tick is
+ * unreadable. INR uses lakh/crore because that is how the number is spoken
+ * where it is billed; USD and SGD use k/M.
+ */
+export function compactMoney(value: number, currency: Currency): string {
+  const symbol = getCurrencySymbol(currency);
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  const scaled = (divisor: number, suffix: string) =>
+    `${sign}${symbol}${(abs / divisor).toFixed(1)}${suffix}`;
+
+  if (currency === "INR") {
+    if (abs >= 1e7) return scaled(1e7, "Cr");
+    if (abs >= 1e5) return scaled(1e5, "L");
+  } else if (abs >= 1e6) {
+    return scaled(1e6, "M");
+  }
+  if (abs >= 1e3) return `${sign}${symbol}${Math.round(abs / 1e3)}k`;
+  return `${sign}${symbol}${Math.round(abs)}`;
 }

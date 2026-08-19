@@ -52,15 +52,24 @@ const DEFAULT_COLUMNS: OptionalColumns = {
 
 interface InvoiceDataTableProps {
   invoices: Invoice[];
+  /**
+   * The tab to open on. The caller decides — /invoices reads it from the
+   * `?tab=` the dashboard's "Needs you" buttons link with, the dashboard's
+   * own copy of this table just takes the default.
+   */
+  initialTab?: InvoiceTab;
 }
 
-export function InvoiceDataTable({ invoices: allInvoices }: InvoiceDataTableProps) {
+export function InvoiceDataTable({
+  invoices: allInvoices,
+  initialTab = "all",
+}: InvoiceDataTableProps) {
   // Applied here, not by the caller — same reasoning as stat-cards.tsx /
   // revenue-chart.tsx: this component renders as a descendant of <Shell>'s
   // BrandFilterProvider, while DashboardPage (the caller) does not.
   const { brandId } = useBrandFilter();
 
-  const [tab, setTab] = useState<InvoiceTab>("all");
+  const [tab, setTab] = useState<InvoiceTab>(initialTab);
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState(1);

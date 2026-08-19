@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import {
@@ -24,7 +24,7 @@ function initials(name: string) {
 }
 
 export function BrandSwitcher() {
-  const { brands } = useBrands();
+  const { brands, loading } = useBrands();
   const { invoices } = useInvoices();
   const { isPro } = usePlan();
   const { brandId, setBrandId } = useBrandFilter();
@@ -32,6 +32,21 @@ export function BrandSwitcher() {
   const [proDialogOpen, setProDialogOpen] = useState(false);
 
   const selectedBrand = brands.find((brand) => brand.id === brandId) ?? null;
+
+  // A stored filter can outlive the brand it names — deleted in another tab
+  // or on another device, or replaced wholesale by an import. Deleting a
+  // brand from its own form already clears the filter (brand-form.tsx), so
+  // this only catches the paths that never went through that handler.
+  //
+  // Worth catching at all because the failure is silent and baffling: every
+  // dashboard section filters to a brand that no longer exists and shows an
+  // empty book, while this switcher resolves the missing brand to null and
+  // says "All brands". Cleared here because this is the one component
+  // mounted on every screen that holds both the brand list and the filter.
+  useEffect(() => {
+    if (loading || !brandId) return;
+    if (!brands.some((brand) => brand.id === brandId)) setBrandId(null);
+  }, [loading, brandId, brands, setBrandId]);
 
   return (
     <>
@@ -94,8 +109,10 @@ export function BrandSwitcher() {
 
           <DropdownMenuItem
             onSelect={(event) => {
-              // Brand creation is unrestricted while billing is hidden —
-              // only gate behind Pro once FEATURES.billing is back on.
+              // FEATURES.billing is on, so this gate is live: a free account
+              // that already has a brand meets the upsell here. The flag is
+              // still the switch that takes it away again, hence the check
+              // rather than an unconditional gate.
               if (!FEATURES.billing || isPro) {
                 router.push("/brands/create");
               } else {

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvoiceForm } from "./invoice-form";
@@ -239,6 +239,114 @@ describe("InvoiceForm", () => {
     // Indian B2B invoice — it must round-trip through manual entry exactly
     // like it does through the saved-client path.
     expect(saved.client.gstNumber).toBe("29ABCDE1234F1Z5");
+  });
+
+  describe("recent-client chips", () => {
+    it("renders no chip row at all when nothing has been invoiced to a saved client", async () => {
+      // One manually-typed invoice: there is history, but none of it points
+      // at a saved client, so there is nothing a chip could select.
+      seed({ brands: [brand()], clients: [client()] });
+      seed({ invoices: [invoice({ clientId: null })] });
+
+      const user = userEvent.setup();
+      renderWithProviders(<InvoiceForm />);
+
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
+      // The preview number is derived from the seeded invoice, so seeing
+      // "…-002" (in the header and again in the live preview) proves the
+      // invoice history has actually loaded — otherwise this would assert an
+      // empty row against not-yet-arrived data.
+      expect(await screen.findAllByText("SC-2026-002")).not.toHaveLength(0);
+
+      expect(screen.queryByRole("group", { name: "Recent clients" })).toBeNull();
+      expect(screen.queryByText("Recent")).toBeNull();
+    });
+
+    it("offers the recently invoiced clients, newest first", async () => {
+      seed({
+        brands: [brand()],
+        clients: [client(), client({ id: "c2", companyName: "Kestrel Labs" })],
+      });
+      seed({
+        invoices: [
+          invoice({ id: "i1", clientId: "c1", createdAt: "2026-06-01T00:00:00.000Z" }),
+          invoice({
+            id: "i2",
+            invoiceNumber: "SC-2026-002",
+            clientId: "c2",
+            createdAt: "2026-07-01T00:00:00.000Z",
+          }),
+        ],
+      });
+
+      renderWithProviders(<InvoiceForm />);
+
+      const row = await screen.findByRole("group", { name: "Recent clients" });
+      expect(
+        within(row)
+          .getAllByRole("button")
+          .map((chip) => chip.textContent)
+      ).toEqual(["Kestrel Labs", "Acme Studio"]);
+    });
+
+    it("a chip and the select are one choice: each follows the other, and the chip saves", async () => {
+      seed({
+        brands: [brand()],
+        clients: [client(), client({ id: "c2", companyName: "Kestrel Labs" })],
+      });
+      seed({
+        invoices: [
+          invoice({ id: "i1", clientId: "c1", createdAt: "2026-06-01T00:00:00.000Z" }),
+          invoice({
+            id: "i2",
+            invoiceNumber: "SC-2026-002",
+            clientId: "c2",
+            createdAt: "2026-07-01T00:00:00.000Z",
+          }),
+        ],
+      });
+
+      const user = userEvent.setup();
+      renderWithProviders(<InvoiceForm />);
+
+      await user.click(await screen.findByRole("radio", { name: /Sivan Studio/ }));
+
+      const row = await screen.findByRole("group", { name: "Recent clients" });
+      const acmeChip = within(row).getByRole("button", { name: "Acme Studio" });
+      const kestrelChip = within(row).getByRole("button", { name: "Kestrel Labs" });
+
+      // Chip → select.
+      await user.click(acmeChip);
+      const clientTrigger = document
+        .getElementById("field-client")!
+        .querySelector('[role="combobox"]')!;
+      expect(clientTrigger).toHaveTextContent("Acme Studio");
+      expect(acmeChip).toHaveAttribute("aria-pressed", "true");
+      expect(kestrelChip).toHaveAttribute("aria-pressed", "false");
+
+      // Select → chip.
+      await user.click(screen.getAllByRole("combobox")[0]);
+      await user.click(await screen.findByRole("option", { name: "Kestrel Labs" }));
+      expect(kestrelChip).toHaveAttribute("aria-pressed", "true");
+      expect(acmeChip).toHaveAttribute("aria-pressed", "false");
+
+      // And the chip's choice is the one that gets saved — the same
+      // `clientId` the select would have produced.
+      await user.click(acmeChip);
+      fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+        target: { value: "2026-07-20" },
+      });
+      const descriptionInput = screen.getByPlaceholderText("What did you do?");
+      await user.type(descriptionInput, "Website redesign");
+      const itemRow = descriptionInput.parentElement as HTMLElement;
+      await user.type(itemRow.querySelectorAll("input")[1], "5000");
+
+      await user.click(screen.getByRole("button", { name: "Create invoice" }));
+
+      const saved = (await storage.getInvoices()).find((i) => i.invoiceNumber === "SC-2026-003");
+      expect(saved?.clientId).toBe("c1");
+      expect(saved?.client.companyName).toBe("Acme Studio");
+    });
   });
 
   it('toasts and does not save when "Save as draft" is clicked with no brand selected', async () => {
