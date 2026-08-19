@@ -16,27 +16,11 @@
  */
 
 -- ---------------------------------------------------------------------------
--- Sending limits
+-- Where replies go
 -- ---------------------------------------------------------------------------
 
 /**
- * How many reminders an org may send per calendar month.
- *
- * Deliberately a limit and not a counter: usage is counted from
- * `reminder_sends` at send time, so it cannot drift out of step with what
- * actually went out, the way an incremented column silently would.
- *
- * The default is generous because the ceiling is not here to ration a paid
- * resource — it is here so a runaway loop, an import that marks two thousand
- * invoices overdue at once, or somebody using a template as a mailing list
- * hits a wall before the shared domain's reputation does.
- */
-alter table public.orgs
-  add column monthly_email_limit int not null default 2000
-    check (monthly_email_limit >= 0);
-
-/**
- * Where replies go: `brands.email`, with no new column.
+ * `brands.email`, with no new column.
  *
  * `From` is always the app's own domain — that is what removes per-customer
  * DNS setup — but it carries the brand's name, and `Reply-To` carries
@@ -47,15 +31,17 @@ alter table public.orgs
  * only ever held a copy of `brands.email`, backfilled once at migration time,
  * which meant every brand created *after* this migration would have been null
  * and would silently have sent nothing. Guaranteeing otherwise needs a trigger
- * to maintain an invariant whose whole content is "equals the other column".
- * A brand wanting replies at a different address than the one printed on its
- * invoices is a real but hypothetical want; it can have its own column on the
- * day somebody asks.
+ * maintaining an invariant whose whole content is "equals the other column".
+ * A brand wanting replies at a different address than the one on its invoices
+ * is a real but hypothetical want; it can have a column the day somebody asks.
  *
- * A brand with no email therefore sends no reminders. That is the intended
- * outcome: chase mail a client cannot reply to is worse than no chase mail,
- * because it invites a reply into a void at exactly the moment somebody wants
- * to explain when they will pay.
+ * A brand with no email therefore sends no reminders. That is intended: chase
+ * mail a client cannot reply to is worse than none, because it invites a reply
+ * into a void at exactly the moment somebody wants to explain when they pay.
+ *
+ * The monthly allowance is not here either — it belongs to the plan, and
+ * lives in `20260819091000_billing_plans.sql` with the trigger that enforces
+ * it on every row entering the `queued` state.
  */
 
 -- ---------------------------------------------------------------------------
