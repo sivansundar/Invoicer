@@ -22,8 +22,11 @@ import { FollowupQueue } from "@/components/followups/followup-queue";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useTemplates } from "@/hooks/use-templates";
+import { useReminderSends } from "@/hooks/use-reminder-sends";
 import { buildFollowupQueue } from "@/lib/followup-queue";
+
 import { brandFollowupSummary } from "@/lib/followup-history";
+import { sentRemindersOf } from "@/lib/reminder-stages";
 import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
 import { FEATURES } from "@/lib/features";
@@ -105,16 +108,22 @@ function FollowupsPageContent() {
   const { brands, loading: brandsLoading, save: saveBrand } = useBrands();
   const { invoices, loading: invoicesLoading, save: saveInvoice } = useInvoices();
   const { templates, loading: templatesLoading } = useTemplates();
+  // Real send history, so the queue names the stage the scheduler will
+  // actually send rather than one inferred from a date's position.
+  const { sendsByInvoice, loading: sendsLoading } = useReminderSends();
 
   // Every figure below counts records. Rendering it against a not-yet-loaded
   // empty list would put a confident "00" under three headings that each
   // mean something different — so wait for the data instead.
-  if (brandsLoading || invoicesLoading || templatesLoading) {
+  if (brandsLoading || invoicesLoading || templatesLoading || sendsLoading) {
     return <CardGridSkeleton cards={4} />;
   }
 
   const brandById = new Map(brands.map((brand) => [brand.id, brand]));
-  const queue = buildFollowupQueue(invoices, brands);
+  const sentByInvoice = new Map(
+    [...sendsByInvoice.entries()].map(([id, rows]) => [id, sentRemindersOf(rows)])
+  );
+  const queue = buildFollowupQueue(invoices, brands, sentByInvoice);
   const queuedIds = new Set(queue.map((entry) => entry.invoice.id));
 
   // Card 1 — what the schedules land on today. `buildFollowupQueue` already

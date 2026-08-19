@@ -94,4 +94,35 @@ describe("updateSession — refreshed cookies survive every branch", () => {
 
     expect(response.headers.get("location")).toBeNull();
   });
+
+  /**
+   * The cron sweep authenticates with a bearer secret rather than a session,
+   * because pg_cron calls it with nobody logged in. Before this it was caught
+   * by the gate and answered with a 307 to /login — the token was never read,
+   * and no reminder could ever be sent on a schedule.
+   */
+  it("lets the cron sweep through so its own bearer check can run", async () => {
+    getClaims.mockResolvedValue({ data: { claims: null } });
+
+    const response = await updateSession(makeRequest("/api/reminders/run"));
+
+    expect(response.status).not.toBe(307);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  /**
+   * The other two routes act as a specific signed-in user, so they must keep
+   * the session gate. A blanket /api exemption would opt them — and every
+   * future route — out of authentication silently.
+   */
+  it("still gates the routes that act as a signed-in user", async () => {
+    for (const pathname of ["/api/reminders/chase", "/api/billing/tier"]) {
+      getClaims.mockResolvedValue({ data: { claims: null } });
+
+      const response = await updateSession(makeRequest(pathname));
+
+      expect(response.status).toBe(307);
+      expect(response.headers.get("location")).toContain("/login");
+    }
+  });
 });

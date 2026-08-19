@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFollowupQueue } from "./followup-queue";
+import type { SentReminder } from "./reminder-stages";
 import type { Brand, FollowupConfig, Invoice } from "./types";
 
 const weekly: FollowupConfig = {
@@ -37,9 +38,13 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
 
 const today = new Date(2026, 6, 10); // 10 Jul 2026
 
+/** No history, for the cases that are about scheduling rather than about
+ * what has already gone. */
+const sent = new Map<string, SentReminder[]>();
+
 describe("buildFollowupQueue", () => {
   it("includes a sent invoice with a live schedule", () => {
-    const queue = buildFollowupQueue([makeInvoice()], [makeBrand()], today);
+    const queue = buildFollowupQueue([makeInvoice()], [makeBrand()], sent, today);
     expect(queue).toHaveLength(1);
     expect(queue[0].invoice.id).toBe("inv-1");
     expect(queue[0].brand.id).toBe("brand-1");
@@ -50,18 +55,19 @@ describe("buildFollowupQueue", () => {
     const queue = buildFollowupQueue(
       [makeInvoice({ status: "overdue" })],
       [makeBrand()],
+      sent,
       today
     );
     expect(queue).toHaveLength(1);
   });
 
   it("excludes a draft invoice", () => {
-    const queue = buildFollowupQueue([makeInvoice({ status: "draft" })], [makeBrand()], today);
+    const queue = buildFollowupQueue([makeInvoice({ status: "draft" })], [makeBrand()], sent, today);
     expect(queue).toHaveLength(0);
   });
 
   it("excludes a paid invoice", () => {
-    const queue = buildFollowupQueue([makeInvoice({ status: "paid" })], [makeBrand()], today);
+    const queue = buildFollowupQueue([makeInvoice({ status: "paid" })], [makeBrand()], sent, today);
     expect(queue).toHaveLength(0);
   });
 
@@ -69,6 +75,7 @@ describe("buildFollowupQueue", () => {
     const queue = buildFollowupQueue(
       [makeInvoice({ followupsPaused: true })],
       [makeBrand()],
+      sent,
       today
     );
     expect(queue).toHaveLength(0);
@@ -76,7 +83,7 @@ describe("buildFollowupQueue", () => {
 
   it("excludes an invoice whose brand has follow-ups disabled", () => {
     const brand = makeBrand({ followup: { ...weekly, enabled: false } });
-    const queue = buildFollowupQueue([makeInvoice()], [brand], today);
+    const queue = buildFollowupQueue([makeInvoice()], [brand], sent, today);
     expect(queue).toHaveLength(0);
   });
 
@@ -84,6 +91,7 @@ describe("buildFollowupQueue", () => {
     const queue = buildFollowupQueue(
       [makeInvoice({ dueDate: "" }), makeInvoice({ id: "inv-2", dueDate: "2026-07-11" })],
       [makeBrand()],
+      sent,
       today
     );
     expect(queue).toHaveLength(1);
@@ -94,6 +102,7 @@ describe("buildFollowupQueue", () => {
     const queue = buildFollowupQueue(
       [makeInvoice({ brandId: "brand-missing" })],
       [makeBrand()],
+      sent,
       today
     );
     expect(queue).toHaveLength(0);
@@ -112,17 +121,59 @@ describe("buildFollowupQueue", () => {
       brandId: "brand-b",
       dueDate: "2026-07-05",
     });
-    const queue = buildFollowupQueue([invoiceLater, invoiceSooner], [brandA, brandB], today);
+    const queue = buildFollowupQueue([invoiceLater, invoiceSooner], [brandA, brandB], sent, today);
     expect(queue.map((entry) => entry.invoice.id)).toEqual(["inv-sooner", "inv-later"]);
   });
 
-  it("numbers the reminder counting ones already sent", () => {
+  /**
+   * Rewritten for the stage model. It used to assert `sent + 1`, unbounded —
+   * a fourth and fifth reminder were meaningful under a repeating cadence.
+   * There are exactly three stages now, so the number is which stage comes
+   * next, and two already sent means the final notice.
+   */
+  it("numbers the reminder by which stage comes next", () => {
+    const brand = makeBrand();
+    brand.followup = {
+      ...brand.followup,
+      enabled: true,
+      stages: [
+        { stage: "nudge", enabled: true, offsetDays: 3, templateId: "t1" },
+        { stage: "followup", enabled: true, offsetDays: 10, templateId: "t2" },
+        { stage: "final", enabled: true, offsetDays: 21, templateId: "t3" },
+      ],
+    };
     const inv = makeInvoice({ reminders: ["2026-06-01", "2026-06-08"] });
-    const queue = buildFollowupQueue([inv], [makeBrand()], today);
+    // History comes from reminder_sends, naming its stages, rather than being
+    // guessed from the position of a date in `invoice.reminders`.
+    const history = new Map<string, SentReminder[]>([
+      [
+        inv.id,
+        [
+          { stage: "nudge", ordinal: 1, sentOn: "2026-06-01" },
+          { stage: "followup", ordinal: 1, sentOn: "2026-06-08" },
+        ],
+      ],
+    ]);
+    const queue = buildFollowupQueue([inv], [brand], history, today);
     expect(queue[0].reminderNumber).toBe(3);
+    expect(queue[0].stage).toBe("final");
+  });
+
+  /**
+   * The behaviour change worth pinning: a brand carried over from the single
+   * cadence has only its first stage configured, so once that has gone there
+   * is nothing queued until somebody chooses templates for the other two.
+   * Silence is correct — the alternative is inventing copy nobody wrote.
+   */
+  it("queues nothing further for a legacy brand once its one stage has sent", () => {
+    const inv = makeInvoice({ reminders: ["2026-06-01"] });
+    const history = new Map<string, SentReminder[]>([
+      [inv.id, [{ stage: "nudge", ordinal: 1, sentOn: "2026-06-01" }]],
+    ]);
+    expect(buildFollowupQueue([inv], [makeBrand()], history, today)).toEqual([]);
   });
 
   it("returns an empty queue for no invoices", () => {
-    expect(buildFollowupQueue([], [makeBrand()], today)).toEqual([]);
+    expect(buildFollowupQueue([], [makeBrand()], sent, today)).toEqual([]);
   });
 });

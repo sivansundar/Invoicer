@@ -60,7 +60,34 @@ interface FakeState {
   templates: EmailTemplate[];
   invoices: Invoice[];
   plan: PlanState;
+  emailQuota: EmailQuotaShape | null;
+  reminderSends: (ReminderSendShape & { invoiceId: string })[];
 }
+
+type EmailQuotaShape = {
+  tier: string;
+  tierLabel: string;
+  monthlyLimit: number;
+  used: number;
+  remaining: number;
+  periodStart: string;
+  periodEnd: string;
+  overLimit: boolean;
+};
+
+type ReminderSendShape = {
+  id: string;
+  stage: "nudge" | "followup" | "final" | "manual" | "legacy";
+  ordinal: number;
+  status: "queued" | "sent" | "failed" | "blocked" | "recorded";
+  toEmail: string;
+  subject: string;
+  body: string;
+  error: string | null;
+  scheduledFor: string | null;
+  sentAt: string | null;
+  createdAt: string;
+};
 
 const EMPTY_PLAN: PlanState = { tier: "free", renewsOn: null };
 
@@ -70,6 +97,8 @@ const state: FakeState = {
   templates: [],
   invoices: [],
   plan: { ...EMPTY_PLAN },
+  emailQuota: null,
+  reminderSends: [],
 };
 
 /**
@@ -117,12 +146,16 @@ export function resetFakeSeam(): void {
   state.templates = [];
   state.invoices = [];
   state.plan = { ...EMPTY_PLAN };
+  state.emailQuota = null;
+  state.reminderSends = [];
   failures.clear();
   callCounts.clear();
 }
 
 /** Seeds a collection directly, without going through the async save path. */
 export function seed(data: Partial<Omit<FakeState, "plan">>): void {
+  if (data.emailQuota !== undefined) state.emailQuota = data.emailQuota;
+  if (data.reminderSends) state.reminderSends = [...data.reminderSends];
   if (data.brands) state.brands = [...data.brands];
   if (data.clients) state.clients = [...data.clients];
   if (data.templates) state.templates = [...data.templates];
@@ -287,19 +320,53 @@ export const deleteInvoice = vi.fn(async (id: string): Promise<void> => {
 
 // Plan state stays local and synchronous by design — it is a mock with no
 // schema behind it. See the Phase 2 plan, Decisions §2.
-export const getPlanSnapshot = vi.fn((): PlanState => state.plan);
+/**
+ * Plan state moved to `org_billing`; `getPlan` reads it through PostgREST
+ * like every other record, so the fake seam no longer stands in for it. The
+ * localStorage plan writer and the `subscribe`/`notify` pair it existed for
+ * are gone from the real module, so they are gone here too — a fake that
+ * exports more than the real thing is a fake that can pass a test the real
+ * module would fail.
+ */
+export function clearLegacyPlanKey(): void {}
 
-export const savePlan = vi.fn((plan: PlanState): boolean => {
-  if (shouldFail("savePlan")) return false;
-  state.plan = plan;
-  return true;
+/**
+ * Plan, quota and reminder history, faked to match the real module's shape.
+ *
+ * These exist because the parity test insists the fake export every name the
+ * real seam does — and that test earned its keep here: without these, three
+ * unrelated suites broke the moment `usePlan` started reading `getPlan`,
+ * because a mocked module silently returned `undefined` for a function every
+ * screen in the app now calls.
+ */
+export const getPlan = vi.fn(async (): Promise<PlanState> => state.plan);
+
+export const setPlanTier = vi.fn(async (tier: PlanState["tier"]): Promise<PlanState> => {
+  state.plan = { tier, renewsOn: tier === "pro" ? "2026-09-18" : null };
+  return state.plan;
 });
 
-// Kept so the fake matches the real module's exports. `subscribe` now
-// serves only plan state, the last thing still in localStorage.
-export const subscribe = vi.fn((listener: () => void) => {
-  void listener;
-  return () => {};
+/**
+ * Null by default — the same answer a workspace with no billing row gets.
+ * A fake that returned a comfortable allowance would hide every screen's
+ * behaviour in the state that actually needs handling.
+ */
+export const getEmailQuota = vi.fn(async () => state.emailQuota);
+
+export const getReminderSends = vi.fn(async (invoiceId: string) =>
+  state.reminderSends.filter((row) => row.invoiceId === invoiceId)
+);
+
+export const getReminderSendsByInvoice = vi.fn(async () => {
+  const byInvoice = new Map<string, (typeof state.reminderSends)[number][]>();
+  for (const row of state.reminderSends) {
+    byInvoice.set(row.invoiceId, [...(byInvoice.get(row.invoiceId) ?? []), row]);
+  }
+  return byInvoice;
+});
+
+export const sendManualChase = vi.fn(async (): Promise<void> => {
+  if (shouldFail("sendManualChase")) throw new Error("send failed");
 });
 
 export { nextInvoiceNumber } from "@/lib/numbering";

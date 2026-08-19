@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SentReminder } from "./reminder-stages";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "./invoice-detail";
 import type { FollowupConfig, Invoice } from "./types";
 
@@ -111,7 +112,7 @@ describe("dueLine", () => {
 
 describe("resolveFollowupState", () => {
   it("is active when a send is scheduled", () => {
-    const state = resolveFollowupState(makeInvoice(), weekly, today);
+    const state = resolveFollowupState(makeInvoice(), weekly, [], today);
     expect(state.kind).toBe("active");
     expect(state.date).not.toBeNull();
   });
@@ -120,28 +121,35 @@ describe("resolveFollowupState", () => {
     const state = resolveFollowupState(
       makeInvoice({ status: "paid" }),
       { ...weekly, enabled: false },
+      [],
       today
     );
     expect(state.kind).toBe("paid");
   });
 
   it("reads draft when the invoice hasn't been sent", () => {
-    const state = resolveFollowupState(makeInvoice({ status: "draft" }), weekly, today);
+    const state = resolveFollowupState(makeInvoice({ status: "draft" }), weekly, [], today);
     expect(state.kind).toBe("draft");
   });
 
   it("reads paused when the invoice is individually paused", () => {
-    const state = resolveFollowupState(makeInvoice({ followupsPaused: true }), weekly, today);
+    const state = resolveFollowupState(makeInvoice({ followupsPaused: true }), weekly, [], today);
     expect(state.kind).toBe("paused");
   });
 
-  it("reads limit once the reminder cap is hit", () => {
-    const inv = makeInvoice({ reminders: ["a", "b", "c", "d"] });
-    expect(resolveFollowupState(inv, weekly, today).kind).toBe("limit");
+  /**
+   * "Limit" now means the sequence has no move left, and the history that
+   * proves it comes from reminder_sends rather than from the invoice's date
+   * array — which is why the stages are named here.
+   */
+  it("reads limit once the sequence has no move left", () => {
+    const inv = makeInvoice();
+    const prior: SentReminder[] = [{ stage: "final", ordinal: 1, sentOn: "2026-07-01" }];
+    expect(resolveFollowupState(inv, weekly, prior, today).kind).toBe("limit");
   });
 
   it("reads off when the brand's follow-ups are disabled and nothing else applies", () => {
-    const state = resolveFollowupState(makeInvoice(), { ...weekly, enabled: false }, today);
+    const state = resolveFollowupState(makeInvoice(), { ...weekly, enabled: false }, [], today);
     expect(state.kind).toBe("off");
   });
 
@@ -151,44 +159,58 @@ describe("resolveFollowupState", () => {
     // nextSendDate's Invalid Date guard, this produced { kind: "active",
     // date: Invalid Date }, which nextSendLine's format() call then threw on.
     const inv = makeInvoice({ dueDate: "", reminders: [] });
-    const state = resolveFollowupState(inv, weekly, today);
+    const state = resolveFollowupState(inv, weekly, [], today);
     expect(state.kind).not.toBe("active");
     expect(() => nextSendLine(state, weekly, "Sivan Studio")).not.toThrow();
   });
 });
 
 describe("nextSendLine", () => {
-  it("formats the scheduled slot with the configured time", () => {
-    const state = resolveFollowupState(makeInvoice(), weekly, today);
-    expect(nextSendLine(state, weekly, "Sivan Studio")).toMatch(/at 9:00 AM$/);
+  /**
+   * No time of day any more. A stage fires on a date and the hourly sweep
+   * decides the hour, so promising "at 9:00 AM" would be a precision the
+   * scheduler never offered. The line names the stage instead, which is the
+   * thing a reader actually wants to know.
+   */
+  it("names the stage and the date it lands on", () => {
+    const state = resolveFollowupState(makeInvoice(), weekly, [], today);
+    expect(nextSendLine(state, weekly, "Sivan Studio")).toMatch(/^Gentle nudge on /);
+    expect(nextSendLine(state, weekly, "Sivan Studio")).not.toMatch(/AM|PM/);
   });
 
   it("reads the paid line", () => {
-    const state = resolveFollowupState(makeInvoice({ status: "paid" }), weekly, today);
+    const state = resolveFollowupState(makeInvoice({ status: "paid" }), weekly, [], today);
     expect(nextSendLine(state, weekly, "Sivan Studio")).toBe("Stopped — this invoice is paid");
   });
 
   it("reads the draft line", () => {
-    const state = resolveFollowupState(makeInvoice({ status: "draft" }), weekly, today);
+    const state = resolveFollowupState(makeInvoice({ status: "draft" }), weekly, [], today);
     expect(nextSendLine(state, weekly, "Sivan Studio")).toBe("Starts once the invoice is sent");
   });
 
   it("reads the paused line", () => {
-    const state = resolveFollowupState(makeInvoice({ followupsPaused: true }), weekly, today);
+    const state = resolveFollowupState(makeInvoice({ followupsPaused: true }), weekly, [], today);
     expect(nextSendLine(state, weekly, "Sivan Studio")).toBe("Paused for this invoice");
   });
 
-  it("reads the limit-reached line", () => {
-    const inv = makeInvoice({ reminders: ["a", "b", "c", "d"] });
-    const state = resolveFollowupState(inv, weekly, today);
+  /**
+   * "Limit" used to mean a stopAfter cap. Under the stage model it means the
+   * sequence has no move left — every stage has fired, or the ones that have
+   * not have no template. Both read the same way to a user, and both make the
+   * manual chase the obvious next step.
+   */
+  it("reads the sequence-finished line", () => {
+    const inv = makeInvoice();
+    const prior: SentReminder[] = [{ stage: "final", ordinal: 1, sentOn: "2026-06-15" }];
+    const state = resolveFollowupState(inv, weekly, prior, today);
     expect(nextSendLine(state, weekly, "Sivan Studio")).toBe(
-      "Reminder limit reached — over to you now"
+      "The sequence is finished — over to you now"
     );
   });
 
   it("interpolates the brand name into the off line", () => {
     const config = { ...weekly, enabled: false };
-    const state = resolveFollowupState(makeInvoice(), config, today);
+    const state = resolveFollowupState(makeInvoice(), config, [], today);
     expect(nextSendLine(state, config, "Sivan Studio")).toBe(
       "Follow-ups are off for Sivan Studio"
     );
@@ -197,7 +219,7 @@ describe("nextSendLine", () => {
 
 describe("followupPillLabel", () => {
   it("returns null for active, letting the caller render the distinct Active pill", () => {
-    const state = resolveFollowupState(makeInvoice(), weekly, today);
+    const state = resolveFollowupState(makeInvoice(), weekly, [], today);
     expect(followupPillLabel(state)).toBeNull();
   });
 

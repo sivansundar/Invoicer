@@ -135,14 +135,43 @@ export interface EmailTemplate {
  */
 export interface FollowupConfig {
   enabled: boolean;
+  /**
+   * The three-stage sequence. Optional because every brand written before
+   * this feature has the old single-cadence shape instead, and `jsonb` was
+   * deliberately not migrated for accounts that may never enable reminders —
+   * `reminderSchedule` (`@/lib/reminder-stages`) normalises on read, and the
+   * new shape is written back only when somebody edits it.
+   */
+  stages?: {
+    stage: "nudge" | "followup" | "final";
+    enabled: boolean;
+    offsetDays: number;
+    templateId: string;
+  }[];
+  /** Days between repeats of the final notice. 0 = it does not repeat. */
+  repeatFinalEveryDays?: number;
+
+  /**
+   * DEPRECATED — the pre-stage cadence. Still required because
+   * `defaultFollowupConfig` writes all of it and every stored brand has it,
+   * so making these optional would be a lie about the data rather than a
+   * simplification of it.
+   *
+   * Nothing schedules from them any more: a stage fires once at an offset
+   * rather than repeating weekly, so `mode`, `weekday`, `time`, `repeat` and
+   * `stopAfter` have nothing left to express. `templateId` is read once, by
+   * `reminderSchedule`, to carry a legacy brand's existing copy onto its
+   * first stage.
+   *
+   * TODO(drop-legacy-cadence): remove these once no stored brand predates
+   * the stage model — a migration that rewrites `followup` jsonb, deliberately
+   * deferred so this feature did not also become a data migration.
+   */
   mode: "weekly" | "custom";
-  /** 0 = Sunday … 6 = Saturday. Only meaningful when mode is "custom". */
   weekday: number;
-  /** "HH:mm", 24-hour. */
   time: string;
   repeat: "week" | "month";
   templateId: string;
-  /** 0 means "never stop". */
   stopAfter: number;
 }
 

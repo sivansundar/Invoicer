@@ -15,6 +15,12 @@ export const queryKeys = {
   clients: ["clients"] as const,
   invoices: ["invoices"] as const,
   templates: ["templates"] as const,
+  plan: ["plan"] as const,
+  emailQuota: ["email-quota"] as const,
+  /** Reminder history for one invoice. */
+  reminderSends: (invoiceId: string) => ["reminder-sends", invoiceId] as const,
+  /** Reminder history for every invoice, fetched once for the queue. */
+  reminderSendsAll: ["reminder-sends-all"] as const,
   /**
    * Signed URLs expire, so this key is per-path and the caller sets a
    * `staleTime` below the expiry. Keyed by object path rather than brand id

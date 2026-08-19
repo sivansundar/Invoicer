@@ -14,7 +14,7 @@ import { usePlan } from "@/hooks/use-plan";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
 import { FEATURES } from "@/lib/features";
 import { nextInvoiceNumber } from "@/lib/storage";
-import { cadenceLabel } from "@/lib/followups";
+import { scheduleSummary } from "@/lib/reminder-stages";
 import { IconTile, Panel, TickBar } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 import { formatCurrencyGroups, groupTotalsByCurrency } from "@/lib/money";
@@ -241,7 +241,7 @@ function BrandCard({ brand, invoices, onViewInvoices }: BrandCardProps) {
 
       <div className="flex items-center gap-2 text-[12.5px] text-ink-2">
         <Bell className="size-3.5 shrink-0 text-ink-3" />
-        <span className="truncate">{cadenceLabel(brand.followup)}</span>
+        <span className="truncate">{scheduleSummary(brand.followup)}</span>
       </div>
 
       <div className="flex items-center gap-2 text-[12.5px] text-ink-3">

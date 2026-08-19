@@ -183,8 +183,37 @@ describe("InvoiceDetailPage", () => {
     expect((await storage.getInvoices()).find((i) => i.id === "i1")?.followupsPaused).toBe(false);
   });
 
-  it("does not report success and leaves reminder history unchanged when sending now fails", async () => {
-    seed({ brands: [brand()], invoices: [invoice({ status: "sent", reminders: [] })] });
+  /**
+   * Rewritten for real sending. "Send one now" used to append a date to an
+   * array, so failure meant a rejected local write; it now posts to
+   * /api/reminders/chase, so failure means a rejected request. The property
+   * under test is unchanged and is the one that matters: a failed send must
+   * not claim success.
+   *
+   * The button only appears once the final notice has gone — before that the
+   * automatic sequence is still running — so the fixture seeds that history.
+   */
+  it("does not report success when the chase is refused", async () => {
+    seed({
+      brands: [brand()],
+      invoices: [invoice({ status: "sent", reminders: [] })],
+      reminderSends: [
+        {
+          invoiceId: "i1",
+          id: "s1",
+          stage: "final",
+          ordinal: 1,
+          status: "sent",
+          toEmail: "c@x.com",
+          subject: "Final",
+          body: "b",
+          error: null,
+          scheduledFor: "2026-08-01",
+          sentAt: "2026-08-01T09:00:00.000Z",
+          createdAt: "2026-08-01T09:00:00.000Z",
+        },
+      ],
+    });
 
     const user = userEvent.setup();
     renderWithProviders(
@@ -193,13 +222,12 @@ describe("InvoiceDetailPage", () => {
       </ThemeProvider>
     );
 
-    failNext("saveInvoice");
+    failNext("sendManualChase");
 
-    await user.click(await screen.findByRole("button", { name: "Send one now" }));
+    await user.click(await screen.findByRole("button", { name: "Chase again" }));
 
-    await waitFor(() => expect(toast).toHaveBeenCalledWith("write failed"));
-    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("recorded for"));
-    expect((await storage.getInvoices()).find((i) => i.id === "i1")?.reminders).toEqual([]);
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("send failed"));
+    expect(toast).not.toHaveBeenCalledWith(expect.stringContaining("Reminder sent"));
   });
 
   it("does not navigate away or drop the record when deleting fails", async () => {

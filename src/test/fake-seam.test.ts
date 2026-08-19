@@ -77,18 +77,12 @@ describe("the fake seam matches @/lib/storage", () => {
     }
   });
 
-  it("keeps plan state synchronous, matching the real seam", () => {
-    // Plan state is the one thing still in localStorage and still
-    // boolean-returning. If it started returning a promise here but not
-    // there (or vice versa), `if (!savePlan(x))` would silently take the
-    // wrong branch — a promise is never falsy.
-    fake.resetFakeSeam();
-
-    expect(fake.getPlanSnapshot()).toEqual({ tier: "free", renewsOn: null });
-    expect(typeof fake.savePlan({ tier: "free", renewsOn: null })).toBe("boolean");
-    expect(typeof real.savePlan).toBe("function");
-  });
-
+  /**
+   * The synchronous-plan-state check that used to live here is gone with the
+   * behaviour it guarded: plan state moved to `org_billing` and `getPlan` is
+   * an ordinary async PostgREST read like every other record, so there is no
+   * longer a boolean-vs-promise mismatch for a fake to get wrong.
+   */
   it("mirrors the server allocating an invoice number on create", async () => {
     // The fake must not simply echo the number it was handed. The real
     // create_invoice allocates, so a test asserting "the UI reports the

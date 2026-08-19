@@ -22,10 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-client";
+import { getReminderSends, sendManualChase } from "@/lib/storage";
+import { SendHistory } from "@/components/followups/send-history";
+import { canChaseManually, sentRemindersOf } from "@/lib/reminder-stages";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrands } from "@/hooks/use-brands";
 import { useTemplates } from "@/hooks/use-templates";
-import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
+import { fillTemplate, templateContext } from "@/lib/followups";
+import { scheduleSummary } from "@/lib/reminder-stages";
 import { taxLabel } from "@/lib/invoice-preview";
 import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
@@ -65,8 +71,23 @@ export default function InvoiceDetailPage() {
   const { brands } = useBrands();
   const { templates } = useTemplates();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [chasing, setChasing] = useState(false);
 
   const id = params.id as string;
+  const queryClient = useQueryClient();
+
+  /**
+   * The real send record, which is what the history below renders. The
+   * invoice's own `reminders` array is a derived copy kept for older readers;
+   * this table carries the outcome — including the attempts that were blocked
+   * or failed, which are the ones worth showing.
+   */
+  const { data: sends } = useQuery({
+    queryKey: queryKeys.reminderSends(id),
+    queryFn: () => getReminderSends(id),
+  });
+  const refreshSends = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.reminderSends(id) });
   const invoice = useMemo(() => invoices.find((i) => i.id === id) ?? null, [invoices, id]);
   const brand = useMemo(() => brands.find((b) => b.id === invoice?.brandId), [brands, invoice]);
 
@@ -129,7 +150,9 @@ export default function InvoiceDetailPage() {
       state: invoice.status === "paid" ? ("done" as const) : ("todo" as const),
     },
   ];
-  const followupState = resolveFollowupState(invoice, config);
+  // The card's "next send" reads the same real history the scheduler does,
+  // so it cannot promise a stage that has already gone.
+  const followupState = resolveFollowupState(invoice, config, sentRemindersOf(sends));
   const showFollowups =
     FEATURES.followups && (invoice.status !== "draft" || invoice.reminders.length > 0);
 
@@ -229,36 +252,33 @@ export default function InvoiceDetailPage() {
     );
   };
 
-  // MOCK: no email is ever sent. This only appends today's date to the
-  // invoice's reminder history — "sent" throughout this codebase means
-  // "recorded against the invoice".
-  //
-  // TODO(email-provider): the outbound integration goes here. Until it
-  // exists, nothing in the UI may say or imply that a reminder was emailed,
-  // delivered, opened or read. Rendering the template body against the
-  // invoice is already done (`renderTemplate` in `lib/followups.ts`); what
-  // is missing is a transport, a per-reminder delivery record, and a
-  // scheduler for the queued sends `buildFollowupQueue` computes but nothing
-  // dispatches.
-  //
-  // TODO(payment-link): the mockups also offer "Copy payment link" beside
-  // this action. Blocked on the same gap as billing — there is no payment
-  // provider, so there is no link to copy.
+  /**
+   * Send a manual chase for real.
+   *
+   * This used to append today's date to an array and toast as though mail had
+   * gone out. It now posts to `/api/reminders/chase`, which composes, claims a
+   * slot, sends through Resend and records the outcome — the same path the
+   * hourly sweep takes, so the two cannot disagree about idempotency or about
+   * the monthly limit.
+   *
+   * TODO(payment-link): the mockups also offer "Copy payment link" beside this
+   * action. Blocked on the payment provider, not on this.
+   */
   const handleSendNow = async () => {
-    const updated: Invoice = {
-      ...invoice,
-      reminders: [...invoice.reminders, format(new Date(), "yyyy-MM-dd")],
-      updatedAt: new Date().toISOString(),
-    };
+    setChasing(true);
     try {
-      await save(updated);
+      await sendManualChase(invoice.id);
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Couldn't save that change — try again");
+      // Every refusal from that route is a state the user can act on — over
+      // the monthly limit, a suppressed address, no template — so the message
+      // is surfaced verbatim rather than flattened into "try again".
+      toast(err instanceof Error ? err.message : "Couldn't send that reminder");
       return;
+    } finally {
+      setChasing(false);
     }
-    // Deliberately not "sent to <client>": nothing was transmitted. The
-    // follow-ups screen was corrected to say the same thing.
-    toast(`"${template?.name ?? "Reminder"}" recorded for ${invoice.client.companyName}`);
+    await refreshSends();
+    toast(`Reminder sent to ${invoice.client.companyName}`);
   };
 
   const handleDelete = async () => {
@@ -438,33 +458,44 @@ export default function InvoiceDetailPage() {
                 <span className="text-muted-foreground">Next send</span>
                 <span>{nextSendLine(followupState, config, brandName)}</span>
                 <span className="text-muted-foreground">Template</span>
-                <span>{template ? `${template.name} · ${cadenceLabel(config)}` : cadenceLabel(config)}</span>
+                <span>{template ? `${template.name} · ${scheduleSummary(config)}` : scheduleSummary(config)}</span>
                 <span className="text-muted-foreground">Subject</span>
                 <span className="text-muted-foreground">
                   {template ? fillTemplate(template.subject, templateContext(invoice, brandName)) : "—"}
                 </span>
               </div>
 
-              {invoice.reminders.length > 0 && (
-                <div className="border-t pt-3 flex flex-col gap-2">
-                  {invoice.reminders.map((sentDate, index) => (
-                    <div key={`${sentDate}-${index}`} className="flex items-center gap-2 text-[13px]">
-                      <Check className="size-[13px] text-muted-foreground" />
-                      <span className="text-muted-foreground flex-1">Reminder {index + 1} sent</span>
-                      <span className="tabular-nums">{formatDate(sentDate)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <SendHistory records={sends ?? []} />
 
               {(invoice.status === "sent" || invoice.status === "overdue") && (
                 <div className="border-t pt-3.5 flex gap-2 items-center flex-wrap">
                   <Button variant="outline" size="sm" onClick={handleTogglePause}>
                     {invoice.followupsPaused ? "Resume follow-ups" : "Pause follow-ups"}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={handleSendNow}>
-                    Send one now
-                  </Button>
+                  {/*
+                    Offered only once the final notice has gone. Before that
+                    the sequence is still running and a manual send would
+                    arrive alongside an automatic one saying much the same
+                    thing. The route re-checks this — a hidden button is a
+                    hint, not a permission boundary.
+                  */}
+                  {canChaseManually(
+                    invoice,
+                    (sends ?? []).map((r) => ({
+                      stage: r.stage,
+                      ordinal: r.ordinal,
+                      sentOn: (r.sentAt ?? r.createdAt).slice(0, 10),
+                    }))
+                  ) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSendNow}
+                      disabled={chasing}
+                    >
+                      {chasing ? "Sending…" : "Chase again"}
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" asChild className="ml-auto">
                     <Link href={`/followups/brands/${invoice.brandId}`}>
                       <Clock className="size-3.5" />

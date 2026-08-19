@@ -2,8 +2,36 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseEnv } from "./env";
 
-/** Routes reachable without a session. Everything else requires one. */
-const PUBLIC_PATHS = ["/", "/pricing", "/privacy", "/terms", "/login", "/callback"];
+/**
+ * Routes this gate lets through without a session. Everything else requires
+ * one.
+ *
+ * Two different kinds of thing are on this list, and conflating them is a
+ * mistake waiting to happen:
+ *
+ * - Genuinely public pages: the marketing routes, `/login`, `/callback`.
+ * - `/api/reminders/run`, which is *not* public. It authenticates with a
+ *   bearer secret instead of a session cookie, because pg_cron calls it with
+ *   no user logged in. Passing it through here does not make it open — the
+ *   route itself refuses without `REMINDER_CRON_SECRET`, and refuses to run
+ *   at all if that variable is unset. What this entry prevents is the gate
+ *   answering first with a 307 to /login, which is what it did before: the
+ *   bearer token was never even read.
+ *
+ * Deliberately not `/api` wholesale. `/api/reminders/chase` and
+ * `/api/billing/tier` act as a specific signed-in user and must keep the
+ * session gate, and a blanket exemption would silently opt every future
+ * route out of authentication.
+ */
+const PUBLIC_PATHS = [
+  "/",
+  "/pricing",
+  "/privacy",
+  "/terms",
+  "/login",
+  "/callback",
+  "/api/reminders/run",
+];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname);

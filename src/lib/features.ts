@@ -11,11 +11,16 @@
  * mockups show but the model cannot yet support are labelled `TODO(slug):`
  * at the place they would be built; `grep -rn "TODO(" src` lists all five:
  *
- * - `TODO(payment-provider)` — `hooks/use-plan.ts`
- * - `TODO(email-provider)` — `app/(app)/invoices/[id]/page.tsx`
+ * - `TODO(bounce-webhook)` — `lib/reminder-store.ts`. The most urgent: the
+ *   suppression list is read on every send and nothing writes to it yet.
+ * - `TODO(payment-provider)` — `hooks/use-plan.ts`, `api/billing/tier`
  * - `TODO(payment-link)` — `app/(app)/invoices/[id]/page.tsx`
  * - `TODO(open-tracking)` — `lib/followup-history.ts`
- * - `TODO(reminder-sequence)` — `lib/types.ts`
+ * - `TODO(drop-legacy-cadence)` — `lib/types.ts`
+ *
+ * `TODO(email-provider)` and `TODO(reminder-sequence)` are gone: reminders
+ * are sent through Resend by a real scheduler, and the three-stage sequence
+ * exists. See `docs/reminders/`.
  *
  * - `billing`: the sidebar plan card, every "Pro" pill, and the upsell
  *   dialog (`plan-card.tsx` / `pro-dialog.tsx` / `use-plan.ts`).
@@ -33,14 +38,12 @@
  *
  * - `followups`: the "Follow-ups" nav item, the `/followups`,
  *   `/followups/brands/*` and `/followups/templates/*` routes, and the
- *   follow-ups card on the invoice detail page. Schedules and reminder
- *   history persist to Postgres like everything else, but NO EMAIL IS EVER
- *   SENT — "Send one now" only appends today's date to `invoice.reminders`,
- *   and the queue's scheduled sends are computed, never dispatched. Every
- *   figure the follow-up screens show is therefore real data about
- *   reminders that were recorded, not delivered. Turning this into a real
- *   feature needs an outbound email integration behind `handleSendNow` in
- *   `app/invoices/[id]/page.tsx` and a scheduler for the queue.
+ *   follow-ups card on the invoice detail page. NO LONGER A FACADE —
+ *   reminders are composed and sent through Resend by an hourly sweep, and
+ *   `reminder_sends` records what actually went out. What remains faked is
+ *   named in `docs/reminders/01-outliers-and-backlog.md`; the one that
+ *   matters is that nothing yet writes bounces to the suppression list.
+ *
  */
 export const FEATURES = {
   billing: true,
