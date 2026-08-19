@@ -26,7 +26,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-client";
 import { getReminderSends, sendManualChase } from "@/lib/storage";
 import { SendHistory } from "@/components/followups/send-history";
-import { canChaseManually } from "@/lib/reminder-stages";
+import { canChaseManually, sentRemindersOf } from "@/lib/reminder-stages";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrands } from "@/hooks/use-brands";
 import { useTemplates } from "@/hooks/use-templates";
@@ -150,7 +150,9 @@ export default function InvoiceDetailPage() {
       state: invoice.status === "paid" ? ("done" as const) : ("todo" as const),
     },
   ];
-  const followupState = resolveFollowupState(invoice, config);
+  // The card's "next send" reads the same real history the scheduler does,
+  // so it cannot promise a stage that has already gone.
+  const followupState = resolveFollowupState(invoice, config, sentRemindersOf(sends));
   const showFollowups =
     FEATURES.followups && (invoice.status !== "draft" || invoice.reminders.length > 0);
 

@@ -357,6 +357,14 @@ export const getReminderSends = vi.fn(async (invoiceId: string) =>
   state.reminderSends.filter((row) => row.invoiceId === invoiceId)
 );
 
+export const getReminderSendsByInvoice = vi.fn(async () => {
+  const byInvoice = new Map<string, (typeof state.reminderSends)[number][]>();
+  for (const row of state.reminderSends) {
+    byInvoice.set(row.invoiceId, [...(byInvoice.get(row.invoiceId) ?? []), row]);
+  }
+  return byInvoice;
+});
+
 export const sendManualChase = vi.fn(async (): Promise<void> => {
   if (shouldFail("sendManualChase")) throw new Error("send failed");
 });

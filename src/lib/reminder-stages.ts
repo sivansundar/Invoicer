@@ -346,6 +346,29 @@ export function scheduleSummary(followup: unknown): string {
   return `${live.length} ${live.length === 1 ? "step" : "steps"} · ${days} days past due${repeat}`;
 }
 
+/**
+ * The subset of a send history the stage walk cares about: what actually went
+ * out. Queued, failed and blocked attempts are stages still owed, not stages
+ * completed, so counting them would advance the sequence past a reminder the
+ * client never received.
+ *
+ * Lives here rather than beside the query that fetches those rows, because it
+ * is a rule about the sequence and not about storage — and the storage seam
+ * has a test asserting the fake exports exactly what the real module does,
+ * which a pure function in there makes needlessly harder to satisfy.
+ */
+export function sentRemindersOf(
+  records: { stage: SentReminder["stage"]; ordinal: number; status: string; sentAt: string | null; scheduledFor: string | null; createdAt: string }[] | undefined
+): SentReminder[] {
+  return (records ?? [])
+    .filter((r) => r.status === "sent" || r.status === "recorded")
+    .map((r) => ({
+      stage: r.stage,
+      ordinal: r.ordinal,
+      sentOn: (r.sentAt ?? r.scheduledFor ?? r.createdAt).slice(0, 10),
+    }));
+}
+
 /** The stage a queue entry represents, as a 1-based position. */
 export function stagePosition(stage: ReminderStage): number {
   return REMINDER_STAGES.indexOf(stage) + 1;

@@ -107,19 +107,15 @@ export interface FollowupState {
 export function resolveFollowupState(
   invoice: Invoice,
   config: FollowupConfig,
+  /**
+   * What has actually been sent, from `reminder_sends`. Named stages rather
+   * than the bare dates in `invoice.reminders`, because reading a stage from
+   * a date's position in that array is wrong exactly when the scheduler
+   * skipped ahead — the case where this card most needs to be right.
+   */
+  prior: SentReminder[] = [],
   today: Date = new Date()
 ): FollowupState {
-  /**
-   * Reads the same stage walk the scheduler uses, so this card and the mail
-   * that actually goes out cannot disagree about when the next reminder is
-   * due. It previously used `nextSendDate`, a separate cadence calculation
-   * that the stage model replaced.
-   */
-  const prior: SentReminder[] = (invoice.reminders ?? []).map((sentOn, index) => ({
-    stage: (["nudge", "followup", "final"] as const)[Math.min(index, 2)]!,
-    ordinal: 1,
-    sentOn,
-  }));
   const next = nextScheduledReminder(invoice, reminderSchedule(config), prior, today);
   if (next) return { kind: "active", date: new Date(`${next.scheduledFor}T00:00`), stage: next.stage };
 

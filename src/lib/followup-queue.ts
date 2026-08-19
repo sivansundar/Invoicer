@@ -36,6 +36,21 @@ export interface FollowupQueueEntry {
 export function buildFollowupQueue(
   invoices: Invoice[],
   brands: Brand[],
+  /**
+   * What has actually been sent, per invoice, from `reminder_sends`.
+   *
+   * Passed in rather than inferred from `invoice.reminders`, which holds only
+   * dates. Reading the stage from a date's position in that array is wrong
+   * exactly when it matters: the scheduler jumps straight to the final notice
+   * on an invoice already months late, and a positional reading would call
+   * that first entry a nudge and then promise a follow-up that never comes.
+   *
+   * Optional so callers that genuinely have no history — tests, and the
+   * brands screen's summary count — need not fetch it. Absent history means
+   * "nothing sent yet", which for a queue preview errs towards showing the
+   * first stage rather than towards silence.
+   */
+  sentByInvoice?: Map<string, SentReminder[]>,
   today: Date = new Date()
 ): FollowupQueueEntry[] {
   const entries: FollowupQueueEntry[] = [];
@@ -46,21 +61,12 @@ export function buildFollowupQueue(
     const brand = brands.find((b) => b.id === invoice.brandId);
     if (!brand) continue;
 
-    /**
-     * History comes from the invoice's own `reminders` array rather than
-     * `reminder_sends`, because this runs in the browser against records
-     * already in hand. The array is maintained as a derived copy of the send
-     * table, so the two agree on *which* stages have gone; if they ever
-     * diverge the queue shows one stage stale, never a duplicate send — the
-     * scheduler reads the real table.
-     */
-    const prior: SentReminder[] = (invoice.reminders ?? []).map((sentOn, index) => ({
-      stage: (["nudge", "followup", "final"] as const)[Math.min(index, 2)]!,
-      ordinal: 1,
-      sentOn,
-    }));
-
-    const next = nextScheduledReminder(invoice, reminderSchedule(brand.followup), prior, today);
+    const next = nextScheduledReminder(
+      invoice,
+      reminderSchedule(brand.followup),
+      sentByInvoice?.get(invoice.id) ?? [],
+      today
+    );
     if (!next) continue;
 
     entries.push({

@@ -459,6 +459,47 @@ export async function getReminderSends(invoiceId: string): Promise<ReminderSendR
   }));
 }
 
+/**
+ * Every reminder attempt across the org's invoices, keyed by invoice.
+ *
+ * The follow-ups queue and the invoice card need to know which *stages* have
+ * gone, and the invoice's own `reminders` array only carries dates. Inferring
+ * the stage from array position is wrong precisely when it matters: the
+ * scheduler jumps straight to the final notice on an invoice that was already
+ * months late, and a positional reading would call that first entry a nudge
+ * and then offer a follow-up that will never send.
+ */
+export async function getReminderSendsByInvoice(): Promise<Map<string, ReminderSendRecord[]>> {
+  const { data, error } = await createClient()
+    .from("reminder_sends")
+    .select(
+      "id, invoice_id, stage, ordinal, status, to_email, subject, body, error, scheduled_for, sent_at, created_at"
+    )
+    .order("created_at", { ascending: true });
+  throwOn(error);
+
+  const byInvoice = new Map<string, ReminderSendRecord[]>();
+  for (const row of data ?? []) {
+    const invoiceId = row.invoice_id as string;
+    const bucket = byInvoice.get(invoiceId) ?? [];
+    bucket.push({
+      id: row.id as string,
+      stage: row.stage as ReminderSendRecord["stage"],
+      ordinal: row.ordinal as number,
+      status: row.status as ReminderSendRecord["status"],
+      toEmail: (row.to_email as string) ?? "",
+      subject: (row.subject as string) ?? "",
+      body: (row.body as string) ?? "",
+      error: (row.error as string | null) ?? null,
+      scheduledFor: (row.scheduled_for as string | null) ?? null,
+      sentAt: (row.sent_at as string | null) ?? null,
+      createdAt: row.created_at as string,
+    });
+    byInvoice.set(invoiceId, bucket);
+  }
+  return byInvoice;
+}
+
 /** Send one manual chase now. Server-side, because only a server may send. */
 export async function sendManualChase(invoiceId: string): Promise<void> {
   const response = await fetch("/api/reminders/chase", {

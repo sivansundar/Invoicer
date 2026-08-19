@@ -32,6 +32,9 @@ export function BrandFollowupCard({
   const schedule = reminderSchedule(config);
   const brandInvoices = invoices.filter((invoice) => invoice.brandId === brand.id);
   const unpaidInvoices = brandInvoices.filter(isUnpaid);
+  // Without history this counts every unpaid invoice whose first stage is
+  // owed, which is what a per-brand summary wants: how many this brand is
+  // set up to chase, not how far through each one is.
   const queuedCount = buildFollowupQueue(unpaidInvoices, [brand]).length;
   const remindersSent = brandInvoices.reduce(
     (sum, invoice) => sum + (invoice.reminders?.length ?? 0),
