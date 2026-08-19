@@ -100,6 +100,12 @@ curl -X POST http://localhost:3000/api/reminders/run \
 {"considered":1,"sent":1,"blocked":0,"failed":0,"skipped":0,"reasons":{}}
 ```
 
+A **307 to `/login`** means the auth proxy answered before the route did and
+the bearer token was never read. `/api/reminders/run` is on `PUBLIC_PATHS` in
+`lib/supabase/proxy.ts` precisely to stop that — it authenticates with a
+secret rather than a session, because pg_cron calls it with nobody logged in.
+If you see a 307, that entry has gone missing.
+
 Then check, in order:
 
 1. **The inbox.** Subject rendered from the template, `Reply-To` set to the
