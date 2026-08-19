@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
@@ -31,11 +32,22 @@ export function ProDialog({
   const { upgrade } = usePlan();
   const router = useRouter();
 
-  const handleUpgrade = () => {
-    // `upgrade()` returns whether the write actually persisted — a quota
+  const [pending, setPending] = useState(false);
+
+  const handleUpgrade = async () => {
+    // The tier is set server-side now, so this awaits a request that can fail.
+    // The requirement is unchanged from when it was a localStorage write: a
     // failure must not tell the user Pro is unlocked and send them off to
     // create a brand while `isPro` is still false underneath them.
-    if (!upgrade()) return;
+    setPending(true);
+    try {
+      await upgrade();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not change the plan");
+      return;
+    } finally {
+      setPending(false);
+    }
     onOpenChange(false);
     router.push("/brands/create");
     toast("Pro unlocked for this prototype");
@@ -64,7 +76,7 @@ export function ProDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Maybe later
           </Button>
-          <Button onClick={handleUpgrade}>Upgrade — ₹499/mo</Button>
+          <Button onClick={handleUpgrade} disabled={pending}>Upgrade — ₹499/mo</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,5 +1,5 @@
 import { Brand, Client, EmailTemplate, Invoice, PlanState } from "./types";
-import { writeLocalStorage } from "./local-storage";
+
 import { createClient } from "./supabase/client";
 import { dataUrlToBytes, logoObjectPath, sha256Hex } from "./logo-storage";
 import { LogoUploadError } from "./storage-errors";
@@ -30,83 +30,26 @@ export { nextInvoiceNumber } from "./numbering";
 // keep it this way.
 export { LogoUploadError } from "./storage-errors";
 
-// Plan state is the last thing still in localStorage, and stays there by
-// design: it is a mock with no billing integration and no schema behind it.
-const PLAN_KEY = "invoicer_plan";
-
 /**
- * Plan state is the only thing left in localStorage — everything else lives
- * in Postgres. It stays local because it is a mock: there is no billing
- * integration and no schema behind it (see the Phase 2 plan, Decisions §2).
+ * Plan state has moved to Postgres (`org_billing`), so nothing in this file
+ * reads `localStorage` any more. The key below is retained only to clean up
+ * after the version that did: a stale `invoicer_plan` entry claiming Pro
+ * would otherwise sit in browsers forever, meaning nothing, and confuse the
+ * next person who opens devtools looking for why a tier looks wrong.
  *
- * `subscribe`/`notify` remain for the same reason. `use-plan` is the one
- * hook still on `useSyncExternalStore`; the other four moved to TanStack
- * Query, which does its own change notification.
+ * `subscribe`/`notify` are gone with it. All five hooks are on TanStack
+ * Query now, which does its own change notification.
  */
-type Listener = () => void;
-const listeners = new Set<Listener>();
+const LEGACY_PLAN_KEY = "invoicer_plan";
 
-function handleStorageEvent(): void {
-  planSnapshot = null;
-  notify();
-}
-
-/**
- * Subscribe to plan changes, including from other tabs.
- *
- * The "storage" window event is only ever dispatched by other tabs/windows
- * (same-tab writes never fire it), so it is wired through a single shared
- * handler rather than the per-call `listener` reference — that handler drops
- * the cached snapshot before rebroadcasting to every subscriber, and is
- * attached/removed exactly once regardless of how many hooks subscribe.
- */
-export function subscribe(listener: Listener): () => void {
-  listeners.add(listener);
-  if (typeof window !== "undefined" && listeners.size === 1) {
-    window.addEventListener("storage", handleStorageEvent);
-  }
-  return () => {
-    listeners.delete(listener);
-    if (typeof window !== "undefined" && listeners.size === 0) {
-      window.removeEventListener("storage", handleStorageEvent);
-    }
-  };
-}
-
-function notify(): void {
-  for (const listener of listeners) listener();
-}
-
-
-// Plan state is a single object, not a collection, so it gets its own
-// one-slot cache rather than sharing `snapshots` — same requirement though:
-// `JSON.parse` (inside `readPlan`) returns a fresh object every call, and
-// wiring that directly into `useSyncExternalStore` would infinite-loop
-// exactly like an uncached array would.
-const EMPTY_PLAN: PlanState = { tier: "free", renewsOn: null };
-let planSnapshot: PlanState | null = null;
-
-function readPlan(): PlanState {
-  if (typeof window === "undefined") return EMPTY_PLAN;
-  const raw = localStorage.getItem(PLAN_KEY);
-  if (!raw) return EMPTY_PLAN;
+export function clearLegacyPlanKey(): void {
+  if (typeof window === "undefined") return;
   try {
-    return JSON.parse(raw) as PlanState;
+    localStorage.removeItem(LEGACY_PLAN_KEY);
   } catch {
-    return EMPTY_PLAN;
+    // A browser refusing localStorage entirely is not a reason to fail; the
+    // key it would have held is already ignored.
   }
-}
-
-export function getPlanSnapshot(): PlanState {
-  if (planSnapshot === null) {
-    planSnapshot = readPlan();
-  }
-  return planSnapshot;
-}
-
-function invalidatePlan(): void {
-  planSnapshot = null;
-  notify();
 }
 
 /**
@@ -389,10 +332,143 @@ export async function deleteTemplate(id: string): Promise<void> {
   throwOn(error);
 }
 
-// MOCK: plan state is local-only. There is no billing integration.
-export function savePlan(plan: PlanState): boolean {
-  if (!writeLocalStorage(PLAN_KEY, JSON.stringify(plan))) return false;
-  invalidatePlan();
-  return true;
+/**
+ * The org's plan, from Postgres.
+ *
+ * This used to read `localStorage`, which meant a browser could grant itself
+ * Pro. That was harmless while the tier gated nothing but an upsell dialog,
+ * and stopped being harmless the moment the email quota started depending on
+ * it. `org_billing` is now the only answer.
+ *
+ * Returns the free tier rather than throwing when there is no row: the plan
+ * decorates a sidebar card, and a workspace with a missing billing row should
+ * render as free rather than blank the screen. The *quota* takes the opposite
+ * view and refuses to send at all, because the safe direction differs — see
+ * `private.enforce_email_quota`.
+ */
+export async function getPlan(): Promise<PlanState> {
+  const { data, error } = await createClient()
+    .from("org_billing")
+    .select("tier, renews_on")
+    .maybeSingle();
+  throwOn(error);
+  if (!data) return { tier: "free", renewsOn: null };
+  return {
+    tier: (data.tier as PlanState["tier"]) ?? "free",
+    renewsOn: (data.renews_on as string | null) ?? null,
+  };
+}
+
+/**
+ * MOCK: still no payment provider — see TODO(payment-provider) in
+ * `hooks/use-plan.ts`. What changed is where the flag lives: a tier a browser
+ * could write is a tier every browser can grant itself, so `org_billing` has
+ * no client write policy and this goes through a server route that will one
+ * day be a provider webhook instead.
+ */
+export async function setPlanTier(tier: PlanState["tier"]): Promise<PlanState> {
+  const response = await fetch("/api/billing/tier", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tier }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Could not change the plan");
+  }
+  return (await response.json()) as PlanState;
+}
+
+export interface EmailQuota {
+  tier: string;
+  tierLabel: string;
+  monthlyLimit: number;
+  used: number;
+  remaining: number;
+  periodStart: string;
+  periodEnd: string;
+  overLimit: boolean;
+}
+
+/**
+ * How much of this month's email allowance is left.
+ *
+ * Goes through the `email_quota()` RPC rather than counting rows here, so the
+ * figure a user reads and the figure the trigger enforces come from the same
+ * expression. Two implementations would eventually show somebody "38
+ * remaining" over a refusal to send.
+ */
+export async function getEmailQuota(): Promise<EmailQuota | null> {
+  const { data, error } = await createClient().rpc("email_quota");
+  throwOn(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    tier: row.tier as string,
+    tierLabel: row.tier_label as string,
+    monthlyLimit: row.monthly_limit as number,
+    used: row.used as number,
+    remaining: row.remaining as number,
+    periodStart: row.period_start as string,
+    periodEnd: row.period_end as string,
+    overLimit: row.over_limit as boolean,
+  };
+}
+
+export interface ReminderSendRecord {
+  id: string;
+  stage: "nudge" | "followup" | "final" | "manual" | "legacy";
+  ordinal: number;
+  status: "queued" | "sent" | "failed" | "blocked" | "recorded";
+  toEmail: string;
+  subject: string;
+  body: string;
+  error: string | null;
+  scheduledFor: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Everything ever attempted for one invoice, oldest first — including the
+ * attempts that were blocked or failed, which are the ones a user most needs
+ * to see. A history that showed only successes would answer "what went out"
+ * while hiding "why nothing did".
+ */
+export async function getReminderSends(invoiceId: string): Promise<ReminderSendRecord[]> {
+  const { data, error } = await createClient()
+    .from("reminder_sends")
+    .select(
+      "id, stage, ordinal, status, to_email, subject, body, error, scheduled_for, sent_at, created_at"
+    )
+    .eq("invoice_id", invoiceId)
+    .order("created_at", { ascending: true });
+  throwOn(error);
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    stage: row.stage as ReminderSendRecord["stage"],
+    ordinal: row.ordinal as number,
+    status: row.status as ReminderSendRecord["status"],
+    toEmail: (row.to_email as string) ?? "",
+    subject: (row.subject as string) ?? "",
+    body: (row.body as string) ?? "",
+    error: (row.error as string | null) ?? null,
+    scheduledFor: (row.scheduled_for as string | null) ?? null,
+    sentAt: (row.sent_at as string | null) ?? null,
+    createdAt: row.created_at as string,
+  }));
+}
+
+/** Send one manual chase now. Server-side, because only a server may send. */
+export async function sendManualChase(invoiceId: string): Promise<void> {
+  const response = await fetch("/api/reminders/chase", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invoiceId }),
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? "Could not send that reminder");
+  }
 }
 
