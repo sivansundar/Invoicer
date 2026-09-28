@@ -276,7 +276,7 @@ describe("validateImportedBackup — brand achDetails", () => {
         accountNumber: "98765",
         routingNumber: "021000021",
         bankName: "Wise",
-        accountType: "checking",
+        accountType: "current",
       },
     });
     const withoutType = wellFormedBrand({

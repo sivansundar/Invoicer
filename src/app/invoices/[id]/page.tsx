@@ -404,6 +404,7 @@ export default function InvoiceDetailPage() {
             notes={invoice.notes}
             isPaid={invoice.status === "paid"}
             paymentMethod={invoice.paymentMethod}
+            showAchAccountType={invoice.showAchAccountType}
           />
         </div>
       </div>

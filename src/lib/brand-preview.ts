@@ -18,6 +18,7 @@ export interface BrandPreviewBody {
   notes: string | undefined;
   isPaid: boolean;
   paymentMethod: PaymentMethod | undefined;
+  showAchAccountType: boolean | undefined;
 }
 
 /**
@@ -104,6 +105,7 @@ export function brandPreviewBody(
       notes: invoice.notes,
       isPaid: invoice.status === "paid",
       paymentMethod: invoice.paymentMethod,
+      showAchAccountType: invoice.showAchAccountType,
     };
   }
 
@@ -123,5 +125,6 @@ export function brandPreviewBody(
     // ACH details, if any, are always previewed as the IFSC block, the same
     // way a brand-new brand with no invoice yet is.
     paymentMethod: undefined,
+    showAchAccountType: undefined,
   };
 }

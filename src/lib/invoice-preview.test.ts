@@ -52,22 +52,23 @@ function ach(overrides: Partial<AchDetails> = {}): AchDetails {
 describe("paymentDetailFields", () => {
   describe("ifsc (the default when method is undefined)", () => {
     it("is empty when bankDetails is undefined", () => {
-      expect(paymentDetailFields(undefined, undefined, undefined)).toEqual([]);
+      expect(paymentDetailFields(undefined, undefined, undefined, undefined)).toEqual([]);
     });
 
     it("is empty when every field is blank", () => {
-      expect(paymentDetailFields(bank(), undefined, "ifsc")).toEqual([]);
+      expect(paymentDetailFields(bank(), undefined, "ifsc", undefined)).toEqual([]);
     });
 
     it("is empty when fields are only whitespace", () => {
-      expect(paymentDetailFields(bank({ accountName: "   " }), undefined, "ifsc")).toEqual([]);
+      expect(paymentDetailFields(bank({ accountName: "   " }), undefined, "ifsc", undefined)).toEqual([]);
     });
 
     it("lists only the non-empty fields, in the brief's order", () => {
       const fields = paymentDetailFields(
         bank({ accountNumber: "12345", accountName: "Acme LLC" }),
         undefined,
-        "ifsc"
+        "ifsc",
+        undefined
       );
       expect(fields).toEqual([
         { label: "Account name", value: "Acme LLC" },
@@ -86,7 +87,8 @@ describe("paymentDetailFields", () => {
           upiId: "acme@upi",
         }),
         undefined,
-        "ifsc"
+        "ifsc",
+        undefined
       );
       expect(fields).toEqual([
         { label: "Account name", value: "Acme LLC" },
@@ -99,21 +101,22 @@ describe("paymentDetailFields", () => {
     });
 
     it("is used when method is undefined, the same as an invoice issued before ACH existed", () => {
-      const fields = paymentDetailFields(bank({ accountName: "Acme LLC" }), undefined, undefined);
+      const fields = paymentDetailFields(bank({ accountName: "Acme LLC" }), undefined, undefined, undefined);
       expect(fields).toEqual([{ label: "Account name", value: "Acme LLC" }]);
     });
   });
 
   describe("ach", () => {
     it("is empty when every field is blank", () => {
-      expect(paymentDetailFields(undefined, ach(), "ach")).toEqual([]);
+      expect(paymentDetailFields(undefined, ach(), "ach", undefined)).toEqual([]);
     });
 
     it("lists only the non-empty fields, in ACH order", () => {
       const fields = paymentDetailFields(
         undefined,
         ach({ accountName: "Acme LLC", routingNumber: "021000021" }),
-        "ach"
+        "ach",
+        undefined
       );
       expect(fields).toEqual([
         { label: "Account name", value: "Acme LLC" },
@@ -129,16 +132,31 @@ describe("paymentDetailFields", () => {
           bankName: "Wise",
           accountNumber: "98765",
           routingNumber: "021000021",
-          accountType: "checking",
+          accountType: "current",
         }),
-        "ach"
+        "ach",
+        true
       );
       expect(fields).toEqual([
         { label: "Account name", value: "Acme LLC" },
         { label: "Bank", value: "Wise" },
         { label: "Account number", value: "98765" },
         { label: "ACH routing number", value: "021000021" },
-        { label: "Account type", value: "Checking" },
+        { label: "Account type", value: "Current" },
+      ]);
+    });
+
+    it("omits account type unless the invoice opts in to showing it", () => {
+      const details = ach({ accountName: "Acme LLC", accountType: "savings" });
+      expect(paymentDetailFields(undefined, details, "ach", false)).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+      ]);
+      expect(paymentDetailFields(undefined, details, "ach", undefined)).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+      ]);
+      expect(paymentDetailFields(undefined, details, "ach", true)).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+        { label: "Account type", value: "Savings" },
       ]);
     });
 
@@ -146,7 +164,8 @@ describe("paymentDetailFields", () => {
       const fields = paymentDetailFields(
         bank({ accountName: "Acme LLC", ifscCode: "HDFC0001" }),
         undefined,
-        "ach"
+        "ach",
+        undefined
       );
       expect(fields).toEqual([
         { label: "Account name", value: "Acme LLC" },

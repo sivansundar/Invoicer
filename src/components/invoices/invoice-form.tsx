@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ChevronLeft } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -132,6 +133,11 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     resolvePaymentMethod(existingInvoice?.paymentMethod)
   );
+  // Defaults on for a new invoice — the user opts out per invoice. An
+  // existing invoice keeps whatever it was saved with (undefined = hidden).
+  const [showAchAccountType, setShowAchAccountType] = useState(
+    isEdit ? !!existingInvoice.showAchAccountType : true
+  );
 
   // Which mandatory fields failed the most recent primary-save attempt
   // ("Create invoice" or "Save changes" — the same rule set for both).
@@ -175,6 +181,14 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   // must never disagree about which block actually renders.
   const effectivePaymentMethod: PaymentMethod =
     paymentMethod === "ach" && achAvailable ? "ach" : "ifsc";
+  // Which rail a client is told to pay into is part of what was sent: once
+  // an invoice leaves draft, switching IFSC ↔ ACH (or toggling the account
+  // type) would silently change payment instructions the client may
+  // already be acting on. Editable only while the invoice is a draft.
+  const paymentLocked = isEdit && existingInvoice.status !== "draft";
+  const achAccountTypeAvailable = !!(isEdit
+    ? existingInvoice.brandSnapshot.achDetails?.accountType
+    : brand?.achDetails?.accountType);
 
   // Which of the selected saved client's invoice-relevant fields it doesn't
   // actually have — surfaced inline (below) for completion rather than
@@ -328,7 +342,18 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       // `panNumber`, …) — `resolvePaymentMethod` reads a missing value as
       // "ifsc" everywhere it's consumed, so there is no meaningful
       // difference, only one fewer way for the two to say the same thing.
-      paymentMethod: effectivePaymentMethod === "ach" ? "ach" : undefined,
+      // A locked invoice's payment choice is carried over verbatim rather
+      // than re-derived from form state — see `paymentLocked`.
+      paymentMethod: paymentLocked
+        ? existingInvoice.paymentMethod
+        : effectivePaymentMethod === "ach"
+        ? "ach"
+        : undefined,
+      showAchAccountType: paymentLocked
+        ? existingInvoice.showAchAccountType
+        : effectivePaymentMethod === "ach" && showAchAccountType
+        ? true
+        : undefined,
     };
 
     // `save` (from `useInvoices`) passes through `storage.saveInvoice`'s own
@@ -442,7 +467,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   // client to read a default from, so it's left alone here.
                   // Either way this is only a preselect: the Payment details
                   // select below can still override it for this invoice.
-                  if (v !== MANUAL_CLIENT_VALUE) {
+                  if (v !== MANUAL_CLIENT_VALUE && !paymentLocked) {
                     const newClient = clients.find((c) => c.id === v);
                     const wanted = resolvePaymentMethod(newClient?.defaultPaymentMethod);
                     setPaymentMethod(wanted === "ach" && achAvailable ? "ach" : "ifsc");
@@ -720,6 +745,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
               <Select
                 value={paymentMethod}
                 onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                disabled={paymentLocked}
               >
                 <SelectTrigger className="w-full text-sm">
                   <SelectValue />
@@ -731,8 +757,27 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              {!achAvailable && (
-                <p className="text-xs text-muted-foreground">Add ACH details on the brand</p>
+              {paymentLocked ? (
+                <p className="text-xs text-muted-foreground">
+                  Locked once the invoice is sent
+                </p>
+              ) : (
+                !achAvailable && (
+                  <p className="text-xs text-muted-foreground">Add ACH details on the brand</p>
+                )
+              )}
+              {effectivePaymentMethod === "ach" && achAccountTypeAvailable && (
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    id="show-ach-account-type"
+                    checked={showAchAccountType}
+                    onCheckedChange={(checked) => setShowAchAccountType(checked === true)}
+                    disabled={paymentLocked}
+                  />
+                  <Label htmlFor="show-ach-account-type" className="text-xs font-normal">
+                    Show account type
+                  </Label>
+                </div>
               )}
             </div>
           </div>
@@ -803,6 +848,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           notes={notes || undefined}
           isPaid={isEdit ? existingInvoice.status === "paid" : false}
           paymentMethod={effectivePaymentMethod}
+          showAchAccountType={showAchAccountType}
         />
       </div>
     </div>

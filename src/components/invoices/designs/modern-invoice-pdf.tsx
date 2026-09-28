@@ -165,7 +165,12 @@ function Amount({ n, currency, style }: { n: number; currency: Invoice["currency
 export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
   const cur = invoice.currency ?? "INR";
   const isPaid = invoice.status === "paid";
-  const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, invoice.paymentMethod);
+  const fields = paymentDetailFields(
+    snapshot.bankDetails,
+    snapshot.achDetails,
+    invoice.paymentMethod,
+    invoice.showAchAccountType
+  );
   const rows = chunkPaymentFieldRows(fields);
 
   return (

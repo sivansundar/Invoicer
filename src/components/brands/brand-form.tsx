@@ -75,7 +75,7 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [achBankName, setAchBankName] = useState(brand?.achDetails?.bankName ?? "");
   const [achAccountNumber, setAchAccountNumber] = useState(brand?.achDetails?.accountNumber ?? "");
   const [achRoutingNumber, setAchRoutingNumber] = useState(brand?.achDetails?.routingNumber ?? "");
-  // "" is a genuine third state here, not a placeholder for "checking" — it
+  // "" is a genuine third state here, not a placeholder for "current" — it
   // means account type wasn't specified, which `hasAchDetails` below doesn't
   // even require: an ACH block with an account type but nothing else is
   // still "blank" for the purposes of deciding whether `achDetails` exists.
@@ -556,7 +556,7 @@ export function BrandForm({ brand }: BrandFormProps) {
                     <SelectValue placeholder="Optional" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="checking">Checking</SelectItem>
+                    <SelectItem value="current">Current</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
                   </SelectContent>
                 </Select>

@@ -20,7 +20,7 @@ export interface AchDetails {
   accountNumber: string;
   routingNumber: string;
   bankName: string;
-  accountType?: "checking" | "savings";
+  accountType?: "current" | "savings";
 }
 
 /**
@@ -162,6 +162,14 @@ export interface Invoice {
    * `resolvePaymentMethod`.
    */
   paymentMethod?: PaymentMethod;
+  /**
+   * Whether the ACH block prints the brand's account type. A per-invoice
+   * choice because the type is useful to some payers and noise to others.
+   * Only meaningful when `paymentMethod` is `"ach"`; undefined reads as
+   * hidden. Locked together with `paymentMethod` once the invoice leaves
+   * draft — see the invoice form.
+   */
+  showAchAccountType?: boolean;
 }
 
 export type EmailTone = "Friendly" | "Direct" | "Firm";

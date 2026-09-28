@@ -41,6 +41,7 @@ function renderClassic(
       notes={undefined}
       isPaid={false}
       paymentMethod={undefined}
+      showAchAccountType={undefined}
     />
   );
 }
@@ -66,6 +67,7 @@ describe("ClassicInvoicePreview tax IDs", () => {
         notes={undefined}
         isPaid={false}
         paymentMethod={undefined}
+        showAchAccountType={undefined}
       />
     );
 
@@ -129,6 +131,7 @@ describe("ClassicInvoicePreview paid state", () => {
         notes={undefined}
         isPaid={true}
         paymentMethod={undefined}
+        showAchAccountType={undefined}
       />
     );
 
