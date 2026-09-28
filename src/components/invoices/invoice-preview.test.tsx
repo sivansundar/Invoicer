@@ -40,6 +40,7 @@ function renderPreview(
       currency="INR"
       notes={undefined}
       isPaid={false}
+      paymentMethod={undefined}
     />
   );
 }
@@ -111,5 +112,68 @@ describe("InvoicePreview design dispatch", () => {
     renderPreview({ invoiceDesign: "classic" });
 
     expect(screen.getByText("Description")).toBeInTheDocument();
+  });
+});
+
+describe("InvoicePreview payment method", () => {
+  it("renders the IFSC block when paymentMethod is undefined", () => {
+    renderPreview({ bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "HDFC0001" } });
+
+    expect(screen.getByText("IFSC")).toBeInTheDocument();
+  });
+
+  it("renders the ACH block, with its own field labels, when paymentMethod is ach and the snapshot has achDetails", () => {
+    render(
+      <InvoicePreview
+        snapshot={snapshot({
+          achDetails: {
+            accountName: "Stellar Consulting LLC",
+            accountNumber: "98765",
+            routingNumber: "021000021",
+            bankName: "Wise",
+          },
+        })}
+        client={client}
+        invoiceNumber="SC-2026-014"
+        billDate="2026-07-21"
+        dueDate="2026-08-04"
+        items={[]}
+        currency="USD"
+        notes={undefined}
+        isPaid={false}
+        paymentMethod="ach"
+      />
+    );
+
+    expect(screen.getByText("ACH routing number")).toBeInTheDocument();
+    expect(screen.getByText("021000021")).toBeInTheDocument();
+    expect(screen.queryByText("IFSC")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the IFSC block when paymentMethod is ach but the snapshot has no achDetails", () => {
+    renderPreview({
+      bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "HDFC0001" },
+    });
+    // `renderPreview`'s default `paymentMethod={undefined}` already covers the
+    // implicit-ifsc case above — this proves an explicit "ach" with no
+    // achDetails degrades the same way, rather than rendering an empty block.
+    render(
+      <InvoicePreview
+        snapshot={snapshot({
+          bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "HDFC0001" },
+        })}
+        client={client}
+        invoiceNumber="SC-2026-014"
+        billDate="2026-07-21"
+        dueDate="2026-08-04"
+        items={[]}
+        currency="INR"
+        notes={undefined}
+        isPaid={false}
+        paymentMethod="ach"
+      />
+    );
+
+    expect(screen.getAllByText("IFSC").length).toBeGreaterThan(0);
   });
 });

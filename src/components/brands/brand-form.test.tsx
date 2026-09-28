@@ -7,6 +7,16 @@ import * as storage from "@/lib/storage";
 import { MAX_LOGO_SOURCE_BYTES } from "@/lib/brands";
 import type { Brand, Invoice } from "@/lib/types";
 
+// jsdom implements neither the Pointer Capture API nor scrollIntoView, both
+// of which Radix's Select uses internally when opened via a real pointer
+// interaction — without these no-op polyfills every `userEvent.click` on the
+// account-type Select trigger throws in this environment (see the identical
+// note in invoice-form.test.tsx).
+Element.prototype.hasPointerCapture = Element.prototype.hasPointerCapture ?? (() => false);
+Element.prototype.setPointerCapture = Element.prototype.setPointerCapture ?? (() => {});
+Element.prototype.releasePointerCapture = Element.prototype.releasePointerCapture ?? (() => {});
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? (() => {});
+
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -347,5 +357,104 @@ describe("BrandForm — invoice preview", () => {
 
     expect(screen.getByText(/Sample invoice/)).toBeInTheDocument();
     expect(screen.queryByText("Harbourline Foods")).not.toBeInTheDocument();
+  });
+});
+
+describe("BrandForm — ACH details", () => {
+  beforeEach(() => {
+    // Restores `storage.saveBrand`'s mock from the "logo, phone, PAN" block
+    // above (`mockReturnValue(false)`, never itself restored) — without
+    // this every save in this block would silently fail the same way.
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    storage.runMigration();
+    push.mockClear();
+    toast.mockClear();
+  });
+
+  // "Account name", "Bank" and "Account number" label the same fields in
+  // both the IFSC section and the ACH section below it — the ACH one is
+  // always the last match in DOM order, since that section renders second.
+  function achFieldByLabel(label: string): HTMLInputElement {
+    const matches = screen.getAllByText(label);
+    return matches[matches.length - 1].parentElement!.querySelector("input") as HTMLInputElement;
+  }
+
+  it("saves achDetails: undefined when every ACH field is left blank", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Acme Studio");
+    await user.click(screen.getByRole("button", { name: "Create brand" }));
+
+    expect(storage.getBrands()[0].achDetails).toBeUndefined();
+  });
+
+  it("saves a fully populated achDetails, including account type", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Acme Studio");
+    await user.type(achFieldByLabel("Account name"), "Acme Studio LLC");
+    await user.type(achFieldByLabel("Bank"), "Wise");
+    await user.type(achFieldByLabel("Account number"), "98765");
+    await user.type(screen.getByText("ACH routing number").parentElement!.querySelector("input")!, "021000021");
+    await user.click(screen.getAllByRole("combobox").slice(-1)[0]);
+    await user.click(await screen.findByRole("option", { name: "Checking" }));
+
+    await user.click(screen.getByRole("button", { name: "Create brand" }));
+
+    expect(storage.getBrands()[0].achDetails).toEqual({
+      accountName: "Acme Studio LLC",
+      bankName: "Wise",
+      accountNumber: "98765",
+      routingNumber: "021000021",
+      accountType: "checking",
+    });
+  });
+
+  it("treats a lone account type with nothing else as still blank", async () => {
+    // An account type with no account/routing number to pair it with isn't
+    // usable receiving details — `hasAchDetails` deliberately doesn't count
+    // it on its own.
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByPlaceholderText("e.g. Sundar Design Co"), "Acme Studio");
+    await user.click(screen.getAllByRole("combobox").slice(-1)[0]);
+    await user.click(await screen.findByRole("option", { name: "Savings" }));
+
+    await user.click(screen.getByRole("button", { name: "Create brand" }));
+
+    expect(storage.getBrands()[0].achDetails).toBeUndefined();
+  });
+
+  it("round-trips an existing brand's achDetails on edit, and clearing every field drops it back to undefined", async () => {
+    storage.saveBrand(
+      brand({
+        achDetails: {
+          accountName: "Acme Studio LLC",
+          bankName: "Wise",
+          accountNumber: "98765",
+          routingNumber: "021000021",
+          accountType: "savings",
+        },
+      })
+    );
+    const user = userEvent.setup();
+    renderForm(storage.getBrand("b1")!);
+
+    expect(achFieldByLabel("Account name")).toHaveValue("Acme Studio LLC");
+    expect(achFieldByLabel("Bank")).toHaveValue("Wise");
+    expect(achFieldByLabel("Account number")).toHaveValue("98765");
+
+    await user.clear(achFieldByLabel("Account name"));
+    await user.clear(achFieldByLabel("Bank"));
+    await user.clear(achFieldByLabel("Account number"));
+    await user.clear(screen.getByText("ACH routing number").parentElement!.querySelector("input")!);
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(storage.getBrand("b1")!.achDetails).toBeUndefined();
   });
 });

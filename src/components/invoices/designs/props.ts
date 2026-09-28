@@ -1,4 +1,11 @@
-import type { BrandSnapshot, Currency, Invoice, InvoiceClient, LineItem } from "@/lib/types";
+import type {
+  BrandSnapshot,
+  Currency,
+  Invoice,
+  InvoiceClient,
+  LineItem,
+  PaymentMethod,
+} from "@/lib/types";
 
 /**
  * Shared prop shape for every on-screen invoice design (`ModernInvoicePreview`,
@@ -19,6 +26,16 @@ export interface InvoicePreviewProps {
   currency: Currency;
   notes: string | undefined;
   isPaid: boolean;
+  /**
+   * Which payment rail to render — `undefined` (every call site before this
+   * feature existed) reads as `"ifsc"` via `resolvePaymentMethod`, the same
+   * fallback `paymentDetailFields` (`@/lib/invoice-preview`) applies. Not
+   * part of `snapshot`: unlike `bankDetails`/`achDetails`, which live on the
+   * brand, this is the invoice's own choice (from `Invoice.paymentMethod` or
+   * `Client.defaultPaymentMethod`), so it travels alongside the snapshot
+   * rather than inside it.
+   */
+  paymentMethod: PaymentMethod | undefined;
 }
 
 /**

@@ -112,6 +112,11 @@ describe("brandPreviewBody — with a real invoice", () => {
     expect(brandPreviewBody(invoice({ status: "draft" }), "SDC").isPaid).toBe(false);
   });
 
+  it("carries the invoice's own paymentMethod through, including its absence", () => {
+    expect(brandPreviewBody(invoice({ paymentMethod: "ach" }), "SDC").paymentMethod).toBe("ach");
+    expect(brandPreviewBody(invoice(), "SDC").paymentMethod).toBeUndefined();
+  });
+
   it("carries notes through, including their absence", () => {
     expect(brandPreviewBody(invoice({ notes: "Thanks!" }), "SDC").notes).toBe("Thanks!");
     expect(brandPreviewBody(invoice({ notes: undefined }), "SDC").notes).toBeUndefined();
@@ -142,6 +147,10 @@ describe("brandPreviewBody — placeholder", () => {
 
   it("is never shown as paid — a Paid stamp on invented data is noise", () => {
     expect(brandPreviewBody(null, "SDC").isPaid).toBe(false);
+  });
+
+  it("always previews as IFSC — the brand form has no payment-method picker of its own", () => {
+    expect(brandPreviewBody(null, "SDC").paymentMethod).toBeUndefined();
   });
 
   it("renders identically on every call, so the preview never shifts under you", () => {

@@ -403,6 +403,7 @@ export default function InvoiceDetailPage() {
             currency={invoice.currency}
             notes={invoice.notes}
             isPaid={invoice.status === "paid"}
+            paymentMethod={invoice.paymentMethod}
           />
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chunkPaymentFieldRows, paymentDetailFields, taxLabel } from "./invoice-preview";
-import type { BankDetails, LineItem } from "./types";
+import type { AchDetails, BankDetails, LineItem } from "./types";
 import type { PaymentDetailField } from "./invoice-preview";
 
 function item(tax: number, amount = 100): LineItem {
@@ -39,48 +39,120 @@ function bank(overrides: Partial<BankDetails> = {}): BankDetails {
   };
 }
 
+function ach(overrides: Partial<AchDetails> = {}): AchDetails {
+  return {
+    accountName: "",
+    accountNumber: "",
+    routingNumber: "",
+    bankName: "",
+    ...overrides,
+  };
+}
+
 describe("paymentDetailFields", () => {
-  it("is empty when bankDetails is undefined", () => {
-    expect(paymentDetailFields(undefined)).toEqual([]);
+  describe("ifsc (the default when method is undefined)", () => {
+    it("is empty when bankDetails is undefined", () => {
+      expect(paymentDetailFields(undefined, undefined, undefined)).toEqual([]);
+    });
+
+    it("is empty when every field is blank", () => {
+      expect(paymentDetailFields(bank(), undefined, "ifsc")).toEqual([]);
+    });
+
+    it("is empty when fields are only whitespace", () => {
+      expect(paymentDetailFields(bank({ accountName: "   " }), undefined, "ifsc")).toEqual([]);
+    });
+
+    it("lists only the non-empty fields, in the brief's order", () => {
+      const fields = paymentDetailFields(
+        bank({ accountNumber: "12345", accountName: "Acme LLC" }),
+        undefined,
+        "ifsc"
+      );
+      expect(fields).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+        { label: "Account number", value: "12345" },
+      ]);
+    });
+
+    it("includes every field, in order, when all are present", () => {
+      const fields = paymentDetailFields(
+        bank({
+          accountName: "Acme LLC",
+          bankName: "HDFC",
+          branch: "Koramangala",
+          accountNumber: "12345",
+          ifscCode: "HDFC0001",
+          upiId: "acme@upi",
+        }),
+        undefined,
+        "ifsc"
+      );
+      expect(fields).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+        { label: "Bank", value: "HDFC" },
+        { label: "Branch", value: "Koramangala" },
+        { label: "Account number", value: "12345" },
+        { label: "IFSC", value: "HDFC0001" },
+        { label: "UPI ID", value: "acme@upi" },
+      ]);
+    });
+
+    it("is used when method is undefined, the same as an invoice issued before ACH existed", () => {
+      const fields = paymentDetailFields(bank({ accountName: "Acme LLC" }), undefined, undefined);
+      expect(fields).toEqual([{ label: "Account name", value: "Acme LLC" }]);
+    });
   });
 
-  it("is empty when every field is blank", () => {
-    expect(paymentDetailFields(bank())).toEqual([]);
-  });
+  describe("ach", () => {
+    it("is empty when every field is blank", () => {
+      expect(paymentDetailFields(undefined, ach(), "ach")).toEqual([]);
+    });
 
-  it("is empty when fields are only whitespace", () => {
-    expect(paymentDetailFields(bank({ accountName: "   " }))).toEqual([]);
-  });
+    it("lists only the non-empty fields, in ACH order", () => {
+      const fields = paymentDetailFields(
+        undefined,
+        ach({ accountName: "Acme LLC", routingNumber: "021000021" }),
+        "ach"
+      );
+      expect(fields).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+        { label: "ACH routing number", value: "021000021" },
+      ]);
+    });
 
-  it("lists only the non-empty fields, in the brief's order", () => {
-    const fields = paymentDetailFields(
-      bank({ accountNumber: "12345", accountName: "Acme LLC" })
-    );
-    expect(fields).toEqual([
-      { label: "Account name", value: "Acme LLC" },
-      { label: "Account number", value: "12345" },
-    ]);
-  });
+    it("includes every field, in order, capitalizing account type", () => {
+      const fields = paymentDetailFields(
+        undefined,
+        ach({
+          accountName: "Acme LLC",
+          bankName: "Wise",
+          accountNumber: "98765",
+          routingNumber: "021000021",
+          accountType: "checking",
+        }),
+        "ach"
+      );
+      expect(fields).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+        { label: "Bank", value: "Wise" },
+        { label: "Account number", value: "98765" },
+        { label: "ACH routing number", value: "021000021" },
+        { label: "Account type", value: "Checking" },
+      ]);
+    });
 
-  it("includes every field, in order, when all are present", () => {
-    const fields = paymentDetailFields(
-      bank({
-        accountName: "Acme LLC",
-        bankName: "HDFC",
-        branch: "Koramangala",
-        accountNumber: "12345",
-        ifscCode: "HDFC0001",
-        upiId: "acme@upi",
-      })
-    );
-    expect(fields).toEqual([
-      { label: "Account name", value: "Acme LLC" },
-      { label: "Bank", value: "HDFC" },
-      { label: "Branch", value: "Koramangala" },
-      { label: "Account number", value: "12345" },
-      { label: "IFSC", value: "HDFC0001" },
-      { label: "UPI ID", value: "acme@upi" },
-    ]);
+    it("falls back to the IFSC fields when the snapshot has no achDetails", () => {
+      const fields = paymentDetailFields(
+        bank({ accountName: "Acme LLC", ifscCode: "HDFC0001" }),
+        undefined,
+        "ach"
+      );
+      expect(fields).toEqual([
+        { label: "Account name", value: "Acme LLC" },
+        { label: "IFSC", value: "HDFC0001" },
+      ]);
+    });
   });
 });
 

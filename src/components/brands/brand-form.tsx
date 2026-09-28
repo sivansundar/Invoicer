@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useBrands } from "@/hooks/use-brands";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
@@ -29,7 +36,7 @@ import {
   validateLogoFile,
 } from "@/lib/brands";
 import { cn } from "@/lib/utils";
-import type { Brand, InvoiceDesign } from "@/lib/types";
+import type { AchDetails, Brand, InvoiceDesign } from "@/lib/types";
 
 interface BrandFormProps {
   brand?: Brand;
@@ -64,9 +71,29 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [accountNumber, setAccountNumber] = useState(brand?.bankDetails.accountNumber ?? "");
   const [ifscCode, setIfscCode] = useState(brand?.bankDetails.ifscCode ?? "");
   const [upiId, setUpiId] = useState(brand?.bankDetails.upiId ?? "");
+  const [achAccountName, setAchAccountName] = useState(brand?.achDetails?.accountName ?? "");
+  const [achBankName, setAchBankName] = useState(brand?.achDetails?.bankName ?? "");
+  const [achAccountNumber, setAchAccountNumber] = useState(brand?.achDetails?.accountNumber ?? "");
+  const [achRoutingNumber, setAchRoutingNumber] = useState(brand?.achDetails?.routingNumber ?? "");
+  // "" is a genuine third state here, not a placeholder for "checking" — it
+  // means account type wasn't specified, which `hasAchDetails` below doesn't
+  // even require: an ACH block with an account type but nothing else is
+  // still "blank" for the purposes of deciding whether `achDetails` exists.
+  const [achAccountType, setAchAccountType] = useState<AchDetails["accountType"] | "">(
+    brand?.achDetails?.accountType ?? ""
+  );
 
   const effectivePrefix = (prefix.trim() || derivePrefix(name)).toUpperCase();
   const year = new Date().getFullYear();
+
+  // Whether the ACH section has anything worth saving. `achAccountType`
+  // deliberately doesn't count on its own — a bare account type with no
+  // account/routing number to pair it with isn't a usable set of receiving
+  // details, so it alone shouldn't be what turns `achDetails` from
+  // `undefined` into an object.
+  const hasAchDetails = [achAccountName, achBankName, achAccountNumber, achRoutingNumber].some(
+    (field) => field.trim() !== ""
+  );
 
   const hint = isEdit
     ? `Next invoice will be ${nextInvoiceNumber(brand, invoices)}`
@@ -108,6 +135,21 @@ export function BrandForm({ brand }: BrandFormProps) {
       branch: branch || undefined,
       upiId: upiId || undefined,
     },
+    // `undefined`, not an object of empty strings, when nothing was typed —
+    // mirrors `logo`/`phone` above rather than `bankDetails` (which is
+    // always present, even blank, because every `Brand` has always had
+    // one). `achDetails` is new and genuinely optional, so an ACH section
+    // nobody touched must not turn into a snapshot field every renderer
+    // then has to treat as "present but empty".
+    achDetails: hasAchDetails
+      ? {
+          accountName: achAccountName,
+          accountNumber: achAccountNumber,
+          bankName: achBankName,
+          routingNumber: achRoutingNumber,
+          accountType: achAccountType || undefined,
+        }
+      : undefined,
     createdAt: brand?.createdAt ?? new Date().toISOString(),
   };
 
@@ -452,6 +494,72 @@ export function BrandForm({ brand }: BrandFormProps) {
                   placeholder="you@okbank"
                   className="text-sm"
                 />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t pt-5 flex flex-col gap-4">
+            <div>
+              <h2 className="text-sm font-semibold">US account (ACH)</h2>
+              <p className="text-[13px] text-muted-foreground mt-0.5">
+                For invoices to US clients paid into a USD-holding account (e.g. Wise,
+                Payoneer) — offered alongside the IFSC details above, not instead of them.
+                Leave blank if you never bill in USD.
+              </p>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Account name</Label>
+                <Input
+                  value={achAccountName}
+                  onChange={(e) => setAchAccountName(e.target.value)}
+                  placeholder="As on the account"
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Bank</Label>
+                <Input
+                  value={achBankName}
+                  onChange={(e) => setAchBankName(e.target.value)}
+                  placeholder="e.g. Wise"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Account number</Label>
+                <Input
+                  value={achAccountNumber}
+                  onChange={(e) => setAchAccountNumber(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">ACH routing number</Label>
+                <Input
+                  value={achRoutingNumber}
+                  onChange={(e) => setAchRoutingNumber(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Account type</Label>
+                <Select
+                  value={achAccountType || undefined}
+                  onValueChange={(v) => setAchAccountType(v as AchDetails["accountType"])}
+                >
+                  <SelectTrigger className="w-full text-sm">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="checking">Checking</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

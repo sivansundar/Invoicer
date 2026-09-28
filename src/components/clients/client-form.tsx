@@ -9,11 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
 import { invoicesToUnlink } from "@/lib/clients";
 import { cn } from "@/lib/utils";
-import type { Client } from "@/lib/types";
+import { resolvePaymentMethod, type Client, type PaymentMethod } from "@/lib/types";
 
 interface ClientFormProps {
   client?: Client;
@@ -31,6 +38,12 @@ export function ClientForm({ client }: ClientFormProps) {
   const [email, setEmail] = useState(client?.email ?? "");
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(client?.gstNumber ?? "");
+  // Always a concrete value, the same reason `currency` always is on the
+  // invoice form: `resolvePaymentMethod` reads a missing/undefined default
+  // as "ifsc", so the Select never needs to render an unselected state.
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<PaymentMethod>(
+    resolvePaymentMethod(client?.defaultPaymentMethod)
+  );
 
   const clientInvoices = isEdit ? invoicesToUnlink(client.id, invoices) : [];
 
@@ -51,6 +64,10 @@ export function ClientForm({ client }: ClientFormProps) {
       phone: phone || undefined,
       gstNumber: gstNumber || undefined,
       createdAt: client?.createdAt ?? new Date().toISOString(),
+      // Stored as `undefined` for "ifsc" rather than the literal string —
+      // same convention `Invoice.paymentMethod` uses on the invoice form,
+      // and every other optional field on this record (`email`, `phone`, …).
+      defaultPaymentMethod: defaultPaymentMethod === "ifsc" ? undefined : defaultPaymentMethod,
     };
 
     // `save` (from `useClients`) passes through `storage.saveClient`'s own
@@ -193,14 +210,31 @@ export function ClientForm({ client }: ClientFormProps) {
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">GST number</Label>
-          <Input
-            value={gstNumber}
-            onChange={(e) => setGstNumber(e.target.value)}
-            placeholder="Optional"
-            className="text-sm max-w-[280px]"
-          />
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">GST number</Label>
+            <Input
+              value={gstNumber}
+              onChange={(e) => setGstNumber(e.target.value)}
+              placeholder="Optional"
+              className="text-sm"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Default payment details</Label>
+            <Select
+              value={defaultPaymentMethod}
+              onValueChange={(v) => setDefaultPaymentMethod(v as PaymentMethod)}
+            >
+              <SelectTrigger className="w-full text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ifsc">IFSC (India)</SelectItem>
+                <SelectItem value="ach">ACH (US)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex gap-2 justify-end">

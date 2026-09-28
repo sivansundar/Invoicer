@@ -5,6 +5,15 @@ import { ClientForm } from "./client-form";
 import * as storage from "@/lib/storage";
 import type { Client, Invoice } from "@/lib/types";
 
+// jsdom implements neither the Pointer Capture API nor scrollIntoView, both
+// of which Radix's Select uses internally when opened via a real pointer
+// interaction — without these no-op polyfills every `userEvent.click` on the
+// "Default payment details" Select trigger throws in this environment.
+Element.prototype.hasPointerCapture = Element.prototype.hasPointerCapture ?? (() => false);
+Element.prototype.setPointerCapture = Element.prototype.setPointerCapture ?? (() => {});
+Element.prototype.releasePointerCapture = Element.prototype.releasePointerCapture ?? (() => {});
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? (() => {});
+
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -178,5 +187,51 @@ describe("ClientForm", () => {
       expect(toast).toHaveBeenCalledWith(expect.stringContaining("1 of 3"));
       expect(toast).toHaveBeenCalledWith(expect.stringContaining("couldn't be re-linked"));
     });
+  });
+});
+
+describe("ClientForm — default payment method", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    storage.runMigration();
+    push.mockClear();
+    toast.mockClear();
+  });
+
+  it("saves defaultPaymentMethod: undefined when IFSC (the default) is never touched", async () => {
+    const user = userEvent.setup();
+    render(<ClientForm />);
+
+    await user.type(screen.getByPlaceholderText("e.g. Acme Studio"), "Acme Studio");
+    await user.click(screen.getByRole("button", { name: "Add client" }));
+
+    expect(storage.getClients()[0].defaultPaymentMethod).toBeUndefined();
+  });
+
+  it("saves 'ach' when ACH is selected", async () => {
+    const user = userEvent.setup();
+    render(<ClientForm />);
+
+    await user.type(screen.getByPlaceholderText("e.g. Acme Studio"), "Acme Studio");
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "ACH (US)" }));
+    await user.click(screen.getByRole("button", { name: "Add client" }));
+
+    expect(storage.getClients()[0].defaultPaymentMethod).toBe("ach");
+  });
+
+  it("round-trips an existing client's ACH default on edit, and switching back to IFSC clears it", async () => {
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
+
+    expect(screen.getByRole("combobox")).toHaveTextContent("ACH (US)");
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "IFSC (India)" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(storage.getClients()[0].defaultPaymentMethod).toBeUndefined();
   });
 });

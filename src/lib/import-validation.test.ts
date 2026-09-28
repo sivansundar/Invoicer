@@ -229,3 +229,126 @@ describe("validateImportedBackup", () => {
     expect(result.invoices).toEqual({ valid: [invoice], skipped: 0, invalidShape: false });
   });
 });
+
+describe("validateImportedInvoices — paymentMethod", () => {
+  it("accepts a record with no paymentMethod at all", () => {
+    const result = validateImportedInvoices([wellFormedInvoice()]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.skipped).toBe(0);
+  });
+
+  it("accepts 'ifsc' and 'ach'", () => {
+    const result = validateImportedInvoices([
+      wellFormedInvoice({ id: "i1", paymentMethod: "ifsc" }),
+      wellFormedInvoice({ id: "i2", paymentMethod: "ach" }),
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.valid).toHaveLength(2);
+    expect(result.skipped).toBe(0);
+  });
+
+  it("skips a record whose paymentMethod is outside the enum", () => {
+    const result = validateImportedInvoices([
+      wellFormedInvoice({ paymentMethod: "swift" }),
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.valid).toHaveLength(0);
+    expect(result.skipped).toBe(1);
+  });
+});
+
+describe("validateImportedBackup — brand achDetails", () => {
+  it("accepts a brand with no achDetails at all", () => {
+    const result = validateImportedBackup({ brands: [wellFormedBrand()] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands.skipped).toBe(0);
+  });
+
+  it("accepts a fully populated achDetails, with or without accountType", () => {
+    const withType = wellFormedBrand({
+      id: "b1",
+      achDetails: {
+        accountName: "Sivan Studio",
+        accountNumber: "98765",
+        routingNumber: "021000021",
+        bankName: "Wise",
+        accountType: "checking",
+      },
+    });
+    const withoutType = wellFormedBrand({
+      id: "b2",
+      achDetails: {
+        accountName: "Sivan Studio",
+        accountNumber: "98765",
+        routingNumber: "021000021",
+        bankName: "Wise",
+      },
+    });
+
+    const result = validateImportedBackup({ brands: [withType, withoutType] });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [withType, withoutType], skipped: 0, invalidShape: false });
+  });
+
+  it("skips a brand whose achDetails is missing a required field", () => {
+    const result = validateImportedBackup({
+      brands: [
+        wellFormedBrand({
+          achDetails: { accountName: "Sivan Studio", accountNumber: "98765" },
+        }),
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [], skipped: 1, invalidShape: false });
+  });
+
+  it("skips a brand whose achDetails.accountType is outside the enum", () => {
+    const result = validateImportedBackup({
+      brands: [
+        wellFormedBrand({
+          achDetails: {
+            accountName: "Sivan Studio",
+            accountNumber: "98765",
+            routingNumber: "021000021",
+            bankName: "Wise",
+            accountType: "money-market",
+          },
+        }),
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.brands).toEqual({ valid: [], skipped: 1, invalidShape: false });
+  });
+});
+
+describe("validateImportedBackup — client defaultPaymentMethod", () => {
+  it("accepts a client with no defaultPaymentMethod, and 'ifsc'/'ach' when present", () => {
+    const result = validateImportedBackup({
+      clients: [
+        wellFormedClient({ id: "c1" }),
+        wellFormedClient({ id: "c2", defaultPaymentMethod: "ifsc" }),
+        wellFormedClient({ id: "c3", defaultPaymentMethod: "ach" }),
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.clients.valid).toHaveLength(3);
+    expect(result.clients.skipped).toBe(0);
+  });
+
+  it("skips a client whose defaultPaymentMethod is outside the enum", () => {
+    const result = validateImportedBackup({
+      clients: [wellFormedClient({ defaultPaymentMethod: "swift" })],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok: true");
+    expect(result.clients).toEqual({ valid: [], skipped: 1, invalidShape: false });
+  });
+});

@@ -23,7 +23,16 @@ import { LineItemsTable } from "./line-items-table";
 import { useBrands } from "@/hooks/use-brands";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
-import { Invoice, InvoiceClient, InvoiceStatus, LineItem, Currency, BrandSnapshot } from "@/lib/types";
+import {
+  Invoice,
+  InvoiceClient,
+  InvoiceStatus,
+  LineItem,
+  Currency,
+  BrandSnapshot,
+  PaymentMethod,
+  resolvePaymentMethod,
+} from "@/lib/types";
 import { computeTotals } from "@/lib/invoice-preview";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { snapshotFromBrand } from "@/lib/migrate";
@@ -114,6 +123,15 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const [items, setItems] = useState<LineItem[]>(
     existingInvoice?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
   );
+  // Always a concrete value ("ifsc" is the implicit default — see
+  // `resolvePaymentMethod`), the same way `currency` always is, so the
+  // Select below never needs to render an unselected state. Re-preselected
+  // whenever "Billed to" changes to a saved client (see that select's
+  // `onValueChange`); the user can still override it afterwards from this
+  // form's own Payment details select.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    resolvePaymentMethod(existingInvoice?.paymentMethod)
+  );
 
   // Which mandatory fields failed the most recent primary-save attempt
   // ("Create invoice" or "Save changes" — the same rule set for both).
@@ -142,6 +160,21 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const brand = brands.find((b) => b.id === brandId);
   const isManualClient = selectValue === MANUAL_CLIENT_VALUE;
   const selectedClient = isManualClient ? undefined : clients.find((c) => c.id === selectValue);
+
+  // Whether the ACH option on the Payment details select below is actually
+  // usable. Same split as `previewSnapshot`/`previewNumber`: an edited
+  // invoice's brand is locked, so the answer comes from its own frozen
+  // `brandSnapshot` (never a live brand lookup — the brand may have gained
+  // or lost ACH details since); a new invoice reads the live selected
+  // brand, since nothing is frozen yet.
+  const achAvailable = !!(isEdit ? existingInvoice.brandSnapshot.achDetails : brand?.achDetails);
+  // Defensive, not load-bearing: every path that sets `paymentMethod` to
+  // "ach" (the initial state above, and the "Billed to" and "From (brand)"
+  // handlers below) already checks `achAvailable` first. This only protects
+  // against them drifting out of sync later — the preview and the save path
+  // must never disagree about which block actually renders.
+  const effectivePaymentMethod: PaymentMethod =
+    paymentMethod === "ach" && achAvailable ? "ach" : "ifsc";
 
   // Which of the selected saved client's invoice-relevant fields it doesn't
   // actually have — surfaced inline (below) for completion rather than
@@ -290,6 +323,12 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       reminders: isEdit ? existingInvoice.reminders : [],
       followupsPaused: isEdit ? existingInvoice.followupsPaused : false,
       paidOn,
+      // Stored as `undefined` for "ifsc" rather than the literal string,
+      // matching every other optional field on this record (`notes`,
+      // `panNumber`, …) — `resolvePaymentMethod` reads a missing value as
+      // "ifsc" everywhere it's consumed, so there is no meaningful
+      // difference, only one fewer way for the two to say the same thing.
+      paymentMethod: effectivePaymentMethod === "ach" ? "ach" : undefined,
     };
 
     // `save` (from `useInvoices`) passes through `storage.saveInvoice`'s own
@@ -341,6 +380,18 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 onValueChange={(v) => {
                   setBrandId(v);
                   clearErrors(["brand"]);
+                  // A brand switch (only reachable pre-edit — this select is
+                  // disabled once the invoice exists) changes whether ACH is
+                  // usable at all, so re-derive the preselect: a saved
+                  // client's ACH default picked *before* any brand had to
+                  // fall back to IFSC then, and is honoured now if this
+                  // brand has ACH details; "ach" pointed at a brand without
+                  // them falls back rather than leave an unusable choice.
+                  const newBrand = brands.find((b) => b.id === v);
+                  const wanted = selectedClient
+                    ? resolvePaymentMethod(selectedClient.defaultPaymentMethod)
+                    : paymentMethod;
+                  setPaymentMethod(wanted === "ach" && newBrand?.achDetails ? "ach" : "ifsc");
                 }}
                 disabled={isEdit}
               >
@@ -384,6 +435,18 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                   setSelectValue(v);
                   setClientPatch({});
                   clearErrors(["client", "companyName", "address"]);
+                  // Pre-selects the newly chosen client's default payment
+                  // method — falling back to IFSC when it has none, or when
+                  // its ACH default can't be honoured because the selected
+                  // brand has no ACH details of its own. Manual entry has no
+                  // client to read a default from, so it's left alone here.
+                  // Either way this is only a preselect: the Payment details
+                  // select below can still override it for this invoice.
+                  if (v !== MANUAL_CLIENT_VALUE) {
+                    const newClient = clients.find((c) => c.id === v);
+                    const wanted = resolvePaymentMethod(newClient?.defaultPaymentMethod);
+                    setPaymentMethod(wanted === "ach" && achAvailable ? "ach" : "ifsc");
+                  }
                 }}
               >
                 <SelectTrigger
@@ -649,6 +712,29 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 </SelectContent>
               </Select>
             </div>
+            {/* No `<Required />` here either, for the same reason as
+               Currency: the default value ("ifsc") means this Select can
+               never actually reach an empty state. */}
+            <div className="flex-[1_1_150px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Payment details</Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              >
+                <SelectTrigger className="w-full text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ifsc">IFSC (India)</SelectItem>
+                  <SelectItem value="ach" disabled={!achAvailable}>
+                    ACH (US)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {!achAvailable && (
+                <p className="text-xs text-muted-foreground">Add ACH details on the brand</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1.5" id={FIELD_DOM_ID.lineItems}>
@@ -716,6 +802,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           currency={currency}
           notes={notes || undefined}
           isPaid={isEdit ? existingInvoice.status === "paid" : false}
+          paymentMethod={effectivePaymentMethod}
         />
       </div>
     </div>

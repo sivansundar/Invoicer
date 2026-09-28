@@ -1,4 +1,13 @@
-import type { Brand, Client, EmailTemplate, EmailTone, Invoice, InvoiceStatus } from "./types";
+import type {
+  AchDetails,
+  Brand,
+  Client,
+  EmailTemplate,
+  EmailTone,
+  Invoice,
+  InvoiceStatus,
+  PaymentMethod,
+} from "./types";
 
 const VALID_STATUSES: ReadonlySet<string> = new Set<InvoiceStatus>([
   "draft",
@@ -8,6 +17,12 @@ const VALID_STATUSES: ReadonlySet<string> = new Set<InvoiceStatus>([
 ]);
 
 const VALID_TONES: ReadonlySet<string> = new Set<EmailTone>(["Friendly", "Direct", "Firm"]);
+
+const VALID_PAYMENT_METHODS: ReadonlySet<string> = new Set<PaymentMethod>(["ifsc", "ach"]);
+
+const VALID_ACCOUNT_TYPES: ReadonlySet<string> = new Set<
+  NonNullable<AchDetails["accountType"]>
+>(["checking", "savings"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -60,6 +75,18 @@ function isValidInvoiceRecord(value: unknown): value is Invoice {
   if (typeof value.total !== "number") return false;
   if (typeof value.createdAt !== "string") return false;
   if (typeof value.updatedAt !== "string") return false;
+  // Optional — checked only when present, the same as every other
+  // optional field this validator lets through untouched when absent.
+  // `brandSnapshot.achDetails` is not re-checked here, for the same reason
+  // `brandSnapshot.bankDetails` never has been (see the note above): it's
+  // left to `forceMigration`/the app's own `??` fallbacks, not this
+  // narrower top-level check.
+  if (
+    value.paymentMethod !== undefined &&
+    (typeof value.paymentMethod !== "string" || !VALID_PAYMENT_METHODS.has(value.paymentMethod))
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -77,6 +104,28 @@ function isValidBankDetails(value: unknown): boolean {
   if (typeof value.accountNumber !== "string") return false;
   if (typeof value.bankName !== "string") return false;
   if (typeof value.ifscCode !== "string") return false;
+  return true;
+}
+
+/**
+ * `AchDetails` is embedded (not top-level) on `Brand`/`BrandSnapshot`, and —
+ * unlike `bankDetails` — is itself entirely optional, so this is only ever
+ * called when a record actually has one (see `isValidBrandRecord` below).
+ * `accountType` is checked against the same union the type declares, the
+ * same way `status`/`tone` are elsewhere in this file.
+ */
+function isValidAchDetails(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (typeof value.accountName !== "string") return false;
+  if (typeof value.accountNumber !== "string") return false;
+  if (typeof value.routingNumber !== "string") return false;
+  if (typeof value.bankName !== "string") return false;
+  if (
+    value.accountType !== undefined &&
+    (typeof value.accountType !== "string" || !VALID_ACCOUNT_TYPES.has(value.accountType))
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -101,6 +150,10 @@ function isValidBrandRecord(value: unknown): value is Brand {
   if (typeof value.invoicePrefix !== "string") return false;
   if (typeof value.createdAt !== "string") return false;
   if (!isValidBankDetails(value.bankDetails)) return false;
+  // Optional — a brand with no ACH details at all (every brand before this
+  // feature existed, and most since) has `value.achDetails === undefined`,
+  // which is valid; only a *present but malformed* one is rejected.
+  if (value.achDetails !== undefined && !isValidAchDetails(value.achDetails)) return false;
   return true;
 }
 
@@ -117,6 +170,14 @@ function isValidClientRecord(value: unknown): value is Client {
   if (!isNonEmptyString(value.companyName)) return false;
   if (typeof value.address !== "string") return false;
   if (typeof value.createdAt !== "string") return false;
+  // Optional, checked the same way `Invoice.paymentMethod` is above.
+  if (
+    value.defaultPaymentMethod !== undefined &&
+    (typeof value.defaultPaymentMethod !== "string" ||
+      !VALID_PAYMENT_METHODS.has(value.defaultPaymentMethod))
+  ) {
+    return false;
+  }
   return true;
 }
 
