@@ -22,7 +22,7 @@ const VALID_PAYMENT_METHODS: ReadonlySet<string> = new Set<PaymentMethod>(["ifsc
 
 const VALID_ACCOUNT_TYPES: ReadonlySet<string> = new Set<
   NonNullable<AchDetails["accountType"]>
->(["checking", "savings"]);
+>(["current", "savings"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -85,6 +85,9 @@ function isValidInvoiceRecord(value: unknown): value is Invoice {
     value.paymentMethod !== undefined &&
     (typeof value.paymentMethod !== "string" || !VALID_PAYMENT_METHODS.has(value.paymentMethod))
   ) {
+    return false;
+  }
+  if (value.showAchAccountType !== undefined && typeof value.showAchAccountType !== "boolean") {
     return false;
   }
   return true;

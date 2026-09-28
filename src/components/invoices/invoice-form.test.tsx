@@ -761,4 +761,97 @@ describe("InvoiceForm — payment method (IFSC / ACH)", () => {
 
     expect(paymentTrigger()).toHaveTextContent("ACH (US)");
   });
+
+  function achSnapshot(accountType?: "current" | "savings") {
+    return {
+      name: "Old Brand Name",
+      address: "44, 100 Feet Rd",
+      invoicePrefix: "SC",
+      accentColor: "#2563eb",
+      invoiceDesign: "modern" as const,
+      bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+      achDetails: { ...achDetails(), accountType },
+    };
+  }
+
+  it("locks the payment choice once the invoice has been sent, and keeps it on save", async () => {
+    storage.saveBrand(brand({ achDetails: achDetails() }));
+    storage.saveClient(client({ defaultPaymentMethod: "ifsc" }));
+    const existing = invoice({
+      status: "sent",
+      paymentMethod: "ach",
+      showAchAccountType: true,
+      brandSnapshot: achSnapshot("savings"),
+    });
+    storage.saveInvoice(existing);
+    const user = userEvent.setup();
+
+    render(<InvoiceForm existingInvoice={existing} />);
+
+    expect(paymentTrigger()).toBeDisabled();
+    expect(screen.getByText("Locked once the invoice is sent")).toBeInTheDocument();
+    expect(screen.getByLabelText("Show account type")).toBeDisabled();
+
+    // Re-picking "Billed to" must not re-apply the client's IFSC default.
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    const saved = storage.getInvoices()[0];
+    expect(saved.paymentMethod).toBe("ach");
+    expect(saved.showAchAccountType).toBe(true);
+  });
+
+  it("lets a draft switch between IFSC and ACH", async () => {
+    const existing = invoice({ status: "draft", brandSnapshot: achSnapshot() });
+    storage.saveInvoice(existing);
+    const user = userEvent.setup();
+
+    render(<InvoiceForm existingInvoice={existing} />);
+
+    expect(paymentTrigger()).not.toBeDisabled();
+    await user.click(paymentTrigger());
+    await user.click(await screen.findByRole("option", { name: "ACH (US)" }));
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+  });
+
+  it("shows account type by default on a new ACH invoice, and saves the opt-out", async () => {
+    storage.saveBrand(brand({ achDetails: { ...achDetails(), accountType: "current" } }));
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+    const toggle = screen.getByLabelText("Show account type");
+    expect(toggle).toBeChecked();
+    expect(screen.getByText("Current")).toBeInTheDocument(); // live preview
+
+    await user.click(toggle);
+    expect(screen.queryByText("Current")).not.toBeInTheDocument();
+
+    await fillMandatoryFieldsAndCreate(user);
+
+    expect(storage.getInvoices()[0].showAchAccountType).toBeUndefined();
+  });
+
+  it("hides the account-type toggle when the brand has no account type", async () => {
+    storage.saveBrand(brand({ achDetails: achDetails() }));
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+    expect(screen.queryByLabelText("Show account type")).not.toBeInTheDocument();
+  });
 });

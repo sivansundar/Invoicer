@@ -400,7 +400,7 @@ describe("BrandForm — ACH details", () => {
     await user.type(achFieldByLabel("Account number"), "98765");
     await user.type(screen.getByText("ACH routing number").parentElement!.querySelector("input")!, "021000021");
     await user.click(screen.getAllByRole("combobox").slice(-1)[0]);
-    await user.click(await screen.findByRole("option", { name: "Checking" }));
+    await user.click(await screen.findByRole("option", { name: "Current" }));
 
     await user.click(screen.getByRole("button", { name: "Create brand" }));
 
@@ -409,7 +409,7 @@ describe("BrandForm — ACH details", () => {
       bankName: "Wise",
       accountNumber: "98765",
       routingNumber: "021000021",
-      accountType: "checking",
+      accountType: "current",
     });
   });
 

@@ -36,6 +36,8 @@ export interface InvoicePreviewProps {
    * rather than inside it.
    */
   paymentMethod: PaymentMethod | undefined;
+  /** Whether the ACH block prints the account type — see `Invoice.showAchAccountType`. */
+  showAchAccountType: boolean | undefined;
 }
 
 /**

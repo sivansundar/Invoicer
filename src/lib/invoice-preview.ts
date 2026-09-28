@@ -60,7 +60,7 @@ const ACH_FIELD_ORDER: Array<{
   { label: "Bank", key: "bankName" },
   { label: "Account number", key: "accountNumber" },
   { label: "ACH routing number", key: "routingNumber" },
-  // `accountType` is stored lowercase ("checking"/"savings", matching the
+  // `accountType` is stored lowercase ("current"/"savings", matching the
   // form's <select> values) but every other payment field prints
   // sentence-case ("Account name", not "account name") — `format` is only on
   // this one field because it's the only one whose raw stored value isn't
@@ -76,7 +76,11 @@ const ACH_FIELD_ORDER: Array<{
  * snapshot frozen as `"ach"` before its brand ever had `achDetails` set
  * (impossible going forward, since the invoice form disables that option
  * until the brand has one, but not ruled out for older/imported data) also
- * falls back to IFSC here rather than rendering an empty ACH block. Returns
+ * falls back to IFSC here rather than rendering an empty ACH block.
+ * `showAchAccountType` is the invoice's own per-invoice choice
+ * (`Invoice.showAchAccountType`) — the brand may store an account type the
+ * user doesn't want printed on a given invoice. It has no effect on the
+ * IFSC block. Returns
  * an empty array when every field in the chosen set is blank, which callers
  * use to skip rendering the block entirely rather than showing an empty
  * bordered box.
@@ -84,10 +88,11 @@ const ACH_FIELD_ORDER: Array<{
 export function paymentDetailFields(
   bankDetails: BankDetails | undefined,
   achDetails: AchDetails | undefined,
-  method: PaymentMethod | undefined
+  method: PaymentMethod | undefined,
+  showAchAccountType: boolean | undefined
 ): PaymentDetailField[] {
   if (method === "ach" && achDetails) {
-    return ACH_FIELD_ORDER.map(({ label, key, format }) => {
+    return ACH_FIELD_ORDER.filter(({ key }) => key !== "accountType" || showAchAccountType).map(({ label, key, format }) => {
       const raw = (achDetails[key] ?? "").trim();
       return { label, value: raw && format ? format(raw) : raw };
     }).filter((field) => field.value !== "");

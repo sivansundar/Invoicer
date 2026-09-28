@@ -24,9 +24,10 @@ export function ModernInvoicePreview({
   notes,
   isPaid,
   paymentMethod,
+  showAchAccountType,
 }: InvoicePreviewProps) {
   const { subtotal, totalTax, total } = computeTotals(items);
-  const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, paymentMethod);
+  const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, paymentMethod, showAchAccountType);
 
   return (
     // `mx-auto` for the same reason `ClassicInvoicePreview` has it: every pane
