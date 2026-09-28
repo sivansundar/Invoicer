@@ -579,3 +579,186 @@ describe("InvoiceForm", () => {
     });
   });
 });
+
+describe("InvoiceForm — payment method (IFSC / ACH)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+    storage.runMigration();
+    push.mockClear();
+    toast.mockClear();
+  });
+
+  function achDetails() {
+    return {
+      accountName: "Acme LLC",
+      accountNumber: "98765",
+      routingNumber: "021000021",
+      bankName: "Wise",
+    };
+  }
+
+  function paymentTrigger(): HTMLElement {
+    // "Payment details" also labels the live preview's payment block once a
+    // method with populated fields is selected — scope to the form's own
+    // <label> (the only match that's actually a `label` element) rather
+    // than the first match in DOM order.
+    const label = screen
+      .getAllByText("Payment details")
+      .find((el) => el.tagName === "LABEL") as HTMLElement;
+    return label.parentElement!.querySelector('[role="combobox"]') as HTMLElement;
+  }
+
+  async function fillMandatoryFieldsAndCreate(user: ReturnType<typeof userEvent.setup>) {
+    const descriptionInput = screen.getByPlaceholderText("What did you do?");
+    await user.type(descriptionInput, "Website redesign");
+    const row = descriptionInput.parentElement as HTMLElement;
+    await user.type(row.querySelectorAll("input")[1], "5000");
+    fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
+      target: { value: "2026-07-20" },
+    });
+    await user.click(screen.getByRole("button", { name: "Create invoice" }));
+  }
+
+  it("defaults to IFSC and saves paymentMethod: undefined when nothing is touched", async () => {
+    storage.saveBrand(brand());
+    storage.saveClient(client());
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+    expect(paymentTrigger()).toHaveTextContent("IFSC (India)");
+
+    await fillMandatoryFieldsAndCreate(user);
+
+    expect(storage.getInvoices()[0].paymentMethod).toBeUndefined();
+  });
+
+  it("disables ACH and shows a hint when the selected brand has no achDetails", async () => {
+    storage.saveBrand(brand()); // no achDetails
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+
+    expect(screen.getByText("Add ACH details on the brand")).toBeInTheDocument();
+
+    await user.click(paymentTrigger());
+    const achOption = await screen.findByRole("option", { name: "ACH (US)" });
+    expect(achOption).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("pre-selects a picked client's ACH default when the brand has achDetails, overridable afterwards", async () => {
+    storage.saveBrand(brand({ achDetails: achDetails() }));
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+
+    // Override back to IFSC for this invoice only.
+    await user.click(paymentTrigger());
+    await user.click(await screen.findByRole("option", { name: "IFSC (India)" }));
+    expect(paymentTrigger()).toHaveTextContent("IFSC (India)");
+
+    await fillMandatoryFieldsAndCreate(user);
+
+    expect(storage.getInvoices()[0].paymentMethod).toBeUndefined();
+  });
+
+  it("saves paymentMethod: 'ach' when the client's ACH default is kept", async () => {
+    storage.saveBrand(brand({ achDetails: achDetails() }));
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+    await fillMandatoryFieldsAndCreate(user);
+
+    expect(storage.getInvoices()[0].paymentMethod).toBe("ach");
+  });
+
+  it("falls back to IFSC when the client's ACH default can't be honoured because the brand has no achDetails", async () => {
+    storage.saveBrand(brand()); // no achDetails
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+
+    expect(paymentTrigger()).toHaveTextContent("IFSC (India)");
+  });
+
+  it("resets ACH back to IFSC when switching to a brand with no achDetails of its own", async () => {
+    storage.saveBrand(brand({ id: "b1", name: "Has ACH", achDetails: achDetails() }));
+    storage.saveBrand(brand({ id: "b2", name: "No ACH" }));
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Has ACH" }));
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "No ACH" }));
+
+    expect(paymentTrigger()).toHaveTextContent("IFSC (India)");
+  });
+
+  it("honours a client's ACH default picked before any brand once a brand with achDetails is chosen", async () => {
+    storage.saveBrand(brand({ achDetails: achDetails() }));
+    storage.saveClient(client({ defaultPaymentMethod: "ach" }));
+    const user = userEvent.setup();
+    render(<InvoiceForm />);
+
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Acme Studio" }));
+    expect(paymentTrigger()).toHaveTextContent("IFSC (India)");
+
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(await screen.findByRole("option", { name: "Sivan Studio" }));
+
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+  });
+
+  it("initializes from existingInvoice.paymentMethod when editing, reading ACH availability off the frozen brandSnapshot", async () => {
+    storage.saveBrand(brand({ achDetails: achDetails() }));
+    const existing = invoice({
+      paymentMethod: "ach",
+      brandSnapshot: {
+        name: "Old Brand Name",
+        address: "44, 100 Feet Rd",
+        invoicePrefix: "SC",
+        accentColor: "#2563eb",
+        invoiceDesign: "modern",
+        bankDetails: { accountName: "", accountNumber: "", bankName: "", ifscCode: "" },
+        achDetails: achDetails(),
+      },
+    });
+    storage.saveInvoice(existing);
+
+    render(<InvoiceForm existingInvoice={existing} />);
+
+    expect(paymentTrigger()).toHaveTextContent("ACH (US)");
+  });
+});

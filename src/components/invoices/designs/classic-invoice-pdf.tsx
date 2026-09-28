@@ -126,7 +126,7 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
   const symbol = getCurrencySymbol(cur);
   const fmtAmount = (n: number) => formatCurrencyAmount(n, cur);
   const isPaid = invoice.status === "paid";
-  const fields = paymentDetailFields(snapshot.bankDetails);
+  const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, invoice.paymentMethod);
   const rows = chunkPaymentFieldRows(fields);
 
   return (

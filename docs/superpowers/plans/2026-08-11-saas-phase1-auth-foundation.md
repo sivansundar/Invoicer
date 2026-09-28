@@ -884,6 +884,16 @@ create table public.email_templates (
 create index email_templates_org_id_idx on public.email_templates (org_id);
 ```
 
+> **Schema update (ACH payment details, post-Phase-1):** the ACH feature
+> (`feat/ach-payment-details`) adds three columns not reflected in the SQL
+> above — `brands.ach_details jsonb` (sibling of `bank_details`, same
+> not-null-default-`{}` shape, optional in the app layer), `clients.default_payment_method text check (default_payment_method in ('ifsc', 'ach'))` (nullable — null means "ifsc"), and
+> `invoices.payment_method text check (payment_method in ('ifsc', 'ach'))`
+> (nullable — null means "ifsc", so every pre-existing row needs no
+> backfill). `invoices.brand_snapshot` is jsonb and already carries whatever
+> the brand had at issue time, so its own ACH details need no separate
+> column — only the two new scalar columns and `brands.ach_details` do.
+
 - [ ] **Step 5: Apply and re-run**
 
 ```bash

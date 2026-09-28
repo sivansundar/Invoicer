@@ -1,4 +1,4 @@
-import type { Currency, Invoice, InvoiceClient, LineItem } from "./types";
+import type { Currency, Invoice, InvoiceClient, LineItem, PaymentMethod } from "./types";
 
 /**
  * The non-brand half of the invoice the brand form previews — everything
@@ -17,6 +17,7 @@ export interface BrandPreviewBody {
   currency: Currency;
   notes: string | undefined;
   isPaid: boolean;
+  paymentMethod: PaymentMethod | undefined;
 }
 
 /**
@@ -102,6 +103,7 @@ export function brandPreviewBody(
       currency: invoice.currency,
       notes: invoice.notes,
       isPaid: invoice.status === "paid",
+      paymentMethod: invoice.paymentMethod,
     };
   }
 
@@ -117,5 +119,9 @@ export function brandPreviewBody(
     // A sample invoice is never shown as paid — the "Paid" stamp is a claim
     // about a real document, and stamping made-up data with it is noise.
     isPaid: false,
+    // The brand form has no payment-method picker of its own — a brand's
+    // ACH details, if any, are always previewed as the IFSC block, the same
+    // way a brand-new brand with no invoice yet is.
+    paymentMethod: undefined,
   };
 }

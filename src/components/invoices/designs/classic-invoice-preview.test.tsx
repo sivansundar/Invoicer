@@ -40,6 +40,7 @@ function renderClassic(
       currency="INR"
       notes={undefined}
       isPaid={false}
+      paymentMethod={undefined}
     />
   );
 }
@@ -64,6 +65,7 @@ describe("ClassicInvoicePreview tax IDs", () => {
         currency="INR"
         notes={undefined}
         isPaid={false}
+        paymentMethod={undefined}
       />
     );
 
@@ -126,6 +128,7 @@ describe("ClassicInvoicePreview paid state", () => {
         currency="INR"
         notes={undefined}
         isPaid={true}
+        paymentMethod={undefined}
       />
     );
 

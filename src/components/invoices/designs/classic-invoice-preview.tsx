@@ -26,9 +26,10 @@ export function ClassicInvoicePreview({
   currency,
   notes,
   isPaid,
+  paymentMethod,
 }: InvoicePreviewProps) {
   const { subtotal, totalTax, total } = computeTotals(items);
-  const fields = paymentDetailFields(snapshot.bankDetails);
+  const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, paymentMethod);
   const fmt = (n: number) => formatCurrency(n, currency, 2);
 
   return (

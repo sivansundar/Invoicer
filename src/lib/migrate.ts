@@ -114,6 +114,7 @@ export function snapshotFromBrand(brand: Brand): BrandSnapshot {
     invoicePrefix: brand.invoicePrefix,
     accentColor: brand.accentColor,
     bankDetails: brand.bankDetails,
+    achDetails: brand.achDetails,
     invoiceDesign: brand.invoiceDesign,
   };
 }

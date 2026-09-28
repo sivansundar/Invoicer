@@ -8,6 +8,37 @@ export interface BankDetails {
 }
 
 /**
+ * US receiving details for a brand that wants to be paid by ACH — added
+ * alongside `BankDetails` (never replacing it) for an Indian freelancer
+ * billing a US client through a USD-holding account (e.g. Wise, Payoneer)
+ * instead of their Indian bank. `routingNumber` is the US equivalent of
+ * `ifscCode`: it identifies the receiving bank/branch for the transfer, not
+ * the payer's own bank.
+ */
+export interface AchDetails {
+  accountName: string;
+  accountNumber: string;
+  routingNumber: string;
+  bankName: string;
+  accountType?: "checking" | "savings";
+}
+
+/**
+ * Which payment rail an invoice's "Payment details" block renders. Every
+ * `Brand` has always had `bankDetails` (IFSC), so `"ifsc"` is the implicit
+ * default everywhere this is optional — a `Client.defaultPaymentMethod`,
+ * `Invoice.paymentMethod`, or a pre-this-feature invoice with neither field
+ * at all. That's deliberate: it means an invoice created before ACH existed
+ * renders exactly as it always did, with no migration or backfill required.
+ */
+export type PaymentMethod = "ifsc" | "ach";
+
+/** `undefined` reads as `"ifsc"` everywhere a `PaymentMethod` is optional — see `PaymentMethod`. */
+export function resolvePaymentMethod(method: PaymentMethod | undefined): PaymentMethod {
+  return method ?? "ifsc";
+}
+
+/**
  * Which of the two predefined invoice layouts a brand's invoices render as.
  * Unrelated to `EmailTemplate` / `useTemplates()` (the follow-up email
  * copy) — this governs the invoice document itself, on screen and in the
@@ -25,6 +56,14 @@ export interface Brand {
   panNumber?: string;
   logo?: string; // base64 data URL
   bankDetails: BankDetails;
+  /**
+   * US ACH receiving details, offered alongside `bankDetails` rather than
+   * instead of it — a brand with no reason to bill in USD simply never sets
+   * this, and every invoice keeps rendering its IFSC details exactly as
+   * before. Optional with no backfill: unlike `accentColor`/`followup`/
+   * `invoiceDesign` above, nothing ever depended on every brand having one.
+   */
+  achDetails?: AchDetails;
   invoicePrefix: string;
   nextInvoiceNumber: number;
   createdAt: string;
@@ -52,6 +91,14 @@ export interface Client {
   phone?: string;
   gstNumber?: string;
   createdAt: string;
+  /**
+   * Which payment rail the invoice form pre-selects when this client is
+   * picked as "Billed to" — a nudge for the invoice form, not a promise:
+   * `resolvePaymentMethod` reads a missing value as `"ifsc"`, and the
+   * invoice form falls back to `"ifsc"` regardless of this field when the
+   * chosen brand has no `achDetails` to actually render.
+   */
+  defaultPaymentMethod?: PaymentMethod;
 }
 
 export interface InvoiceClient {
@@ -104,6 +151,17 @@ export interface Invoice {
    * and cleared whenever `status` moves off `"paid"`.
    */
   paidOn?: string;
+  /**
+   * Which payment rail this invoice's "Payment details" block renders,
+   * chosen on the invoice form (pre-filled from `Client.defaultPaymentMethod`
+   * when a saved client is picked, overridable per invoice) and frozen at
+   * save time — editing the brand or the client afterwards must not change
+   * which rail an already-issued invoice shows, the same guarantee
+   * `brandSnapshot` gives the bank/ACH details themselves. Undefined (every
+   * invoice issued before this feature existed) reads as `"ifsc"` via
+   * `resolvePaymentMethod`.
+   */
+  paymentMethod?: PaymentMethod;
 }
 
 export type EmailTone = "Friendly" | "Direct" | "Firm";
@@ -145,6 +203,8 @@ export interface BrandSnapshot {
   invoicePrefix: string;
   accentColor: string;
   bankDetails: BankDetails;
+  /** Frozen the same way `bankDetails` is — see `Brand.achDetails`. */
+  achDetails?: AchDetails;
   /**
    * The design this invoice was rendered with at creation time, frozen the
    * same way every other brand detail is — changing a brand's design later
