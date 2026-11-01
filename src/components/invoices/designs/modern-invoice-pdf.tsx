@@ -219,6 +219,9 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
               <Text style={s.billedToContact}>{invoice.client.name}</Text>
             )}
             <Text style={s.billedToAddress}>{invoice.client.address}</Text>
+            {invoice.client.uen && (
+              <Text style={s.billedToCompliance}>UEN: {invoice.client.uen}</Text>
+            )}
             {invoice.client.gstNumber && (
               <Text style={s.billedToCompliance}>GST: {invoice.client.gstNumber}</Text>
             )}

@@ -88,6 +88,9 @@ export function ModernInvoicePreview({
           <p className="text-xs text-muted-foreground whitespace-pre-line break-words">
             {client.address}
           </p>
+          {client.uen && (
+            <p className="text-xs text-muted-foreground mt-1">UEN: {client.uen}</p>
+          )}
           {client.gstNumber && (
             <p className="text-xs text-muted-foreground mt-1">GST: {client.gstNumber}</p>
           )}
