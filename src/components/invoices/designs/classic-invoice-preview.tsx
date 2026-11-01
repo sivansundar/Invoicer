@@ -107,6 +107,9 @@ export function ClassicInvoicePreview({
               {client.address}
             </p>
           )}
+          {client.uen && (
+            <p className="text-[10px] text-muted-foreground mt-1">UEN: {client.uen}</p>
+          )}
           {client.gstNumber && (
             <p className="text-[10px] text-muted-foreground mt-1">GST: {client.gstNumber}</p>
           )}

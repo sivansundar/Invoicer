@@ -198,6 +198,9 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             {invoice.client.address && (
               <Text style={[s.value, { color: "#666" }]}>{invoice.client.address}</Text>
             )}
+            {invoice.client.uen && (
+              <Text style={[s.brandDetail, { marginTop: 2 }]}>UEN: {invoice.client.uen}</Text>
+            )}
             {invoice.client.gstNumber && (
               <Text style={[s.brandDetail, { marginTop: 2 }]}>GST: {invoice.client.gstNumber}</Text>
             )}

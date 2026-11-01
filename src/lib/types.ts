@@ -90,6 +90,8 @@ export interface Client {
   email?: string;
   phone?: string;
   gstNumber?: string;
+  /** Singapore company registration number, printed under the address on invoices. */
+  uen?: string;
   createdAt: string;
   /**
    * Which payment rail the invoice form pre-selects when this client is
@@ -107,6 +109,7 @@ export interface InvoiceClient {
   address: string;
   email?: string;
   gstNumber?: string;
+  uen?: string;
 }
 
 export interface LineItem {

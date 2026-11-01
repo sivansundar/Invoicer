@@ -38,6 +38,7 @@ export function ClientForm({ client }: ClientFormProps) {
   const [email, setEmail] = useState(client?.email ?? "");
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(client?.gstNumber ?? "");
+  const [uen, setUen] = useState(client?.uen ?? "");
   // Always a concrete value, the same reason `currency` always is on the
   // invoice form: `resolvePaymentMethod` reads a missing/undefined default
   // as "ifsc", so the Select never needs to render an unselected state.
@@ -63,6 +64,7 @@ export function ClientForm({ client }: ClientFormProps) {
       email: email || undefined,
       phone: phone || undefined,
       gstNumber: gstNumber || undefined,
+      uen: uen || undefined,
       createdAt: client?.createdAt ?? new Date().toISOString(),
       // Stored as `undefined` for "ifsc" rather than the literal string —
       // same convention `Invoice.paymentMethod` uses on the invoice form,
@@ -217,6 +219,15 @@ export function ClientForm({ client }: ClientFormProps) {
               value={gstNumber}
               onChange={(e) => setGstNumber(e.target.value)}
               placeholder="Optional"
+              className="text-sm"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">UEN</Label>
+            <Input
+              value={uen}
+              onChange={(e) => setUen(e.target.value)}
+              placeholder="Optional, for Singapore clients"
               className="text-sm"
             />
           </div>
