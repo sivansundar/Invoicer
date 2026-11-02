@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Bell, Check, ChevronLeft, FileSpreadsheet } from "lucide-react";
+import { Bell, Check, ChevronLeft } from "lucide-react";
 import { Shell } from "@/components/layout/shell";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
 import { StatusBadge } from "@/components/invoices/status-badge";
@@ -33,7 +33,6 @@ import { FEATURES } from "@/lib/features";
 import { validatePaidOn } from "@/lib/paid-on";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { toZohoCsv } from "@/lib/zoho-export";
 import type { FollowupConfig, Invoice } from "@/lib/types";
 
 const PDFDownloadButton = dynamic(
@@ -227,22 +226,6 @@ export default function InvoiceDetailPage() {
               </Button>
             )}
             <PDFDownloadButton invoice={invoice} snapshot={invoice.brandSnapshot} />
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                const url = URL.createObjectURL(new Blob([toZohoCsv([invoice])], { type: "text/csv" }));
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${invoice.invoiceNumber}-zoho.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              <FileSpreadsheet className="size-3.5" />
-              Export for Zoho
-            </Button>
             {/* Editing preserves whatever status the invoice already has
                 (`InvoiceForm`'s `status` assignment) — the invoice number,
                 brand snapshot and reminder history are untouched either
