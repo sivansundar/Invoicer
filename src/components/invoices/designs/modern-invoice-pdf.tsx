@@ -17,7 +17,7 @@ import {
 } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { Invoice } from "@/lib/types";
 import type { InvoicePDFProps } from "./props";
 
@@ -204,7 +204,7 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             </View>
           </View>
           <View style={s.headerRight}>
-            <Text style={s.eyebrow}>Invoice</Text>
+            <Text style={s.eyebrow}>{invoiceTitle(invoice.gstType, snapshot.gstNumber)}</Text>
             <Text style={[s.mono, s.invoiceNumber]}>{invoice.invoiceNumber}</Text>
             {isPaid && <Text style={s.paidPill}>Paid</Text>}
           </View>
@@ -225,6 +225,11 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             {invoice.client.gstNumber && (
               <Text style={s.billedToCompliance}>GST: {invoice.client.gstNumber}</Text>
             )}
+            {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
+              <Text style={s.billedToCompliance}>
+                Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
+              </Text>
+            )}
           </View>
           <View style={s.datesRight}>
             <Text style={s.partyLabel}>Bill date</Text>
@@ -244,6 +249,7 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           <View key={item.id} style={s.itemRow}>
             <Text style={s.itemDescription}>
               {item.description}
+              {item.sac && <Text style={s.itemTaxNote}> · SAC {item.sac}</Text>}
               {item.tax > 0 && <Text style={s.itemTaxNote}> · {item.tax}% tax</Text>}
             </Text>
             <Amount n={item.amount} currency={cur} style={s.itemAmount} />
@@ -256,10 +262,12 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             <Text style={s.totalsLabel}>Subtotal</Text>
             <Amount n={invoice.subtotal} currency={cur} style={s.totalsValue} />
           </View>
-          <View style={s.totalsRow}>
-            <Text style={s.totalsLabel}>{taxLabel(invoice.items)}</Text>
-            <Amount n={invoice.totalTax} currency={cur} style={s.totalsValue} />
-          </View>
+          {taxRows(invoice.items, invoice.gstType).map((row) => (
+            <View key={row.label} style={s.totalsRow}>
+              <Text style={s.totalsLabel}>{row.label}</Text>
+              <Amount n={row.amount} currency={cur} style={s.totalsValue} />
+            </View>
+          ))}
           <View style={s.totalDueRow}>
             <Text style={s.totalDueLabel}>Total due</Text>
             <Amount n={invoice.total} currency={cur} style={s.totalDueValue} />
@@ -299,6 +307,9 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           </View>
         )}
 
+        {invoice.gstType === "export_lut" && (
+          <Text style={s.notes}>{exportDeclaration(snapshot.lutArn)}</Text>
+        )}
         {/* Notes */}
         {invoice.notes && <Text style={s.notes}>{invoice.notes}</Text>}
       </Page>

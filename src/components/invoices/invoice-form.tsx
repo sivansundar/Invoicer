@@ -32,8 +32,10 @@ import {
   Currency,
   BrandSnapshot,
   PaymentMethod,
+  GstType,
   resolvePaymentMethod,
 } from "@/lib/types";
+import { GST_STATES } from "@/lib/gst-states";
 import { computeTotals } from "@/lib/invoice-preview";
 import { nextInvoiceNumber } from "@/lib/storage";
 import { snapshotFromBrand } from "@/lib/migrate";
@@ -116,6 +118,11 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       : { companyName: "", address: "" }
   );
   const [currency, setCurrency] = useState<Currency>(existingInvoice?.currency ?? "INR");
+  // Always concrete, like `currency`. A legacy invoice (no gstType) edited
+  // here gets one on save; its single "GST n%" row becomes a proper split.
+  const [gstType, setGstTypeState] = useState<GstType>(
+    existingInvoice?.gstType ?? (existingInvoice?.currency && existingInvoice.currency !== "INR" ? "export_lut" : "cgst_sgst")
+  );
   const [billDate, setBillDate] = useState(
     existingInvoice?.billDate ?? format(new Date(), "yyyy-MM-dd")
   );
@@ -124,6 +131,11 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const [items, setItems] = useState<LineItem[]>(
     existingInvoice?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
   );
+  // Export under LUT is zero-rated: switching to it zeroes every line's tax.
+  const setGstType = (next: GstType) => {
+    setGstTypeState(next);
+    if (next === "export_lut") setItems((prev) => prev.map((item) => ({ ...item, tax: 0 })));
+  };
   // Always a concrete value ("ifsc" is the implicit default — see
   // `resolvePaymentMethod`), the same way `currency` always is, so the
   // Select below never needs to render an unselected state. Re-preselected
@@ -225,6 +237,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         email: selectedClient.email,
         gstNumber: selectedClient.gstNumber,
         uen: selectedClient.uen,
+        stateCode: selectedClient.stateCode,
       }
     : existingInvoice?.client ?? { companyName: "", address: "" };
 
@@ -330,6 +343,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       subtotal,
       totalTax,
       total,
+      gstType,
       notes: notes || undefined,
       createdAt: isEdit ? existingInvoice.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -473,6 +487,8 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                     const wanted = resolvePaymentMethod(newClient?.defaultPaymentMethod);
                     setPaymentMethod(wanted === "ach" && achAvailable ? "ach" : "ifsc");
                   }
+                  const newGstType = clients.find((c) => c.id === v)?.gstType;
+                  if (newGstType) setGstType(newGstType);
                 }}
               >
                 <SelectTrigger
@@ -599,6 +615,22 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                     placeholder="Optional"
                     className="text-sm"
                   />
+                </div>
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">State (place of supply)</Label>
+                  <Select
+                    value={manualClient.stateCode ?? ""}
+                    onValueChange={(v) => setManualClient((prev) => ({ ...prev, stateCode: v }))}
+                  >
+                    <SelectTrigger className="w-full text-sm">
+                      <SelectValue placeholder="Optional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(GST_STATES).map(([code, name]) => (
+                        <SelectItem key={code} value={code}>{name} ({code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -749,6 +781,19 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex-[1_1_200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">GST</Label>
+              <Select value={gstType} onValueChange={(v) => setGstType(v as GstType)}>
+                <SelectTrigger className="w-full text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cgst_sgst">Intra-state (CGST + SGST)</SelectItem>
+                  <SelectItem value="igst">Inter-state (IGST)</SelectItem>
+                  <SelectItem value="export_lut">Export under LUT (0%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {/* No `<Required />` here either, for the same reason as
                Currency: the default value ("ifsc") means this Select can
                never actually reach an empty state. */}
@@ -806,6 +851,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                 clearErrors(["lineItems"]);
               }}
               currency={currency}
+              taxDisabled={gstType === "export_lut"}
               invalid={!!errors.lineItems}
               aria-describedby={errors.lineItems ? "line-items-error" : undefined}
             />
@@ -861,6 +907,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           isPaid={isEdit ? existingInvoice.status === "paid" : false}
           paymentMethod={effectivePaymentMethod}
           showAchAccountType={showAchAccountType}
+          gstType={gstType}
         />
       </div>
     </div>

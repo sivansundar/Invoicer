@@ -1,4 +1,4 @@
-import { computeTotals, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
+import { computeTotals, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { InvoicePreviewProps } from "./props";
@@ -25,8 +25,10 @@ export function ModernInvoicePreview({
   isPaid,
   paymentMethod,
   showAchAccountType,
+  gstType,
 }: InvoicePreviewProps) {
-  const { subtotal, totalTax, total } = computeTotals(items);
+  const { subtotal, total } = computeTotals(items);
+  const supply = placeOfSupply(gstType, client.stateCode);
   const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, paymentMethod, showAchAccountType);
 
   return (
@@ -67,7 +69,7 @@ export function ModernInvoicePreview({
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-xs text-muted-foreground tracking-[0.06em] uppercase">Invoice</p>
+          <p className="text-xs text-muted-foreground tracking-[0.06em] uppercase">{invoiceTitle(gstType, snapshot.gstNumber)}</p>
           <p className="font-mono text-sm mt-0.5">{invoiceNumber}</p>
           {isPaid && (
             <span className="inline-block mt-2 bg-accent text-foreground text-[11px] font-medium px-2.5 py-0.5 rounded-full">
@@ -94,6 +96,9 @@ export function ModernInvoicePreview({
           {client.gstNumber && (
             <p className="text-xs text-muted-foreground mt-1">GST: {client.gstNumber}</p>
           )}
+          {supply && (
+            <p className="text-xs text-muted-foreground mt-1">Place of supply: {supply}</p>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className="text-xs text-muted-foreground">Bill date</p>
@@ -109,6 +114,9 @@ export function ModernInvoicePreview({
           <div key={item.id} className="flex justify-between gap-3 py-1.5 text-[13px]">
             <span className="min-w-0 break-words">
               {item.description}
+              {item.sac && (
+                <span className="text-muted-foreground text-xs"> · SAC {item.sac}</span>
+              )}
               {item.tax > 0 && (
                 <span className="text-muted-foreground text-xs"> · {item.tax}% tax</span>
               )}
@@ -124,10 +132,12 @@ export function ModernInvoicePreview({
           <span className="text-muted-foreground">Subtotal</span>
           <span className="tabular-nums">{formatCurrency(subtotal, currency)}</span>
         </div>
-        <div className="flex justify-between text-[13px]">
-          <span className="text-muted-foreground">{taxLabel(items)}</span>
-          <span className="tabular-nums">{formatCurrency(totalTax, currency)}</span>
-        </div>
+        {taxRows(items, gstType).map((row) => (
+          <div key={row.label} className="flex justify-between text-[13px]">
+            <span className="text-muted-foreground">{row.label}</span>
+            <span className="tabular-nums">{formatCurrency(row.amount, currency)}</span>
+          </div>
+        ))}
         <div className="flex justify-between text-base font-semibold mt-0.5">
           <span>Total due</span>
           <span className="tabular-nums">{formatCurrency(total, currency)}</span>
@@ -160,6 +170,9 @@ export function ModernInvoicePreview({
       )}
 
       {/* Notes */}
+      {gstType === "export_lut" && (
+        <p className="text-[11px] text-muted-foreground mt-4">{exportDeclaration(snapshot.lutArn)}</p>
+      )}
       {notes && <p className="text-xs text-muted-foreground mt-3 whitespace-pre-line break-words">{notes}</p>}
     </div>
   );

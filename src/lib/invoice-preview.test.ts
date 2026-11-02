@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkPaymentFieldRows, paymentDetailFields, taxLabel } from "./invoice-preview";
+import { chunkPaymentFieldRows, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
 import type { AchDetails, BankDetails, LineItem } from "./types";
 import type { PaymentDetailField } from "./invoice-preview";
 
@@ -204,5 +204,44 @@ describe("chunkPaymentFieldRows", () => {
       [c, d],
       [e],
     ]);
+  });
+});
+
+describe("taxRows", () => {
+  it("splits CGST and SGST evenly, SGST taking any rounding remainder", () => {
+    expect(taxRows([item(18, 1500)], "cgst_sgst")).toEqual([
+      { label: "CGST 9%", amount: 135 },
+      { label: "SGST 9%", amount: 135 },
+    ]);
+    const rows = taxRows([item(18, 33.39)], "cgst_sgst"); // tax 6.01 → 3.01 + 3.00
+    expect(rows.map((r) => r.amount)).toEqual([3.01, 3]);
+  });
+
+  it("drops the rate suffix when rates are mixed", () => {
+    expect(taxRows([item(18), item(5)], "cgst_sgst").map((r) => r.label)).toEqual(["CGST", "SGST"]);
+  });
+
+  it("reads IGST for inter-state, IGST 0% for exports, legacy label otherwise", () => {
+    expect(taxRows([item(18, 100)], "igst")).toEqual([{ label: "IGST 18%", amount: 18 }]);
+    expect(taxRows([item(0, 100)], "export_lut")).toEqual([{ label: "IGST 0%", amount: 0 }]);
+    expect(taxRows([item(18, 100)], undefined)).toEqual([{ label: "GST 18%", amount: 18 }]);
+  });
+});
+
+describe("placeOfSupply / invoiceTitle / exportDeclaration", () => {
+  it("names the state, or Other country for exports", () => {
+    expect(placeOfSupply("cgst_sgst", "29")).toBe("Karnataka (29)");
+    expect(placeOfSupply("export_lut", undefined)).toBe("Other country (96)");
+    expect(placeOfSupply("igst", undefined)).toBeUndefined();
+    expect(placeOfSupply(undefined, "29")).toBeUndefined();
+  });
+  it("titles a GST-registered brand's invoice TAX INVOICE", () => {
+    expect(invoiceTitle("igst", "29X")).toBe("TAX INVOICE");
+    expect(invoiceTitle("igst", undefined)).toBe("INVOICE");
+    expect(invoiceTitle(undefined, "29X")).toBe("INVOICE");
+  });
+  it("appends the LUT ARN when known", () => {
+    expect(exportDeclaration("AD29")).toMatch(/without payment of integrated tax, LUT: AD29$/);
+    expect(exportDeclaration(undefined)).not.toContain("LUT:");
   });
 });

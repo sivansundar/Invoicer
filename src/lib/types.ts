@@ -39,6 +39,14 @@ export function resolvePaymentMethod(method: PaymentMethod | undefined): Payment
 }
 
 /**
+ * How GST is charged on an invoice: split as CGST + SGST within the brand's
+ * state, IGST across states, or zero-rated for an export of services under
+ * LUT. Undefined on invoices issued before this existed: those keep rendering
+ * their single "GST n%" row, never backfilled.
+ */
+export type GstType = "cgst_sgst" | "igst" | "export_lut";
+
+/**
  * Which of the two predefined invoice layouts a brand's invoices render as.
  * Unrelated to `EmailTemplate` / `useTemplates()` (the follow-up email
  * copy) — this governs the invoice document itself, on screen and in the
@@ -54,6 +62,8 @@ export interface Brand {
   phone?: string;
   gstNumber?: string;
   panNumber?: string;
+  /** LUT ARN, printed in the export declaration on export_lut invoices. */
+  lutArn?: string;
   logo?: string; // base64 data URL
   bankDetails: BankDetails;
   /**
@@ -92,6 +102,10 @@ export interface Client {
   gstNumber?: string;
   /** Singapore company registration number, printed under the address on invoices. */
   uen?: string;
+  /** 2-digit GST state code ("29" Karnataka, "96" other country); place of supply. */
+  stateCode?: string;
+  /** Pre-fills the invoice form's GST type when this client is picked. */
+  gstType?: GstType;
   createdAt: string;
   /**
    * Which payment rail the invoice form pre-selects when this client is
@@ -110,6 +124,7 @@ export interface InvoiceClient {
   email?: string;
   gstNumber?: string;
   uen?: string;
+  stateCode?: string;
 }
 
 export interface LineItem {
@@ -117,6 +132,7 @@ export interface LineItem {
   description: string;
   amount: number;
   tax: number; // percentage
+  sac?: string;
 }
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
@@ -173,6 +189,7 @@ export interface Invoice {
    * draft — see the invoice form.
    */
   showAchAccountType?: boolean;
+  gstType?: GstType;
 }
 
 export type EmailTone = "Friendly" | "Direct" | "Firm";
@@ -210,6 +227,7 @@ export interface BrandSnapshot {
   phone?: string;
   gstNumber?: string;
   panNumber?: string;
+  lutArn?: string;
   logo?: string;
   invoicePrefix: string;
   accentColor: string;

@@ -4,7 +4,7 @@ import "./pdf-fonts";
 import { Document, Page, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { InvoicePDFProps } from "./props";
 
 const s = StyleSheet.create({
@@ -171,7 +171,7 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             </View>
           </View>
           <View>
-            <Text style={s.invoiceTitle}>INVOICE</Text>
+            <Text style={s.invoiceTitle}>{invoiceTitle(invoice.gstType, snapshot.gstNumber)}</Text>
             <Text style={s.invoiceNumber}>{invoice.invoiceNumber}</Text>
             {isPaid && <Text style={s.paidPill}>Paid</Text>}
           </View>
@@ -204,6 +204,11 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             {invoice.client.gstNumber && (
               <Text style={[s.brandDetail, { marginTop: 2 }]}>GST: {invoice.client.gstNumber}</Text>
             )}
+            {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
+              <Text style={[s.brandDetail, { marginTop: 2 }]}>
+                Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -220,7 +225,10 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           const taxAmt = (item.amount * item.tax) / 100;
           return (
             <View key={item.id} style={s.tableRow}>
-              <Text style={s.colDesc}>{item.description}</Text>
+              <Text style={s.colDesc}>
+                {item.description}
+                {item.sac && <Text style={{ color: "#888" }}> · SAC {item.sac}</Text>}
+              </Text>
               <Text style={s.colAmount}>{amountRun(item.amount, cur)}</Text>
               <Text style={[s.colTax, { color: "#888" }]}>{item.tax}%</Text>
               <Text style={s.colTotal}>{amountRun(item.amount + taxAmt, cur)}</Text>
@@ -234,10 +242,12 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             <Text style={s.totalsLabel}>Subtotal</Text>
             <Text style={s.totalsValue}>{amountRun(invoice.subtotal, cur)}</Text>
           </View>
-          <View style={s.totalsRow}>
-            <Text style={s.totalsLabel}>{taxLabel(invoice.items)}</Text>
-            <Text style={s.totalsValue}>{amountRun(invoice.totalTax, cur)}</Text>
-          </View>
+          {taxRows(invoice.items, invoice.gstType).map((row) => (
+            <View key={row.label} style={s.totalsRow}>
+              <Text style={s.totalsLabel}>{row.label}</Text>
+              <Text style={s.totalsValue}>{amountRun(row.amount, cur)}</Text>
+            </View>
+          ))}
           <View style={[s.separator, { width: 240, marginVertical: 4 }]} />
           <View style={s.totalsRow}>
             <Text style={s.totalsBoldLabel}>Total</Text>
@@ -280,6 +290,10 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
               ))}
             </View>
           </View>
+        )}
+
+        {invoice.gstType === "export_lut" && (
+          <Text style={[s.notes, { marginTop: 12 }]}>{exportDeclaration(snapshot.lutArn)}</Text>
         )}
 
         {/* Notes */}

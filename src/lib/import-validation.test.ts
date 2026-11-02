@@ -352,3 +352,12 @@ describe("validateImportedBackup — client defaultPaymentMethod", () => {
     expect(result.clients).toEqual({ valid: [], skipped: 1, invalidShape: false });
   });
 });
+
+describe("GST fields", () => {
+  it("accepts a known gstType and rejects an unknown one", () => {
+    const ok = validateImportedInvoices([wellFormedInvoice({ gstType: "igst" })]);
+    expect(ok.ok && ok.valid).toHaveLength(1);
+    const bad = validateImportedInvoices([wellFormedInvoice({ gstType: "vat" })]);
+    expect(bad.ok && bad.skipped).toBe(1);
+  });
+});

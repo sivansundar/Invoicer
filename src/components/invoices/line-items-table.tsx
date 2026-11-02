@@ -17,6 +17,8 @@ interface LineItemsTableProps {
    * still associated programmatically through `aria-describedby`, which
    * *is* a global attribute. */
   invalid?: boolean;
+  /** Export under LUT: every line is 0% and the Tax % inputs are read-only. */
+  taxDisabled?: boolean;
   "aria-describedby"?: string;
 }
 
@@ -25,10 +27,13 @@ export function LineItemsTable({
   onChange,
   currency,
   invalid,
+  taxDisabled,
   "aria-describedby": ariaDescribedby,
 }: LineItemsTableProps) {
   const addItem = () => {
-    onChange([...items, { id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]);
+    // A new line copies the previous line's SAC: one service code per invoice is the norm.
+    const sac = items[items.length - 1]?.sac;
+    onChange([...items, { id: crypto.randomUUID(), description: "", amount: 0, tax: 0, sac }]);
   };
 
   const updateItem = (id: string, field: keyof LineItem, value: string | number) => {
@@ -50,6 +55,7 @@ export function LineItemsTable({
         <span className="flex-[1_1_120px]">Description</span>
         <span className="flex-[0_0_120px]">Amount</span>
         <span className="flex-[0_0_64px]">Tax %</span>
+        <span className="flex-[0_0_84px]">SAC</span>
         <span className="w-6 shrink-0" />
       </div>
 
@@ -80,6 +86,14 @@ export function LineItemsTable({
             className="flex-[0_0_64px] h-8 text-sm tabular-nums"
             min={0}
             max={100}
+            disabled={taxDisabled}
+          />
+          <Input
+            value={item.sac ?? ""}
+            onChange={(e) => updateItem(item.id, "sac", e.target.value)}
+            placeholder="998314"
+            aria-label="SAC code"
+            className="flex-[0_0_84px] h-8 text-sm tabular-nums"
           />
           <Button
             type="button"
