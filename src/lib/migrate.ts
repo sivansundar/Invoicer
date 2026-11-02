@@ -110,6 +110,7 @@ export function snapshotFromBrand(brand: Brand): BrandSnapshot {
     phone: brand.phone,
     gstNumber: brand.gstNumber,
     panNumber: brand.panNumber,
+    lutArn: brand.lutArn,
     logo: brand.logo,
     invoicePrefix: brand.invoicePrefix,
     accentColor: brand.accentColor,

@@ -1,4 +1,4 @@
-import type { Currency, Invoice, InvoiceClient, LineItem, PaymentMethod } from "./types";
+import type { Currency, Invoice, InvoiceClient, LineItem, PaymentMethod, GstType } from "./types";
 
 /**
  * The non-brand half of the invoice the brand form previews — everything
@@ -19,6 +19,7 @@ export interface BrandPreviewBody {
   isPaid: boolean;
   paymentMethod: PaymentMethod | undefined;
   showAchAccountType: boolean | undefined;
+  gstType: GstType | undefined;
 }
 
 /**
@@ -38,13 +39,14 @@ const PLACEHOLDER_CLIENT: InvoiceClient = {
   address: "48 Residency Road\nBengaluru 560025",
   email: "accounts@northwind.studio",
   gstNumber: "29AABCN1234M1Z7",
+  stateCode: "29",
 };
 
 const PLACEHOLDER_ITEMS: LineItem[] = [
   // One taxed line and one untaxed one, so the preview always exercises both
   // the tax column and the subtotal/tax/total split — a single line item
   // would leave half of every design's money section unrendered.
-  { id: "sample-1", description: "Brand identity design", amount: 120000, tax: 18 },
+  { id: "sample-1", description: "Brand identity design", amount: 120000, tax: 18, sac: "998391" },
   { id: "sample-2", description: "Reimbursed printing costs", amount: 8500, tax: 0 },
 ];
 
@@ -106,6 +108,7 @@ export function brandPreviewBody(
       isPaid: invoice.status === "paid",
       paymentMethod: invoice.paymentMethod,
       showAchAccountType: invoice.showAchAccountType,
+      gstType: invoice.gstType,
     };
   }
 
@@ -126,5 +129,6 @@ export function brandPreviewBody(
     // way a brand-new brand with no invoice yet is.
     paymentMethod: undefined,
     showAchAccountType: undefined,
+    gstType: "cgst_sgst",
   };
 }

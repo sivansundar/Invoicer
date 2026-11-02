@@ -42,6 +42,7 @@ function renderClassic(
       isPaid={false}
       paymentMethod={undefined}
       showAchAccountType={undefined}
+      gstType={undefined}
     />
   );
 }
@@ -68,6 +69,7 @@ describe("ClassicInvoicePreview tax IDs", () => {
         isPaid={false}
         paymentMethod={undefined}
         showAchAccountType={undefined}
+        gstType={undefined}
       />
     );
 
@@ -132,6 +134,7 @@ describe("ClassicInvoicePreview paid state", () => {
         isPaid={true}
         paymentMethod={undefined}
         showAchAccountType={undefined}
+        gstType={undefined}
       />
     );
 
@@ -142,5 +145,58 @@ describe("ClassicInvoicePreview paid state", () => {
     renderClassic();
 
     expect(screen.queryByText("Paid")).not.toBeInTheDocument();
+  });
+});
+
+describe("GST rendering", () => {
+  const taxed: LineItem[] = [
+    { id: "a", description: "Development", amount: 100000, tax: 18, sac: "998314" },
+  ];
+
+  it("splits CGST/SGST, names the place of supply and titles it TAX INVOICE for a registered brand", () => {
+    render(
+      <ClassicInvoicePreview
+        snapshot={snapshot({ gstNumber: "29ABCDE1234F1Z5" })}
+        client={{ ...client, stateCode: "29" }}
+        invoiceNumber="SC-2026-014"
+        billDate="2026-07-21"
+        dueDate="2026-08-04"
+        items={taxed}
+        currency="INR"
+        notes={undefined}
+        isPaid={false}
+        paymentMethod={undefined}
+        showAchAccountType={undefined}
+        gstType="cgst_sgst"
+      />
+    );
+    expect(screen.getByRole("heading", { name: "TAX INVOICE" })).toBeInTheDocument();
+    expect(screen.getByText("Place of supply: Karnataka (29)")).toBeInTheDocument();
+    expect(screen.getByText("CGST 9%")).toBeInTheDocument();
+    expect(screen.getByText("SGST 9%")).toBeInTheDocument();
+    expect(screen.getByText(/SAC 998314/)).toBeInTheDocument();
+    expect(screen.queryByText(/export under bond/)).not.toBeInTheDocument();
+  });
+
+  it("prints the LUT declaration and Other country for an export", () => {
+    render(
+      <ClassicInvoicePreview
+        snapshot={snapshot({ gstNumber: "29ABCDE1234F1Z5", lutArn: "AD2904250001234" })}
+        client={client}
+        invoiceNumber="SC-2026-015"
+        billDate="2026-07-21"
+        dueDate="2026-08-04"
+        items={[{ id: "b", description: "Development", amount: 1500, tax: 0 }]}
+        currency="USD"
+        notes={undefined}
+        isPaid={false}
+        paymentMethod={undefined}
+        showAchAccountType={undefined}
+        gstType="export_lut"
+      />
+    );
+    expect(screen.getByText("Place of supply: Other country (96)")).toBeInTheDocument();
+    expect(screen.getByText("IGST 0%")).toBeInTheDocument();
+    expect(screen.getByText(/without payment of integrated tax, LUT: AD2904250001234/)).toBeInTheDocument();
   });
 });

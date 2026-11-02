@@ -42,6 +42,7 @@ function renderPreview(
       isPaid={false}
       paymentMethod={undefined}
       showAchAccountType={undefined}
+      gstType={undefined}
     />
   );
 }
@@ -144,6 +145,7 @@ describe("InvoicePreview payment method", () => {
         isPaid={false}
         paymentMethod="ach"
         showAchAccountType={undefined}
+        gstType={undefined}
       />
     );
 
@@ -174,6 +176,7 @@ describe("InvoicePreview payment method", () => {
         isPaid={false}
         paymentMethod="ach"
         showAchAccountType={undefined}
+        gstType={undefined}
       />
     );
 

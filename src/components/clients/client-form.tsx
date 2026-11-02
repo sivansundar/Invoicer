@@ -20,7 +20,8 @@ import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
 import { invoicesToUnlink } from "@/lib/clients";
 import { cn } from "@/lib/utils";
-import { resolvePaymentMethod, type Client, type PaymentMethod } from "@/lib/types";
+import { resolvePaymentMethod, type Client, type GstType, type PaymentMethod } from "@/lib/types";
+import { GST_STATES, stateFromGstin } from "@/lib/gst-states";
 
 interface ClientFormProps {
   client?: Client;
@@ -39,6 +40,8 @@ export function ClientForm({ client }: ClientFormProps) {
   const [phone, setPhone] = useState(client?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(client?.gstNumber ?? "");
   const [uen, setUen] = useState(client?.uen ?? "");
+  const [stateCode, setStateCode] = useState(client?.stateCode ?? "");
+  const [gstType, setGstType] = useState<GstType | "">(client?.gstType ?? "");
   // Always a concrete value, the same reason `currency` always is on the
   // invoice form: `resolvePaymentMethod` reads a missing/undefined default
   // as "ifsc", so the Select never needs to render an unselected state.
@@ -65,6 +68,9 @@ export function ClientForm({ client }: ClientFormProps) {
       phone: phone || undefined,
       gstNumber: gstNumber || undefined,
       uen: uen || undefined,
+      // A blank state falls back to the one the GSTIN prefix encodes.
+      stateCode: stateCode || stateFromGstin(gstNumber),
+      gstType: gstType || undefined,
       createdAt: client?.createdAt ?? new Date().toISOString(),
       // Stored as `undefined` for "ifsc" rather than the literal string —
       // same convention `Invoice.paymentMethod` uses on the invoice form,
@@ -230,6 +236,35 @@ export function ClientForm({ client }: ClientFormProps) {
               placeholder="Optional, for Singapore clients"
               className="text-sm"
             />
+          </div>
+        </div>
+
+        <div className="flex gap-3 flex-wrap">
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">State (place of supply)</Label>
+            <Select value={stateCode} onValueChange={setStateCode}>
+              <SelectTrigger className="w-full text-sm">
+                <SelectValue placeholder="From GSTIN, or pick one" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(GST_STATES).map(([code, name]) => (
+                  <SelectItem key={code} value={code}>{name} ({code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">GST type</Label>
+            <Select value={gstType} onValueChange={(v) => setGstType(v as GstType)}>
+              <SelectTrigger className="w-full text-sm">
+                <SelectValue placeholder="Set per invoice" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cgst_sgst">Intra-state (CGST + SGST)</SelectItem>
+                <SelectItem value="igst">Inter-state (IGST)</SelectItem>
+                <SelectItem value="export_lut">Export under LUT (0%)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex-1 min-w-[200px] space-y-1.5">
             <Label className="text-xs text-muted-foreground">Default payment details</Label>

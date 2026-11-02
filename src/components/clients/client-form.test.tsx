@@ -190,6 +190,9 @@ describe("ClientForm", () => {
   });
 });
 
+const paymentSelect = () =>
+  screen.getByText("Default payment details").parentElement!.querySelector('[role="combobox"]') as HTMLElement;
+
 describe("ClientForm — default payment method", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -214,7 +217,7 @@ describe("ClientForm — default payment method", () => {
     render(<ClientForm />);
 
     await user.type(screen.getByPlaceholderText("e.g. Acme Studio"), "Acme Studio");
-    await user.click(screen.getByRole("combobox"));
+    await user.click(paymentSelect());
     await user.click(await screen.findByRole("option", { name: "ACH (US)" }));
     await user.click(screen.getByRole("button", { name: "Add client" }));
 
@@ -226,9 +229,9 @@ describe("ClientForm — default payment method", () => {
     const user = userEvent.setup();
     render(<ClientForm client={storage.getClients().find((c) => c.id === "c1")!} />);
 
-    expect(screen.getByRole("combobox")).toHaveTextContent("ACH (US)");
+    expect(paymentSelect()).toHaveTextContent("ACH (US)");
 
-    await user.click(screen.getByRole("combobox"));
+    await user.click(paymentSelect());
     await user.click(await screen.findByRole("option", { name: "IFSC (India)" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 

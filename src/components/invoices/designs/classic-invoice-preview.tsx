@@ -1,6 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { computeTotals, paymentDetailFields, taxLabel } from "@/lib/invoice-preview";
+import { computeTotals, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { InvoicePreviewProps } from "./props";
@@ -28,8 +28,10 @@ export function ClassicInvoicePreview({
   isPaid,
   paymentMethod,
   showAchAccountType,
+  gstType,
 }: InvoicePreviewProps) {
-  const { subtotal, totalTax, total } = computeTotals(items);
+  const { subtotal, total } = computeTotals(items);
+  const supply = placeOfSupply(gstType, client.stateCode);
   const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, paymentMethod, showAchAccountType);
   const fmt = (n: number) => formatCurrency(n, currency, 2);
 
@@ -66,7 +68,7 @@ export function ClassicInvoicePreview({
           </div>
         </div>
         <div className="text-right">
-          <h1 className="text-lg font-bold uppercase tracking-wider">Invoice</h1>
+          <h1 className="text-lg font-bold uppercase tracking-wider">{invoiceTitle(gstType, snapshot.gstNumber)}</h1>
           <p className="text-sm font-medium tabular-nums mt-1">{invoiceNumber}</p>
           {isPaid && (
             <Badge variant="secondary" className="mt-1.5">
@@ -113,6 +115,9 @@ export function ClassicInvoicePreview({
           {client.gstNumber && (
             <p className="text-[10px] text-muted-foreground mt-1">GST: {client.gstNumber}</p>
           )}
+          {supply && (
+            <p className="text-[10px] text-muted-foreground mt-1">Place of supply: {supply}</p>
+          )}
         </div>
       </div>
 
@@ -133,7 +138,10 @@ export function ClassicInvoicePreview({
               key={item.id}
               className="grid grid-cols-[1fr_100px_80px_100px] gap-2 py-2.5 border-b border-border/50 text-xs"
             >
-              <span className="min-w-0 break-words">{item.description}</span>
+              <span className="min-w-0 break-words">
+                {item.description}
+                {item.sac && <span className="text-muted-foreground"> · SAC {item.sac}</span>}
+              </span>
               <span className="text-right tabular-nums">{fmt(item.amount)}</span>
               <span className="text-right tabular-nums text-muted-foreground">
                 {item.tax}%
@@ -151,10 +159,12 @@ export function ClassicInvoicePreview({
             <span className="text-muted-foreground">Subtotal</span>
             <span className="tabular-nums">{fmt(subtotal)}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">{taxLabel(items)}</span>
-            <span className="tabular-nums">{fmt(totalTax)}</span>
-          </div>
+          {taxRows(items, gstType).map((row) => (
+            <div key={row.label} className="flex justify-between">
+              <span className="text-muted-foreground">{row.label}</span>
+              <span className="tabular-nums">{fmt(row.amount)}</span>
+            </div>
+          ))}
           <Separator />
           <div className="flex justify-between font-bold text-sm">
             <span>Total</span>
@@ -194,6 +204,10 @@ export function ClassicInvoicePreview({
       )}
 
       {/* Notes */}
+      {gstType === "export_lut" && (
+        <p className="text-[10px] text-muted-foreground">{exportDeclaration(snapshot.lutArn)}</p>
+      )}
+
       {notes && (
         <>
           <Separator />

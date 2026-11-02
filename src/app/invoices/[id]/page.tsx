@@ -26,7 +26,7 @@ import { useInvoices } from "@/hooks/use-invoices";
 import { useBrands } from "@/hooks/use-brands";
 import { useTemplates } from "@/hooks/use-templates";
 import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
-import { taxLabel } from "@/lib/invoice-preview";
+import { taxRows } from "@/lib/invoice-preview";
 import { daysLate, effectiveStatus } from "@/lib/dashboard";
 import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "@/lib/invoice-detail";
 import { FEATURES } from "@/lib/features";
@@ -368,10 +368,12 @@ export default function InvoiceDetailPage() {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="tabular-nums">{formatCurrency(invoice.subtotal, currency)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{taxLabel(invoice.items)}</span>
-                <span className="tabular-nums">{formatCurrency(invoice.totalTax, currency)}</span>
-              </div>
+              {taxRows(invoice.items, invoice.gstType).map((row) => (
+                <div key={row.label} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{row.label}</span>
+                  <span className="tabular-nums">{formatCurrency(row.amount, currency)}</span>
+                </div>
+              ))}
               <div className="flex justify-between text-base font-semibold">
                 <span>Total</span>
                 <span className="tabular-nums">{formatCurrency(invoice.total, currency)}</span>
@@ -405,6 +407,7 @@ export default function InvoiceDetailPage() {
             isPaid={invoice.status === "paid"}
             paymentMethod={invoice.paymentMethod}
             showAchAccountType={invoice.showAchAccountType}
+            gstType={invoice.gstType}
           />
         </div>
       </div>

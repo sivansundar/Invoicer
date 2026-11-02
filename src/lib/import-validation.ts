@@ -6,7 +6,7 @@ import type {
   EmailTone,
   Invoice,
   InvoiceStatus,
-  PaymentMethod,
+  GstType, PaymentMethod,
 } from "./types";
 
 const VALID_STATUSES: ReadonlySet<string> = new Set<InvoiceStatus>([
@@ -19,6 +19,7 @@ const VALID_STATUSES: ReadonlySet<string> = new Set<InvoiceStatus>([
 const VALID_TONES: ReadonlySet<string> = new Set<EmailTone>(["Friendly", "Direct", "Firm"]);
 
 const VALID_PAYMENT_METHODS: ReadonlySet<string> = new Set<PaymentMethod>(["ifsc", "ach"]);
+const VALID_GST_TYPES: ReadonlySet<string> = new Set<GstType>(["cgst_sgst", "igst", "export_lut"]);
 
 const VALID_ACCOUNT_TYPES: ReadonlySet<string> = new Set<
   NonNullable<AchDetails["accountType"]>
@@ -46,6 +47,7 @@ function isValidLineItem(value: unknown): boolean {
   if (typeof value.description !== "string") return false;
   if (typeof value.amount !== "number") return false;
   if (typeof value.tax !== "number") return false;
+  if (value.sac !== undefined && typeof value.sac !== "string") return false;
   return true;
 }
 
@@ -88,6 +90,12 @@ function isValidInvoiceRecord(value: unknown): value is Invoice {
     return false;
   }
   if (value.showAchAccountType !== undefined && typeof value.showAchAccountType !== "boolean") {
+    return false;
+  }
+  if (
+    value.gstType !== undefined &&
+    (typeof value.gstType !== "string" || !VALID_GST_TYPES.has(value.gstType))
+  ) {
     return false;
   }
   return true;
@@ -181,6 +189,13 @@ function isValidClientRecord(value: unknown): value is Client {
   ) {
     return false;
   }
+  if (
+    value.gstType !== undefined &&
+    (typeof value.gstType !== "string" || !VALID_GST_TYPES.has(value.gstType))
+  ) {
+    return false;
+  }
+  if (value.stateCode !== undefined && typeof value.stateCode !== "string") return false;
   return true;
 }
 

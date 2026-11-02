@@ -1,4 +1,5 @@
-import type { AchDetails, BankDetails, LineItem, PaymentMethod } from "./types";
+import type { AchDetails, BankDetails, GstType, LineItem, PaymentMethod } from "./types";
+import { GST_STATES } from "./gst-states";
 
 export interface InvoiceTotals {
   subtotal: number;
@@ -31,6 +32,61 @@ export function computeTotals(items: LineItem[]): InvoiceTotals {
 export function taxLabel(items: LineItem[]): string {
   const rates = new Set(items.map((item) => item.tax).filter((tax) => tax > 0));
   return rates.size === 1 ? `GST ${[...rates][0]}%` : "Tax";
+}
+
+export interface TaxRow {
+  label: string;
+  amount: number;
+}
+
+/** `name` plus an optional " {rate}%" suffix when every taxed line shares one rate (see `taxLabel`). */
+function rateLabel(name: string, items: LineItem[], divisor = 1): string {
+  const rates = new Set(items.map((item) => item.tax).filter((tax) => tax > 0));
+  return rates.size === 1 ? `${name} ${[...rates][0] / divisor}%` : name;
+}
+
+/**
+ * The tax rows under the subtotal. CGST + SGST split the rate in half; SGST
+ * takes the rounding remainder so the two always sum to `totalTax`. A legacy
+ * invoice (no `gstType`) keeps its single `taxLabel` row.
+ */
+export function taxRows(items: LineItem[], gstType: GstType | undefined): TaxRow[] {
+  const { totalTax } = computeTotals(items);
+  switch (gstType) {
+    case "cgst_sgst": {
+      const cgst = Math.round(items.reduce((sum, item) => sum + (item.amount * item.tax) / 200, 0) * 100) / 100;
+      return [
+        { label: rateLabel("CGST", items, 2), amount: cgst },
+        { label: rateLabel("SGST", items, 2), amount: Math.round((totalTax - cgst) * 100) / 100 },
+      ];
+    }
+    case "igst":
+      return [{ label: rateLabel("IGST", items), amount: totalTax }];
+    case "export_lut":
+      return [{ label: "IGST 0%", amount: 0 }];
+    default:
+      return [{ label: taxLabel(items), amount: totalTax }];
+  }
+}
+
+/** "Karnataka (29)" / "Other country (96)" for the Billed-to block; undefined when unknown. */
+export function placeOfSupply(gstType: GstType | undefined, stateCode: string | undefined): string | undefined {
+  if (!gstType) return undefined;
+  const code = gstType === "export_lut" ? "96" : stateCode;
+  const name = code && GST_STATES[code];
+  return name ? `${name} (${code})` : undefined;
+}
+
+/** "TAX INVOICE" once GST applies and the brand is registered; the legacy "INVOICE" otherwise. */
+export function invoiceTitle(gstType: GstType | undefined, brandGstNumber: string | undefined): string {
+  return gstType && brandGstNumber ? "TAX INVOICE" : "INVOICE";
+}
+
+export const EXPORT_DECLARATION =
+  "Supply meant for export under bond or letter of undertaking without payment of integrated tax";
+
+export function exportDeclaration(lutArn: string | undefined): string {
+  return lutArn ? `${EXPORT_DECLARATION}, LUT: ${lutArn}` : EXPORT_DECLARATION;
 }
 
 export interface PaymentDetailField {

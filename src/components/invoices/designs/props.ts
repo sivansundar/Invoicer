@@ -1,6 +1,7 @@
 import type {
   BrandSnapshot,
   Currency,
+  GstType,
   Invoice,
   InvoiceClient,
   LineItem,
@@ -38,6 +39,8 @@ export interface InvoicePreviewProps {
   paymentMethod: PaymentMethod | undefined;
   /** Whether the ACH block prints the account type — see `Invoice.showAchAccountType`. */
   showAchAccountType: boolean | undefined;
+  /** How GST is shown — see `GstType`. Undefined keeps the legacy single tax row. */
+  gstType: GstType | undefined;
 }
 
 /**

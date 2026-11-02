@@ -65,6 +65,7 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [phone, setPhone] = useState(brand?.phone ?? "");
   const [gstNumber, setGstNumber] = useState(brand?.gstNumber ?? "");
   const [panNumber, setPanNumber] = useState(brand?.panNumber ?? "");
+  const [lutArn, setLutArn] = useState(brand?.lutArn ?? "");
   const [accountName, setAccountName] = useState(brand?.bankDetails.accountName ?? "");
   const [bankName, setBankName] = useState(brand?.bankDetails.bankName ?? "");
   const [branch, setBranch] = useState(brand?.bankDetails.branch ?? "");
@@ -117,6 +118,7 @@ export function BrandForm({ brand }: BrandFormProps) {
     phone: phone || undefined,
     gstNumber: gstNumber || undefined,
     panNumber: panNumber || undefined,
+    lutArn: lutArn || undefined,
     logo: logo || undefined,
     invoicePrefix: effectivePrefix,
     // Dead state (see `nextInvoiceNumber` — the live calculation from
@@ -427,6 +429,15 @@ export function BrandForm({ brand }: BrandFormProps) {
                 onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
                 placeholder="Optional"
                 className="text-sm uppercase"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">LUT ARN</Label>
+              <Input
+                value={lutArn}
+                onChange={(e) => setLutArn(e.target.value)}
+                placeholder="Optional, printed on export invoices"
+                className="text-sm"
               />
             </div>
           </div>
