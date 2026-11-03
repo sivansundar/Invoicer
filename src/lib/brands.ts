@@ -214,3 +214,34 @@ export async function downsampleImage(
   }
   return dataUrl;
 }
+
+/**
+ * Invoices of `brand` whose frozen bank/ACH details lack an account type the
+ * brand now has, with that one field filled in (never overwritten). IFSC
+ * invoices that hadn't decided whether to show it are switched to show it,
+ * so existing invoices pick the account type up once it's set on the brand.
+ * Returns only the invoices that changed.
+ */
+export function withBrandAccountType(brand: Brand, invoices: Invoice[]): Invoice[] {
+  const bankType = brand.bankDetails.accountType;
+  const achType = brand.achDetails?.accountType;
+  return invoices.flatMap((invoice) => {
+    if (invoice.brandId !== brand.id) return [];
+    const snapshot = invoice.brandSnapshot;
+    const fillBank = !!bankType && !snapshot.bankDetails.accountType;
+    const fillAch = !!achType && !!snapshot.achDetails && !snapshot.achDetails.accountType;
+    if (!fillBank && !fillAch) return [];
+    const isIfsc = invoice.paymentMethod !== "ach";
+    return [
+      {
+        ...invoice,
+        brandSnapshot: {
+          ...snapshot,
+          bankDetails: fillBank ? { ...snapshot.bankDetails, accountType: bankType } : snapshot.bankDetails,
+          achDetails: fillAch && snapshot.achDetails ? { ...snapshot.achDetails, accountType: achType } : snapshot.achDetails,
+        },
+        showAchAccountType: isIfsc && fillBank ? invoice.showAchAccountType ?? true : invoice.showAchAccountType,
+      },
+    ];
+  });
+}
