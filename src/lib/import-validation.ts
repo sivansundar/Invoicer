@@ -48,6 +48,8 @@ function isValidLineItem(value: unknown): boolean {
   if (typeof value.amount !== "number") return false;
   if (typeof value.tax !== "number") return false;
   if (value.sac !== undefined && typeof value.sac !== "string") return false;
+  if (value.quantity !== undefined && typeof value.quantity !== "number") return false;
+  if (value.rate !== undefined && typeof value.rate !== "number") return false;
   return true;
 }
 

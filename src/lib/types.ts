@@ -138,6 +138,13 @@ export interface LineItem {
   amount: number;
   tax: number; // percentage
   sac?: string;
+  /**
+   * Quantity and unit rate. `amount` stays the line's taxable value
+   * (quantity × rate) so every total keeps reading it; items saved before
+   * these existed read as quantity 1 at `amount` (see `lineQuantity`/`lineRate`).
+   */
+  quantity?: number;
+  rate?: number;
 }
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";

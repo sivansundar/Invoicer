@@ -68,7 +68,7 @@ describe("InvoicePreview tax IDs", () => {
   it("renders the brand's GST and PAN under its address when present", () => {
     renderPreview({ gstNumber: "29ABCDE1234F1Z5", panNumber: "ABCDE1234F" });
 
-    expect(screen.getByText("GST: 29ABCDE1234F1Z5")).toBeInTheDocument();
+    expect(screen.getByText("GSTIN: 29ABCDE1234F1Z5")).toBeInTheDocument();
     expect(screen.getByText("PAN: ABCDE1234F")).toBeInTheDocument();
   });
 
@@ -79,11 +79,11 @@ describe("InvoicePreview tax IDs", () => {
     expect(screen.queryByText(/^PAN:/)).not.toBeInTheDocument();
   });
 
-  it("renders the client's contact name and GST under Billed to when present", () => {
+  it("renders the client's contact name and GST under Bill to when present", () => {
     renderPreview({}, { name: "Priya Rao", gstNumber: "27AAAAA0000A1Z5" });
 
     expect(screen.getByText("Priya Rao")).toBeInTheDocument();
-    expect(screen.getByText("GST: 27AAAAA0000A1Z5")).toBeInTheDocument();
+    expect(screen.getByText("GSTIN: 27AAAAA0000A1Z5")).toBeInTheDocument();
   });
 
   it("renders no client contact name or GST line when absent", () => {

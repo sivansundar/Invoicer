@@ -174,6 +174,7 @@ describe("hideContactName", () => {
 describe("GST rendering", () => {
   const taxed: LineItem[] = [
     { id: "a", description: "Development", amount: 100000, tax: 18, sac: "998314" },
+    { id: "c", description: "Support hours", amount: 7500, tax: 18, sac: "998314", quantity: 3, rate: 2500 },
   ];
 
   it("splits CGST/SGST, names the place of supply and titles it TAX INVOICE for a registered brand", () => {
@@ -196,8 +197,13 @@ describe("GST rendering", () => {
     expect(screen.getByRole("heading", { name: "TAX INVOICE" })).toBeInTheDocument();
     expect(screen.getByText("Place of supply: Karnataka (29)")).toBeInTheDocument();
     expect(screen.getByText("CGST 9%")).toBeInTheDocument();
+    // Qty and rate columns: the legacy line reads qty 1 at its amount.
+    const support = screen.getByText("Support hours").parentElement!;
+    expect(support).toHaveTextContent("3");
+    expect(support).toHaveTextContent("2,500.00");
+    expect(support).toHaveTextContent("7,500.00");
     expect(screen.getByText("SGST 9%")).toBeInTheDocument();
-    expect(screen.getByText(/SAC 998314/)).toBeInTheDocument();
+    expect(screen.getAllByText("998314")).toHaveLength(2);
     expect(screen.queryByText(/export under bond/)).not.toBeInTheDocument();
   });
 

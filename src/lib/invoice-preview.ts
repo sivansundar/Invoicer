@@ -1,5 +1,6 @@
 import type { AchDetails, BankDetails, GstType, LineItem, PaymentMethod } from "./types";
 import { GST_STATES } from "./gst-states";
+import { differenceInCalendarDays, isValid, parseISO } from "date-fns";
 
 export interface InvoiceTotals {
   subtotal: number;
@@ -32,6 +33,29 @@ export function computeTotals(items: LineItem[]): InvoiceTotals {
 export function taxLabel(items: LineItem[]): string {
   const rates = new Set(items.map((item) => item.tax).filter((tax) => tax > 0));
   return rates.size === 1 ? `GST ${[...rates][0]}%` : "Tax";
+}
+
+/** "Net 30" from the bill → due gap, "Due on receipt" at 0 days; undefined when a date is missing or the gap is negative. */
+export function paymentTerms(billDate: string, dueDate: string): string | undefined {
+  const bill = parseISO(billDate);
+  const due = parseISO(dueDate);
+  if (!isValid(bill) || !isValid(due)) return undefined;
+  const days = differenceInCalendarDays(due, bill);
+  if (days < 0) return undefined;
+  return days === 0 ? "Due on receipt" : `Net ${days}`;
+}
+
+export function lineQuantity(item: LineItem): number {
+  return item.quantity ?? 1;
+}
+
+export function lineRate(item: LineItem): number {
+  return item.rate ?? item.amount;
+}
+
+/** quantity × rate, rounded to paise so the stored `amount` never carries float noise. */
+export function lineAmount(quantity: number, rate: number): number {
+  return Math.round(quantity * rate * 100) / 100;
 }
 
 export interface TaxRow {

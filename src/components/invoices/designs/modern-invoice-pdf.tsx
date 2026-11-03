@@ -17,7 +17,7 @@ import {
 } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, countryLine, lineQuantity, lineRate, paymentTerms, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { Invoice } from "@/lib/types";
 import type { InvoicePDFProps } from "./props";
 
@@ -49,21 +49,25 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 26,
   },
+  headerRule: { borderBottomWidth: 0.5, borderBottomColor: color.border, marginVertical: 18 },
+  title: { fontSize: 20, fontWeight: 700, textAlign: "right" },
+  metaRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 4 },
+  metaLabel: { fontSize: 9, color: color.mutedForeground, marginRight: 6 },
+  metaValue: { fontSize: 9, fontWeight: 700 },
   brandSection: { flexDirection: "row", alignItems: "flex-start", gap: 8, minWidth: 0 },
-  logo: { width: 28, height: 28, borderRadius: 6, objectFit: "contain" },
+  logo: { width: 40, height: 40, borderRadius: 8, objectFit: "contain" },
   logoFallback: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
     backgroundColor: color.primary,
     alignItems: "center",
     justifyContent: "center",
   },
-  logoFallbackText: { color: color.primaryForeground, fontSize: 12, fontWeight: 700 },
-  brandName: { fontSize: 10.5, fontWeight: 700 },
-  brandAddress: { fontSize: 8, color: color.mutedForeground, marginTop: 2, lineHeight: 1.5, maxWidth: 230 },
+  logoFallbackText: { color: color.primaryForeground, fontSize: 16, fontWeight: 700 },
+  brandName: { fontSize: 10.5, fontWeight: 700, marginTop: 10 },
+  brandAddress: { fontSize: 8.5, color: color.mutedForeground, marginTop: 2, lineHeight: 1.5, maxWidth: 250 },
   brandComplianceGroup: { marginTop: 3 },
   brandCompliance: { fontSize: 8, color: color.mutedForeground },
   headerRight: { alignItems: "flex-end" },
@@ -90,20 +94,33 @@ const s = StyleSheet.create({
   datesRight: { alignItems: "flex-end" },
   dateValue: { fontSize: 9.5, marginBottom: 6 },
 
-  // Line items
-  ruleStrong: { borderBottomWidth: 1, borderBottomColor: color.foreground, marginBottom: 2 },
+  // Line items table: fixed numeric columns, the item column takes the rest.
+  ruleStrong: { borderBottomWidth: 1, borderBottomColor: color.foreground },
+  tableHead: {
+    flexDirection: "row",
+    paddingVertical: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: color.border,
+  },
+  th: { fontSize: 8, color: color.mutedForeground },
   itemRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-    gap: 12,
+    paddingVertical: 7,
+    borderBottomWidth: 0.5,
+    borderBottomColor: color.border,
   },
-  itemDescription: { flex: 1, fontSize: 9.5 },
-  itemTaxNote: { fontSize: 8, color: color.mutedForeground },
-  itemAmount: { fontSize: 9.5 },
+  td: { fontSize: 9.5 },
+  tdMono: { fontSize: 9.5, fontFamily: "JetBrains Mono" },
+  colIndex: { width: 18 },
+  colItem: { flex: 1, paddingRight: 8 },
+  colSac: { width: 50 },
+  colQty: { width: 30, textAlign: "right" },
+  colRate: { width: 78, textAlign: "right" },
+  colTax: { width: 34, textAlign: "right" },
+  colAmount: { width: 84, textAlign: "right" },
 
   // Totals
-  totals: { borderTopWidth: 0.5, borderTopColor: color.border, marginTop: 2, paddingTop: 8, gap: 4 },
+  totals: { marginTop: 2, paddingTop: 8, gap: 4 },
   totalsRow: { flexDirection: "row", justifyContent: "space-between" },
   totalsLabel: { fontSize: 9, color: color.mutedForeground },
   totalsValue: { fontSize: 9 },
@@ -176,9 +193,9 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        {/* Header */}
+        {/* Header: logo on its own line, brand details under it; title and invoice facts on the right. */}
         <View style={s.header}>
-          <View style={s.brandSection}>
+          <View style={{ minWidth: 0 }}>
             {snapshot.logo ? (
               <PdfImage src={snapshot.logo} style={s.logo} />
             ) : (
@@ -188,74 +205,81 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
                 </Text>
               </View>
             )}
-            <View style={{ minWidth: 0 }}>
-              <Text style={s.brandName}>{snapshot.name}</Text>
-              <Text style={s.brandAddress}>{snapshot.address}</Text>
-              {(snapshot.gstNumber || snapshot.panNumber) && (
-                <View style={s.brandComplianceGroup}>
-                  {snapshot.gstNumber && (
-                    <Text style={s.brandCompliance}>GST: {snapshot.gstNumber}</Text>
-                  )}
-                  {snapshot.panNumber && (
-                    <Text style={s.brandCompliance}>PAN: {snapshot.panNumber}</Text>
-                  )}
-                </View>
-              )}
-            </View>
+            <Text style={s.brandName}>{snapshot.name}</Text>
+            <Text style={s.brandAddress}>{snapshot.address}</Text>
+            {snapshot.gstNumber && <Text style={s.brandCompliance}>GSTIN: {snapshot.gstNumber}</Text>}
+            {snapshot.panNumber && <Text style={s.brandCompliance}>PAN: {snapshot.panNumber}</Text>}
           </View>
           <View style={s.headerRight}>
-            <Text style={s.eyebrow}>{invoiceTitle(invoice.gstType, snapshot.gstNumber)}</Text>
-            <Text style={[s.mono, s.invoiceNumber]}>{invoice.invoiceNumber}</Text>
+            <Text style={s.title}>{invoiceTitle(invoice.gstType, snapshot.gstNumber)}</Text>
+            <View style={[s.metaRow, { marginTop: 8 }]}>
+              <Text style={s.metaLabel}>Invoice #</Text>
+              <Text style={[s.metaValue, s.mono]}>{invoice.invoiceNumber}</Text>
+            </View>
+            <View style={s.metaRow}>
+              <Text style={s.metaLabel}>Invoice date</Text>
+              <Text style={s.metaValue}>{formatStoredDate(invoice.billDate, "dd MMM yyyy")}</Text>
+            </View>
+            <View style={s.metaRow}>
+              <Text style={s.metaLabel}>Due date</Text>
+              <Text style={s.metaValue}>{formatStoredDate(invoice.dueDate, "dd MMM yyyy")}</Text>
+            </View>
+            {paymentTerms(invoice.billDate, invoice.dueDate) && (
+              <View style={s.metaRow}>
+                <Text style={s.metaLabel}>Payment terms</Text>
+                <Text style={s.metaValue}>{paymentTerms(invoice.billDate, invoice.dueDate)}</Text>
+              </View>
+            )}
             {isPaid && <Text style={s.paidPill}>Paid</Text>}
           </View>
         </View>
 
-        {/* Parties */}
-        <View style={s.parties}>
-          <View style={{ minWidth: 0 }}>
-            <Text style={s.partyLabel}>Billed to</Text>
-            <Text style={s.billedToName}>{invoice.client.companyName}</Text>
-            {invoice.client.name && !invoice.hideContactName && (
-              <Text style={s.billedToContact}>{invoice.client.name}</Text>
-            )}
-            <Text style={s.billedToAddress}>{invoice.client.address}</Text>
-            {invoice.client.uen && (
-              <Text style={s.billedToCompliance}>UEN: {invoice.client.uen}</Text>
-            )}
-            {invoice.client.gstNumber && (
-              <Text style={s.billedToCompliance}>GST: {invoice.client.gstNumber}</Text>
-            )}
-            {countryLine(invoice.gstType, invoice.client.country) && (
-              <Text style={s.billedToCompliance}>{countryLine(invoice.gstType, invoice.client.country)}</Text>
-            )}
-            {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
-              <Text style={s.billedToCompliance}>
-                Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
-              </Text>
-            )}
-          </View>
-          <View style={s.datesRight}>
-            <Text style={s.partyLabel}>Bill date</Text>
-            <Text style={[s.mono, s.dateValue]}>
-              {formatStoredDate(invoice.billDate, "dd MMM yyyy")}
+        <View style={s.headerRule} />
+
+        {/* Bill to */}
+        <View style={{ marginBottom: 18 }}>
+          <Text style={s.partyLabel}>Bill to</Text>
+          <Text style={s.billedToName}>{invoice.client.companyName}</Text>
+          {invoice.client.name && !invoice.hideContactName && (
+            <Text style={s.billedToContact}>{invoice.client.name}</Text>
+          )}
+          <Text style={s.billedToAddress}>{invoice.client.address}</Text>
+          {invoice.client.uen && (
+            <Text style={s.billedToCompliance}>UEN: {invoice.client.uen}</Text>
+          )}
+          {invoice.client.gstNumber && (
+            <Text style={s.billedToCompliance}>GSTIN: {invoice.client.gstNumber}</Text>
+          )}
+          {countryLine(invoice.gstType, invoice.client.country) && (
+            <Text style={s.billedToCompliance}>{countryLine(invoice.gstType, invoice.client.country)}</Text>
+          )}
+          {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
+            <Text style={s.billedToCompliance}>
+              Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
             </Text>
-            <Text style={s.partyLabel}>Due date</Text>
-            <Text style={[s.mono, s.dateValue, { marginBottom: 0 }]}>
-              {formatStoredDate(invoice.dueDate, "dd MMM yyyy")}
-            </Text>
-          </View>
+          )}
         </View>
 
         {/* Line items */}
         <View style={s.ruleStrong} />
-        {invoice.items.map((item) => (
-          <View key={item.id} style={s.itemRow}>
-            <Text style={s.itemDescription}>
-              {item.description}
-              {item.sac && <Text style={s.itemTaxNote}> · SAC {item.sac}</Text>}
-              {item.tax > 0 && <Text style={s.itemTaxNote}> · {item.tax}% tax</Text>}
-            </Text>
-            <Amount n={item.amount} currency={cur} style={s.itemAmount} />
+        <View style={s.tableHead}>
+          <Text style={[s.th, s.colIndex]}>#</Text>
+          <Text style={[s.th, s.colItem]}>Item</Text>
+          <Text style={[s.th, s.colSac]}>SAC</Text>
+          <Text style={[s.th, s.colQty]}>Qty</Text>
+          <Text style={[s.th, s.colRate]}>Rate ({cur})</Text>
+          <Text style={[s.th, s.colTax]}>Tax</Text>
+          <Text style={[s.th, s.colAmount]}>Amount ({cur})</Text>
+        </View>
+        {invoice.items.map((item, index) => (
+          <View key={item.id} style={s.itemRow} wrap={false}>
+            <Text style={[s.td, s.colIndex, { color: color.mutedForeground }]}>{index + 1}.</Text>
+            <Text style={[s.td, s.colItem]}>{item.description}</Text>
+            <Text style={[s.tdMono, s.colSac]}>{item.sac ?? ""}</Text>
+            <Text style={[s.tdMono, s.colQty]}>{lineQuantity(item)}</Text>
+            <Text style={[s.tdMono, s.colRate]}>{formatCurrencyAmount(lineRate(item), cur)}</Text>
+            <Text style={[s.tdMono, s.colTax, { color: color.mutedForeground }]}>{item.tax}%</Text>
+            <Text style={[s.tdMono, s.colAmount]}>{formatCurrencyAmount(item.amount, cur)}</Text>
           </View>
         ))}
 
