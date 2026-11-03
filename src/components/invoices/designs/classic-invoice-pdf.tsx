@@ -194,7 +194,7 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           <View style={s.col}>
             <Text style={s.label}>Billed To</Text>
             <Text style={[s.value, { fontWeight: 700 }]}>{invoice.client.companyName}</Text>
-            {invoice.client.name && <Text style={s.value}>{invoice.client.name}</Text>}
+            {invoice.client.name && !invoice.hideContactName && <Text style={s.value}>{invoice.client.name}</Text>}
             {invoice.client.address && (
               <Text style={[s.value, { color: "#666" }]}>{invoice.client.address}</Text>
             )}

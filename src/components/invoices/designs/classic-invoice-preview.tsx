@@ -29,6 +29,7 @@ export function ClassicInvoicePreview({
   paymentMethod,
   showAchAccountType,
   gstType,
+  hideContactName,
 }: InvoicePreviewProps) {
   const { subtotal, total } = computeTotals(items);
   const supply = placeOfSupply(gstType, client.stateCode);
@@ -101,7 +102,7 @@ export function ClassicInvoicePreview({
             Billed To
           </p>
           <p className="text-xs font-medium">{client.companyName}</p>
-          {client.name && (
+          {client.name && !hideContactName && (
             <p className="text-xs text-muted-foreground">{client.name}</p>
           )}
           {client.address && (

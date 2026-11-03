@@ -41,6 +41,8 @@ export interface InvoicePreviewProps {
   showAchAccountType: boolean | undefined;
   /** How GST is shown — see `GstType`. Undefined keeps the legacy single tax row. */
   gstType: GstType | undefined;
+  /** See `Invoice.hideContactName`. Optional so older call sites and fixtures keep showing it. */
+  hideContactName?: boolean;
 }
 
 /**

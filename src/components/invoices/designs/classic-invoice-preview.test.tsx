@@ -148,6 +148,29 @@ describe("ClassicInvoicePreview paid state", () => {
   });
 });
 
+describe("hideContactName", () => {
+  it("drops the contact name from the Billed To block when set", () => {
+    render(
+      <ClassicInvoicePreview
+        snapshot={snapshot()}
+        client={{ ...client, name: "Tejas" }}
+        invoiceNumber="SC-2026-016"
+        billDate="2026-07-21"
+        dueDate="2026-08-04"
+        items={[]}
+        currency="INR"
+        notes={undefined}
+        isPaid={false}
+        paymentMethod={undefined}
+        showAchAccountType={undefined}
+        gstType={undefined}
+        hideContactName
+      />
+    );
+    expect(screen.queryByText("Tejas")).not.toBeInTheDocument();
+  });
+});
+
 describe("GST rendering", () => {
   const taxed: LineItem[] = [
     { id: "a", description: "Development", amount: 100000, tax: 18, sac: "998314" },

@@ -26,6 +26,7 @@ export function ModernInvoicePreview({
   paymentMethod,
   showAchAccountType,
   gstType,
+  hideContactName,
 }: InvoicePreviewProps) {
   const { subtotal, total } = computeTotals(items);
   const supply = placeOfSupply(gstType, client.stateCode);
@@ -84,7 +85,7 @@ export function ModernInvoicePreview({
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground mb-1">Billed to</p>
           <p className="text-[13px] font-medium">{client.companyName}</p>
-          {client.name && (
+          {client.name && !hideContactName && (
             <p className="text-xs text-muted-foreground">{client.name}</p>
           )}
           <p className="text-xs text-muted-foreground whitespace-pre-line break-words">

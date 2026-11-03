@@ -20,6 +20,7 @@ export interface BrandPreviewBody {
   paymentMethod: PaymentMethod | undefined;
   showAchAccountType: boolean | undefined;
   gstType: GstType | undefined;
+  hideContactName?: boolean;
 }
 
 /**
@@ -109,6 +110,7 @@ export function brandPreviewBody(
       paymentMethod: invoice.paymentMethod,
       showAchAccountType: invoice.showAchAccountType,
       gstType: invoice.gstType,
+      hideContactName: invoice.hideContactName,
     };
   }
 
