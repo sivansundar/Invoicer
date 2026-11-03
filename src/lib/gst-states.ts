@@ -1,4 +1,4 @@
-/** GST state codes (first two digits of a GSTIN) → state name. "96" is the place-of-supply code for exports. */
+/** GST state codes (first two digits of a GSTIN) → state name. Exports use the client's country instead. */
 export const GST_STATES: Record<string, string> = {
   "01": "Jammu and Kashmir", "02": "Himachal Pradesh", "03": "Punjab", "04": "Chandigarh",
   "05": "Uttarakhand", "06": "Haryana", "07": "Delhi", "08": "Rajasthan", "09": "Uttar Pradesh",
@@ -8,7 +8,6 @@ export const GST_STATES: Record<string, string> = {
   "26": "Dadra and Nagar Haveli and Daman and Diu", "27": "Maharashtra", "29": "Karnataka", "30": "Goa",
   "31": "Lakshadweep", "32": "Kerala", "33": "Tamil Nadu", "34": "Puducherry",
   "35": "Andaman and Nicobar Islands", "36": "Telangana", "37": "Andhra Pradesh", "38": "Ladakh",
-  "96": "Other country",
 };
 
 export function stateFromGstin(gstin: string | undefined): string | undefined {

@@ -1,6 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { computeTotals, countryLine, lineQuantity, lineRate, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { computeTotals, lineQuantity, lineRate, exportReference, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { InvoicePreviewProps } from "./props";
@@ -32,7 +32,7 @@ export function ClassicInvoicePreview({
   hideContactName,
 }: InvoicePreviewProps) {
   const { subtotal, total } = computeTotals(items);
-  const supply = placeOfSupply(gstType, client.stateCode);
+  const supply = placeOfSupply(gstType, client.stateCode, client.country);
   const fields = paymentDetailFields(snapshot.bankDetails, snapshot.achDetails, paymentMethod, showAchAccountType);
   const fmt = (n: number) => formatCurrency(n, currency, 2);
 
@@ -115,9 +115,6 @@ export function ClassicInvoicePreview({
           )}
           {client.gstNumber && (
             <p className="text-[10px] text-muted-foreground mt-1">GST: {client.gstNumber}</p>
-          )}
-          {countryLine(gstType, client.country) && (
-            <p className="text-[10px] text-muted-foreground mt-1">{countryLine(gstType, client.country)}</p>
           )}
           {supply && (
             <p className="text-[10px] text-muted-foreground mt-1">Place of supply: {supply}</p>
@@ -206,8 +203,8 @@ export function ClassicInvoicePreview({
       )}
 
       {/* Notes */}
-      {gstType === "export_lut" && (
-        <p className="text-[10px] text-muted-foreground">{exportDeclaration(snapshot.lutArn, snapshot.purposeCode)}</p>
+      {gstType === "export_lut" && exportReference(snapshot.lutArn, snapshot.purposeCode) && (
+        <p className="text-[10px] text-muted-foreground">{exportReference(snapshot.lutArn, snapshot.purposeCode)}</p>
       )}
 
       {notes && (

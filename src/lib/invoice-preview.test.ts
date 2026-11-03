@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkPaymentFieldRows, countryLine, exportDeclaration, lineAmount, lineQuantity, lineRate, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
+import { chunkPaymentFieldRows, exportReference, lineAmount, lineQuantity, lineRate, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
 import type { AchDetails, BankDetails, LineItem } from "./types";
 import type { PaymentDetailField } from "./invoice-preview";
 
@@ -228,27 +228,25 @@ describe("taxRows", () => {
   });
 });
 
-describe("placeOfSupply / invoiceTitle / exportDeclaration", () => {
-  it("names the state, or Other country for exports", () => {
-    expect(placeOfSupply("cgst_sgst", "29")).toBe("Karnataka (29)");
-    expect(placeOfSupply("export_lut", undefined)).toBe("Other country (96)");
-    expect(placeOfSupply("igst", undefined)).toBeUndefined();
-    expect(placeOfSupply(undefined, "29")).toBeUndefined();
+describe("placeOfSupply / invoiceTitle / exportReference", () => {
+  it("names the state, else the client country", () => {
+    expect(placeOfSupply("cgst_sgst", "29", undefined)).toBe("Karnataka (29)");
+    expect(placeOfSupply("export_lut", undefined, "Singapore")).toBe("Singapore");
+    expect(placeOfSupply("export_lut", "29", "Singapore")).toBe("Singapore");
+    expect(placeOfSupply("igst", undefined, "India")).toBe("India");
+    expect(placeOfSupply("export_lut", undefined, undefined)).toBeUndefined();
+    expect(placeOfSupply("igst", "96", undefined)).toBeUndefined();
+    expect(placeOfSupply(undefined, "29", "India")).toBeUndefined();
   });
   it("titles a GST-registered brand's invoice TAX INVOICE", () => {
     expect(invoiceTitle("igst", "29X")).toBe("TAX INVOICE");
     expect(invoiceTitle("igst", undefined)).toBe("INVOICE");
     expect(invoiceTitle(undefined, "29X")).toBe("INVOICE");
   });
-  it("appends the LUT ARN and purpose code when known", () => {
-    expect(exportDeclaration("AD29")).toMatch(/without payment of integrated tax, LUT: AD29$/);
-    expect(exportDeclaration(undefined)).not.toContain("LUT:");
-    expect(exportDeclaration("AD29", "P0802")).toMatch(/LUT: AD29\. Purpose code: P0802$/);
-  });
-  it("prints the country only on export invoices", () => {
-    expect(countryLine("export_lut", "Singapore")).toBe("Country: Singapore");
-    expect(countryLine("igst", "Singapore")).toBeUndefined();
-    expect(countryLine("export_lut", undefined)).toBeUndefined();
+  it("lists the LUT ARN and purpose code without the declaration wording", () => {
+    expect(exportReference("AD29", "P0802")).toBe("LUT ARN: AD29 · Purpose code: P0802");
+    expect(exportReference("AD29", undefined)).toBe("LUT ARN: AD29");
+    expect(exportReference(undefined, undefined)).toBeUndefined();
   });
 });
 

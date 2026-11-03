@@ -94,11 +94,18 @@ export function taxRows(items: LineItem[], gstType: GstType | undefined): TaxRow
 }
 
 /** "Karnataka (29)" / "Other country (96)" for the Billed-to block; undefined when unknown. */
-export function placeOfSupply(gstType: GstType | undefined, stateCode: string | undefined): string | undefined {
+/**
+ * "Karnataka (29)" for an Indian state; otherwise the client's country
+ * ("Singapore") — exports always use the country. Undefined when neither is known.
+ */
+export function placeOfSupply(
+  gstType: GstType | undefined,
+  stateCode: string | undefined,
+  country: string | undefined
+): string | undefined {
   if (!gstType) return undefined;
-  const code = gstType === "export_lut" ? "96" : stateCode;
-  const name = code && GST_STATES[code];
-  return name ? `${name} (${code})` : undefined;
+  const state = gstType !== "export_lut" && stateCode ? GST_STATES[stateCode] : undefined;
+  return state ? `${state} (${stateCode})` : country?.trim() || undefined;
 }
 
 /** "TAX INVOICE" once GST applies and the brand is registered; the legacy "INVOICE" otherwise. */
@@ -106,18 +113,12 @@ export function invoiceTitle(gstType: GstType | undefined, brandGstNumber: strin
   return gstType && brandGstNumber ? "TAX INVOICE" : "INVOICE";
 }
 
-export const EXPORT_DECLARATION =
-  "Supply meant for export under bond or letter of undertaking without payment of integrated tax";
-
-export function exportDeclaration(lutArn: string | undefined, purposeCode?: string): string {
-  const lut = lutArn ? `${EXPORT_DECLARATION}, LUT: ${lutArn}` : EXPORT_DECLARATION;
-  return purposeCode ? `${lut}. Purpose code: ${purposeCode}` : lut;
+/** "LUT ARN: … · Purpose code: …" for export invoices; undefined when the brand has neither. */
+export function exportReference(lutArn: string | undefined, purposeCode: string | undefined): string | undefined {
+  const parts = [lutArn && `LUT ARN: ${lutArn}`, purposeCode && `Purpose code: ${purposeCode}`].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
 }
 
-/** Country of destination line, only on export invoices. */
-export function countryLine(gstType: GstType | undefined, country: string | undefined): string | undefined {
-  return gstType === "export_lut" && country ? `Country: ${country}` : undefined;
-}
 
 export interface PaymentDetailField {
   label: string;

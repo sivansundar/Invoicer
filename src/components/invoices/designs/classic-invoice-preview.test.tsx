@@ -207,7 +207,7 @@ describe("GST rendering", () => {
     expect(screen.queryByText(/export under bond/)).not.toBeInTheDocument();
   });
 
-  it("prints the LUT declaration and Other country for an export", () => {
+  it("prints the LUT ARN and the client country as place of supply for an export", () => {
     render(
       <ClassicInvoicePreview
         snapshot={snapshot({ gstNumber: "29ABCDE1234F1Z5", lutArn: "AD2904250001234", purposeCode: "P0802" })}
@@ -224,9 +224,10 @@ describe("GST rendering", () => {
         gstType="export_lut"
       />
     );
-    expect(screen.getByText("Place of supply: Other country (96)")).toBeInTheDocument();
+    expect(screen.getByText("Place of supply: Singapore")).toBeInTheDocument();
     expect(screen.getByText("IGST 0%")).toBeInTheDocument();
-    expect(screen.getByText(/without payment of integrated tax, LUT: AD2904250001234\. Purpose code: P0802/)).toBeInTheDocument();
-    expect(screen.getByText("Country: Singapore")).toBeInTheDocument();
+    expect(screen.getByText("LUT ARN: AD2904250001234 · Purpose code: P0802")).toBeInTheDocument();
+    expect(screen.queryByText(/export under bond/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Other country/)).not.toBeInTheDocument();
   });
 });

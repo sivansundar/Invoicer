@@ -104,7 +104,7 @@ export interface Client {
   gstNumber?: string;
   /** Singapore company registration number, printed under the address on invoices. */
   uen?: string;
-  /** 2-digit GST state code ("29" Karnataka, "96" other country); place of supply. */
+  /** 2-digit GST state code ("29" Karnataka); place of supply. Blank falls back to `country`. */
   stateCode?: string;
   /** Country of destination, printed under the address on export invoices. */
   country?: string;
