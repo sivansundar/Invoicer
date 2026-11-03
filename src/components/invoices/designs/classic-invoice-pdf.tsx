@@ -4,7 +4,7 @@ import "./pdf-fonts";
 import { Document, Page, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, countryLine, lineQuantity, lineRate, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, lineQuantity, lineRate, exportReference, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { InvoicePDFProps } from "./props";
 
 const s = StyleSheet.create({
@@ -208,12 +208,9 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             {invoice.client.gstNumber && (
               <Text style={[s.brandDetail, { marginTop: 2 }]}>GST: {invoice.client.gstNumber}</Text>
             )}
-            {countryLine(invoice.gstType, invoice.client.country) && (
-              <Text style={[s.brandDetail, { marginTop: 2 }]}>{countryLine(invoice.gstType, invoice.client.country)}</Text>
-            )}
-            {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
+            {placeOfSupply(invoice.gstType, invoice.client.stateCode, invoice.client.country) && (
               <Text style={[s.brandDetail, { marginTop: 2 }]}>
-                Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
+                Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode, invoice.client.country)}
               </Text>
             )}
           </View>
@@ -299,8 +296,8 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           </View>
         )}
 
-        {invoice.gstType === "export_lut" && (
-          <Text style={[s.notes, { marginTop: 12 }]}>{exportDeclaration(snapshot.lutArn, snapshot.purposeCode)}</Text>
+        {invoice.gstType === "export_lut" && exportReference(snapshot.lutArn, snapshot.purposeCode) && (
+          <Text style={[s.notes, { marginTop: 12 }]}>{exportReference(snapshot.lutArn, snapshot.purposeCode)}</Text>
         )}
 
         {/* Notes */}

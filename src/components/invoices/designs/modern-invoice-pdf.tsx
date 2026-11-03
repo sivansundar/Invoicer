@@ -17,7 +17,7 @@ import {
 } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, countryLine, lineQuantity, lineRate, paymentTerms, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, lineQuantity, lineRate, paymentTerms, exportReference, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { Invoice } from "@/lib/types";
 import type { InvoicePDFProps } from "./props";
 
@@ -250,12 +250,9 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           {invoice.client.gstNumber && (
             <Text style={s.billedToCompliance}>GSTIN: {invoice.client.gstNumber}</Text>
           )}
-          {countryLine(invoice.gstType, invoice.client.country) && (
-            <Text style={s.billedToCompliance}>{countryLine(invoice.gstType, invoice.client.country)}</Text>
-          )}
-          {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
+          {placeOfSupply(invoice.gstType, invoice.client.stateCode, invoice.client.country) && (
             <Text style={s.billedToCompliance}>
-              Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
+              Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode, invoice.client.country)}
             </Text>
           )}
         </View>
@@ -334,8 +331,8 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           </View>
         )}
 
-        {invoice.gstType === "export_lut" && (
-          <Text style={s.notes}>{exportDeclaration(snapshot.lutArn, snapshot.purposeCode)}</Text>
+        {invoice.gstType === "export_lut" && exportReference(snapshot.lutArn, snapshot.purposeCode) && (
+          <Text style={s.notes}>{exportReference(snapshot.lutArn, snapshot.purposeCode)}</Text>
         )}
         {/* Notes */}
         {invoice.notes && <Text style={s.notes}>{invoice.notes}</Text>}
