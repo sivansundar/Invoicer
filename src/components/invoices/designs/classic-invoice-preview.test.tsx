@@ -181,8 +181,8 @@ describe("GST rendering", () => {
   it("prints the LUT declaration and Other country for an export", () => {
     render(
       <ClassicInvoicePreview
-        snapshot={snapshot({ gstNumber: "29ABCDE1234F1Z5", lutArn: "AD2904250001234" })}
-        client={client}
+        snapshot={snapshot({ gstNumber: "29ABCDE1234F1Z5", lutArn: "AD2904250001234", purposeCode: "P0802" })}
+        client={{ ...client, country: "Singapore" }}
         invoiceNumber="SC-2026-015"
         billDate="2026-07-21"
         dueDate="2026-08-04"
@@ -197,6 +197,7 @@ describe("GST rendering", () => {
     );
     expect(screen.getByText("Place of supply: Other country (96)")).toBeInTheDocument();
     expect(screen.getByText("IGST 0%")).toBeInTheDocument();
-    expect(screen.getByText(/without payment of integrated tax, LUT: AD2904250001234/)).toBeInTheDocument();
+    expect(screen.getByText(/without payment of integrated tax, LUT: AD2904250001234\. Purpose code: P0802/)).toBeInTheDocument();
+    expect(screen.getByText("Country: Singapore")).toBeInTheDocument();
   });
 });

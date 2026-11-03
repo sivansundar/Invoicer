@@ -111,6 +111,7 @@ export function snapshotFromBrand(brand: Brand): BrandSnapshot {
     gstNumber: brand.gstNumber,
     panNumber: brand.panNumber,
     lutArn: brand.lutArn,
+    purposeCode: brand.purposeCode,
     logo: brand.logo,
     invoicePrefix: brand.invoicePrefix,
     accentColor: brand.accentColor,

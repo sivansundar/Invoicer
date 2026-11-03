@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkPaymentFieldRows, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
+import { chunkPaymentFieldRows, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
 import type { AchDetails, BankDetails, LineItem } from "./types";
 import type { PaymentDetailField } from "./invoice-preview";
 
@@ -240,8 +240,14 @@ describe("placeOfSupply / invoiceTitle / exportDeclaration", () => {
     expect(invoiceTitle("igst", undefined)).toBe("INVOICE");
     expect(invoiceTitle(undefined, "29X")).toBe("INVOICE");
   });
-  it("appends the LUT ARN when known", () => {
+  it("appends the LUT ARN and purpose code when known", () => {
     expect(exportDeclaration("AD29")).toMatch(/without payment of integrated tax, LUT: AD29$/);
     expect(exportDeclaration(undefined)).not.toContain("LUT:");
+    expect(exportDeclaration("AD29", "P0802")).toMatch(/LUT: AD29\. Purpose code: P0802$/);
+  });
+  it("prints the country only on export invoices", () => {
+    expect(countryLine("export_lut", "Singapore")).toBe("Country: Singapore");
+    expect(countryLine("igst", "Singapore")).toBeUndefined();
+    expect(countryLine("export_lut", undefined)).toBeUndefined();
   });
 });

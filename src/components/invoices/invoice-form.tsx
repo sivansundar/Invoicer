@@ -238,6 +238,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
         gstNumber: selectedClient.gstNumber,
         uen: selectedClient.uen,
         stateCode: selectedClient.stateCode,
+        country: selectedClient.country,
       }
     : existingInvoice?.client ?? { companyName: "", address: "" };
 
@@ -611,6 +612,17 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
                     value={manualClient.uen ?? ""}
                     onChange={(e) =>
                       setManualClient((prev) => ({ ...prev, uen: e.target.value }))
+                    }
+                    placeholder="Optional"
+                    className="text-sm"
+                  />
+                </div>
+                <div className="flex-[1_1_200px] space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Country</Label>
+                  <Input
+                    value={manualClient.country ?? ""}
+                    onChange={(e) =>
+                      setManualClient((prev) => ({ ...prev, country: e.target.value }))
                     }
                     placeholder="Optional"
                     className="text-sm"

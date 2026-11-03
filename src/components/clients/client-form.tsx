@@ -41,6 +41,7 @@ export function ClientForm({ client }: ClientFormProps) {
   const [gstNumber, setGstNumber] = useState(client?.gstNumber ?? "");
   const [uen, setUen] = useState(client?.uen ?? "");
   const [stateCode, setStateCode] = useState(client?.stateCode ?? "");
+  const [country, setCountry] = useState(client?.country ?? "");
   const [gstType, setGstType] = useState<GstType | "">(client?.gstType ?? "");
   // Always a concrete value, the same reason `currency` always is on the
   // invoice form: `resolvePaymentMethod` reads a missing/undefined default
@@ -70,6 +71,7 @@ export function ClientForm({ client }: ClientFormProps) {
       uen: uen || undefined,
       // A blank state falls back to the one the GSTIN prefix encodes.
       stateCode: stateCode || stateFromGstin(gstNumber),
+      country: country || undefined,
       gstType: gstType || undefined,
       createdAt: client?.createdAt ?? new Date().toISOString(),
       // Stored as `undefined` for "ifsc" rather than the literal string —
@@ -252,6 +254,15 @@ export function ClientForm({ client }: ClientFormProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex-1 min-w-[200px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Country</Label>
+            <Input
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="Optional, for overseas clients"
+              className="text-sm"
+            />
           </div>
           <div className="flex-1 min-w-[200px] space-y-1.5">
             <Label className="text-xs text-muted-foreground">GST type</Label>
