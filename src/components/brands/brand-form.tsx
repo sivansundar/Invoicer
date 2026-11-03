@@ -602,7 +602,7 @@ export function BrandForm({ brand }: BrandFormProps) {
                     <SelectValue placeholder="Optional" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="current">Current</SelectItem>
+                    <SelectItem value="current">Business checking account</SelectItem>
                     <SelectItem value="savings">Savings</SelectItem>
                   </SelectContent>
                 </Select>

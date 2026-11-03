@@ -400,7 +400,7 @@ describe("BrandForm — ACH details", () => {
     await user.type(achFieldByLabel("Account number"), "98765");
     await user.type(screen.getByText("ACH routing number").parentElement!.querySelector("input")!, "021000021");
     await user.click(screen.getAllByRole("combobox").slice(-1)[0]);
-    await user.click(await screen.findByRole("option", { name: "Current" }));
+    await user.click(await screen.findByRole("option", { name: "Business checking account" }));
 
     await user.click(screen.getByRole("button", { name: "Create brand" }));
 

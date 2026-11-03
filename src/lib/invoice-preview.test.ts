@@ -124,7 +124,7 @@ describe("paymentDetailFields", () => {
       ]);
     });
 
-    it("includes every field, in order, capitalizing account type", () => {
+    it("includes every field, in order, with the ACH account type label", () => {
       const fields = paymentDetailFields(
         undefined,
         ach({
@@ -142,7 +142,7 @@ describe("paymentDetailFields", () => {
         { label: "Bank", value: "Wise" },
         { label: "Account number", value: "98765" },
         { label: "ACH routing number", value: "021000021" },
-        { label: "Account type", value: "Current" },
+        { label: "Account type", value: "Business checking account" },
       ]);
     });
 

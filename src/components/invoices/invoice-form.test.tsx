@@ -830,10 +830,10 @@ describe("InvoiceForm — payment method (IFSC / ACH)", () => {
 
     const toggle = screen.getByLabelText("Show account type");
     expect(toggle).toBeChecked();
-    expect(screen.getByText("Current")).toBeInTheDocument(); // live preview
+    expect(screen.getByText("Business checking account")).toBeInTheDocument(); // live preview
 
     await user.click(toggle);
-    expect(screen.queryByText("Current")).not.toBeInTheDocument();
+    expect(screen.queryByText("Business checking account")).not.toBeInTheDocument();
 
     await fillMandatoryFieldsAndCreate(user);
 

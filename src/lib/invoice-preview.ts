@@ -129,6 +129,11 @@ function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+/** ACH account type as US payers read it; stored values stay "current"/"savings". */
+export function achAccountTypeLabel(value: string): string {
+  return value === "current" ? "Business checking account" : capitalize(value);
+}
+
 const IFSC_FIELD_ORDER: Array<{
   label: string;
   key: keyof BankDetails;
@@ -156,8 +161,8 @@ const ACH_FIELD_ORDER: Array<{
   // form's <select> values) but every other payment field prints
   // sentence-case ("Account name", not "account name") — `format` is only on
   // this one field because it's the only one whose raw stored value isn't
-  // already client-facing text.
-  { label: "Account type", key: "accountType", format: capitalize },
+  // already client-facing text. US payers know "current" as a business checking account.
+  { label: "Account type", key: "accountType", format: achAccountTypeLabel },
 ];
 
 /**
