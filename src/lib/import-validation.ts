@@ -98,6 +98,7 @@ function isValidInvoiceRecord(value: unknown): value is Invoice {
   ) {
     return false;
   }
+  if (value.hideContactName !== undefined && typeof value.hideContactName !== "boolean") return false;
   return true;
 }
 

@@ -195,6 +195,8 @@ export interface Invoice {
    */
   showAchAccountType?: boolean;
   gstType?: GstType;
+  /** `false` hides the contact name on the client-facing invoice; undefined (and every older invoice) shows it. */
+  hideContactName?: boolean;
 }
 
 export type EmailTone = "Friendly" | "Direct" | "Firm";

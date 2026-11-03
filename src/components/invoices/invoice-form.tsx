@@ -150,6 +150,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   const [showAchAccountType, setShowAchAccountType] = useState(
     isEdit ? !!existingInvoice.showAchAccountType : true
   );
+  const [hideContactName, setHideContactName] = useState(!!existingInvoice?.hideContactName);
 
   // Which mandatory fields failed the most recent primary-save attempt
   // ("Create invoice" or "Save changes" — the same rule set for both).
@@ -345,6 +346,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
       totalTax,
       total,
       gstType,
+      hideContactName: hideContactName || undefined,
       notes: notes || undefined,
       createdAt: isEdit ? existingInvoice.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -648,6 +650,18 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
             </div>
           )}
 
+          {previewClient.name && (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="hide-contact-name"
+                checked={hideContactName}
+                onCheckedChange={(checked) => setHideContactName(checked === true)}
+              />
+              <Label htmlFor="hide-contact-name" className="text-xs font-normal">
+                Hide contact name ({previewClient.name}) on the invoice
+              </Label>
+            </div>
+          )}
           {hasSavedClientGaps && (
             <div className="border rounded-xl bg-card p-3 flex flex-col gap-3">
               <p className="text-xs text-muted-foreground">
@@ -920,6 +934,7 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
           paymentMethod={effectivePaymentMethod}
           showAchAccountType={showAchAccountType}
           gstType={gstType}
+          hideContactName={hideContactName}
         />
       </div>
     </div>

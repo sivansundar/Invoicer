@@ -408,6 +408,7 @@ export default function InvoiceDetailPage() {
             paymentMethod={invoice.paymentMethod}
             showAchAccountType={invoice.showAchAccountType}
             gstType={invoice.gstType}
+            hideContactName={invoice.hideContactName}
           />
         </div>
       </div>

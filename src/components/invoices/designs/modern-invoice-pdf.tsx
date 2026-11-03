@@ -215,7 +215,7 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
           <View style={{ minWidth: 0 }}>
             <Text style={s.partyLabel}>Billed to</Text>
             <Text style={s.billedToName}>{invoice.client.companyName}</Text>
-            {invoice.client.name && (
+            {invoice.client.name && !invoice.hideContactName && (
               <Text style={s.billedToContact}>{invoice.client.name}</Text>
             )}
             <Text style={s.billedToAddress}>{invoice.client.address}</Text>
