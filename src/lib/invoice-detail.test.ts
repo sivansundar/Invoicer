@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canMarkSent, dueLine, followupPillLabel, nextSendLine, resolveFollowupState } from "./invoice-detail";
+import { canMarkSent, dueLine, duplicateTemplate, followupPillLabel, nextSendLine, resolveFollowupState } from "./invoice-detail";
 import type { FollowupConfig, Invoice } from "./types";
 
 const weekly: FollowupConfig = {
@@ -217,5 +217,28 @@ describe("canMarkSent", () => {
 
   it("allows the transition once a due date is set", () => {
     expect(canMarkSent(makeInvoice({ status: "draft", dueDate: "2026-08-05" }))).toBe(true);
+  });
+});
+
+describe("duplicateTemplate", () => {
+  const source = {
+    id: "src", invoiceNumber: "PL-2026001", brandId: "b1", currency: "INR", status: "paid",
+    billDate: "2026-11-03", dueDate: "2026-12-03", paidOn: "2026-11-20", reminders: ["2026-11-10"],
+    followupsPaused: true, client: { companyName: "Myca", address: "" }, clientId: "c1",
+    items: [{ id: "a", description: "Consulting", amount: 1000, tax: 18, sac: "998314" }],
+    subtotal: 1000, totalTax: 180, total: 1180, notes: "Thanks", gstType: "cgst_sgst",
+  } as unknown as Invoice;
+
+  it("dates it today with the same payment-term gap, as a fresh draft", () => {
+    const copy = duplicateTemplate(source, new Date(2027, 0, 5));
+    expect(copy).toMatchObject({ status: "draft", billDate: "2027-01-05", dueDate: "2027-02-04", reminders: [], followupsPaused: false });
+    expect(copy.paidOn).toBeUndefined();
+  });
+
+  it("keeps client, items and GST settings but gives items new ids", () => {
+    const copy = duplicateTemplate(source, new Date(2027, 0, 5));
+    expect(copy).toMatchObject({ brandId: "b1", clientId: "c1", gstType: "cgst_sgst", notes: "Thanks" });
+    expect(copy.items[0]).toMatchObject({ description: "Consulting", amount: 1000, tax: 18, sac: "998314" });
+    expect(copy.items[0].id).not.toBe("a");
   });
 });

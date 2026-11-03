@@ -232,6 +232,9 @@ export default function InvoiceDetailPage() {
                 way, so surfacing Edit here for every status just makes an
                 already-safe transition reachable without typing the URL. */}
             <Button variant="outline" size="sm" asChild>
+              <Link href={`/invoices/create?from=${invoice.id}`}>Duplicate</Link>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
               <Link href={`/invoices/${invoice.id}/edit`}>
                 {invoice.status === "draft" ? "Edit draft" : "Edit"}
               </Link>

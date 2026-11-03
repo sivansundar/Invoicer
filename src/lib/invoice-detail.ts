@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { addDays, differenceInCalendarDays, format, isValid, parseISO } from "date-fns";
 import type { FollowupConfig, Invoice } from "./types";
 import { nextSendDate, timeLabel } from "./followups";
 
@@ -150,4 +150,26 @@ const PILL_LABEL: Record<Exclude<FollowupStateKind, "active">, string> = {
 export function followupPillLabel(state: FollowupState): string | null {
   if (state.kind === "active") return null;
   return PILL_LABEL[state.kind];
+}
+
+/**
+ * A copy of `source` to pre-fill the invoice form for Duplicate: same brand,
+ * client, currency, GST type, items and notes; dated today with the same
+ * payment-term gap; a fresh draft with no reminders or payment date. The
+ * form assigns the next invoice number when it is saved.
+ */
+export function duplicateTemplate(source: Invoice, today: Date = new Date()): Invoice {
+  const bill = parseISO(source.billDate);
+  const due = parseISO(source.dueDate);
+  const gap = isValid(bill) && isValid(due) ? differenceInCalendarDays(due, bill) : null;
+  return {
+    ...source,
+    status: "draft",
+    billDate: format(today, "yyyy-MM-dd"),
+    dueDate: gap !== null && gap >= 0 ? format(addDays(today, gap), "yyyy-MM-dd") : "",
+    items: source.items.map((item) => ({ ...item, id: crypto.randomUUID() })),
+    reminders: [],
+    followupsPaused: false,
+    paidOn: undefined,
+  };
 }

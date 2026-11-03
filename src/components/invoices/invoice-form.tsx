@@ -79,6 +79,8 @@ const FIELD_DOM_ID: Record<InvoiceField, string> = {
 
 interface InvoiceFormProps {
   existingInvoice?: Invoice;
+  /** Pre-fills a new invoice (Duplicate). Ignored when `existingInvoice` is set; saving creates a new invoice with the next number. */
+  template?: Invoice;
 }
 
 // Shown in the live preview before a brand has been chosen on a new
@@ -96,40 +98,42 @@ const EMPTY_SNAPSHOT: BrandSnapshot = {
 // real client id (those are `crypto.randomUUID()`), so it can't collide.
 const MANUAL_CLIENT_VALUE = "manual";
 
-export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
+export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}) {
   const router = useRouter();
   const { brands } = useBrands();
   const { clients } = useClients();
   const { invoices, save } = useInvoices();
   const isEdit = !!existingInvoice;
+  // Initial form values: the invoice being edited, else a duplicate's template.
+  const seed = existingInvoice ?? template;
 
-  const [brandId, setBrandId] = useState(existingInvoice?.brandId ?? "");
+  const [brandId, setBrandId] = useState(seed?.brandId ?? "");
   // Drives the "Billed to" select. Holds a saved client's id, the manual-entry
   // sentinel, or "" when nothing has been chosen yet. A `clientId: null` +
   // populated `client` snapshot is a combination the model already supports —
   // it's exactly what the v1→v2 migration produces for a legacy invoice whose
   // client record no longer exists — so manual entry needs no new shape here.
   const [selectValue, setSelectValue] = useState<string>(
-    existingInvoice ? existingInvoice.clientId ?? MANUAL_CLIENT_VALUE : ""
+    seed ? seed.clientId ?? MANUAL_CLIENT_VALUE : ""
   );
   const [manualClient, setManualClient] = useState<InvoiceClient>(
-    existingInvoice && existingInvoice.clientId === null
-      ? existingInvoice.client
+    seed && seed.clientId === null
+      ? seed.client
       : { companyName: "", address: "" }
   );
-  const [currency, setCurrency] = useState<Currency>(existingInvoice?.currency ?? "INR");
+  const [currency, setCurrency] = useState<Currency>(seed?.currency ?? "INR");
   // Always concrete, like `currency`. A legacy invoice (no gstType) edited
   // here gets one on save; its single "GST n%" row becomes a proper split.
   const [gstType, setGstTypeState] = useState<GstType>(
-    existingInvoice?.gstType ?? (existingInvoice?.currency && existingInvoice.currency !== "INR" ? "export_lut" : "cgst_sgst")
+    seed?.gstType ?? (seed?.currency && seed.currency !== "INR" ? "export_lut" : "cgst_sgst")
   );
   const [billDate, setBillDate] = useState(
-    existingInvoice?.billDate ?? format(new Date(), "yyyy-MM-dd")
+    seed?.billDate ?? format(new Date(), "yyyy-MM-dd")
   );
-  const [dueDate, setDueDate] = useState(existingInvoice?.dueDate ?? "");
-  const [notes, setNotes] = useState(existingInvoice?.notes ?? "");
+  const [dueDate, setDueDate] = useState(seed?.dueDate ?? "");
+  const [notes, setNotes] = useState(seed?.notes ?? "");
   const [items, setItems] = useState<LineItem[]>(
-    existingInvoice?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
+    seed?.items ?? [{ id: crypto.randomUUID(), description: "", amount: 0, tax: 0 }]
   );
   // Export under LUT is zero-rated: switching to it zeroes every line's tax.
   const setGstType = (next: GstType) => {
@@ -143,14 +147,14 @@ export function InvoiceForm({ existingInvoice }: InvoiceFormProps = {}) {
   // `onValueChange`); the user can still override it afterwards from this
   // form's own Payment details select.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    resolvePaymentMethod(existingInvoice?.paymentMethod)
+    resolvePaymentMethod(seed?.paymentMethod)
   );
   // Defaults on for a new invoice — the user opts out per invoice. An
   // existing invoice keeps whatever it was saved with (undefined = hidden).
   const [showAchAccountType, setShowAchAccountType] = useState(
-    isEdit ? !!existingInvoice.showAchAccountType : true
+    seed ? !!seed.showAchAccountType : true
   );
-  const [hideContactName, setHideContactName] = useState(!!existingInvoice?.hideContactName);
+  const [hideContactName, setHideContactName] = useState(!!seed?.hideContactName);
 
   // Which mandatory fields failed the most recent primary-save attempt
   // ("Create invoice" or "Save changes" — the same rule set for both).
