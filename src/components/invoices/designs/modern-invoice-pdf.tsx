@@ -17,7 +17,7 @@ import {
 } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { Invoice } from "@/lib/types";
 import type { InvoicePDFProps } from "./props";
 
@@ -225,6 +225,9 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
             {invoice.client.gstNumber && (
               <Text style={s.billedToCompliance}>GST: {invoice.client.gstNumber}</Text>
             )}
+            {countryLine(invoice.gstType, invoice.client.country) && (
+              <Text style={s.billedToCompliance}>{countryLine(invoice.gstType, invoice.client.country)}</Text>
+            )}
             {placeOfSupply(invoice.gstType, invoice.client.stateCode) && (
               <Text style={s.billedToCompliance}>
                 Place of supply: {placeOfSupply(invoice.gstType, invoice.client.stateCode)}
@@ -308,7 +311,7 @@ export function ModernInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
         )}
 
         {invoice.gstType === "export_lut" && (
-          <Text style={s.notes}>{exportDeclaration(snapshot.lutArn)}</Text>
+          <Text style={s.notes}>{exportDeclaration(snapshot.lutArn, snapshot.purposeCode)}</Text>
         )}
         {/* Notes */}
         {invoice.notes && <Text style={s.notes}>{invoice.notes}</Text>}

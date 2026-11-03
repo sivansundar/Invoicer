@@ -64,6 +64,8 @@ export interface Brand {
   panNumber?: string;
   /** LUT ARN, printed in the export declaration on export_lut invoices. */
   lutArn?: string;
+  /** RBI purpose code for inward remittances (e.g. P0802), printed on export_lut invoices. */
+  purposeCode?: string;
   logo?: string; // base64 data URL
   bankDetails: BankDetails;
   /**
@@ -104,6 +106,8 @@ export interface Client {
   uen?: string;
   /** 2-digit GST state code ("29" Karnataka, "96" other country); place of supply. */
   stateCode?: string;
+  /** Country of destination, printed under the address on export invoices. */
+  country?: string;
   /** Pre-fills the invoice form's GST type when this client is picked. */
   gstType?: GstType;
   createdAt: string;
@@ -125,6 +129,7 @@ export interface InvoiceClient {
   gstNumber?: string;
   uen?: string;
   stateCode?: string;
+  country?: string;
 }
 
 export interface LineItem {
@@ -228,6 +233,7 @@ export interface BrandSnapshot {
   gstNumber?: string;
   panNumber?: string;
   lutArn?: string;
+  purposeCode?: string;
   logo?: string;
   invoicePrefix: string;
   accentColor: string;

@@ -66,6 +66,7 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [gstNumber, setGstNumber] = useState(brand?.gstNumber ?? "");
   const [panNumber, setPanNumber] = useState(brand?.panNumber ?? "");
   const [lutArn, setLutArn] = useState(brand?.lutArn ?? "");
+  const [purposeCode, setPurposeCode] = useState(brand?.purposeCode ?? "");
   const [accountName, setAccountName] = useState(brand?.bankDetails.accountName ?? "");
   const [bankName, setBankName] = useState(brand?.bankDetails.bankName ?? "");
   const [branch, setBranch] = useState(brand?.bankDetails.branch ?? "");
@@ -119,6 +120,7 @@ export function BrandForm({ brand }: BrandFormProps) {
     gstNumber: gstNumber || undefined,
     panNumber: panNumber || undefined,
     lutArn: lutArn || undefined,
+    purposeCode: purposeCode || undefined,
     logo: logo || undefined,
     invoicePrefix: effectivePrefix,
     // Dead state (see `nextInvoiceNumber` — the live calculation from
@@ -438,6 +440,15 @@ export function BrandForm({ brand }: BrandFormProps) {
                 onChange={(e) => setLutArn(e.target.value)}
                 placeholder="Optional, printed on export invoices"
                 className="text-sm"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-1.5">
+              <Label className="text-xs text-muted-foreground">RBI purpose code</Label>
+              <Input
+                value={purposeCode}
+                onChange={(e) => setPurposeCode(e.target.value.toUpperCase())}
+                placeholder="e.g. P0802, printed on export invoices"
+                className="text-sm uppercase"
               />
             </div>
           </div>

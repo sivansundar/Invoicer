@@ -196,6 +196,7 @@ function isValidClientRecord(value: unknown): value is Client {
     return false;
   }
   if (value.stateCode !== undefined && typeof value.stateCode !== "string") return false;
+  if (value.country !== undefined && typeof value.country !== "string") return false;
   return true;
 }
 

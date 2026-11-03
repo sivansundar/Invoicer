@@ -1,6 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { computeTotals, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { computeTotals, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { InvoicePreviewProps } from "./props";
@@ -115,6 +115,9 @@ export function ClassicInvoicePreview({
           {client.gstNumber && (
             <p className="text-[10px] text-muted-foreground mt-1">GST: {client.gstNumber}</p>
           )}
+          {countryLine(gstType, client.country) && (
+            <p className="text-[10px] text-muted-foreground mt-1">{countryLine(gstType, client.country)}</p>
+          )}
           {supply && (
             <p className="text-[10px] text-muted-foreground mt-1">Place of supply: {supply}</p>
           )}
@@ -205,7 +208,7 @@ export function ClassicInvoicePreview({
 
       {/* Notes */}
       {gstType === "export_lut" && (
-        <p className="text-[10px] text-muted-foreground">{exportDeclaration(snapshot.lutArn)}</p>
+        <p className="text-[10px] text-muted-foreground">{exportDeclaration(snapshot.lutArn, snapshot.purposeCode)}</p>
       )}
 
       {notes && (

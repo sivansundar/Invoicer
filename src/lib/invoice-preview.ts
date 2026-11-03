@@ -85,8 +85,14 @@ export function invoiceTitle(gstType: GstType | undefined, brandGstNumber: strin
 export const EXPORT_DECLARATION =
   "Supply meant for export under bond or letter of undertaking without payment of integrated tax";
 
-export function exportDeclaration(lutArn: string | undefined): string {
-  return lutArn ? `${EXPORT_DECLARATION}, LUT: ${lutArn}` : EXPORT_DECLARATION;
+export function exportDeclaration(lutArn: string | undefined, purposeCode?: string): string {
+  const lut = lutArn ? `${EXPORT_DECLARATION}, LUT: ${lutArn}` : EXPORT_DECLARATION;
+  return purposeCode ? `${lut}. Purpose code: ${purposeCode}` : lut;
+}
+
+/** Country of destination line, only on export invoices. */
+export function countryLine(gstType: GstType | undefined, country: string | undefined): string | undefined {
+  return gstType === "export_lut" && country ? `Country: ${country}` : undefined;
 }
 
 export interface PaymentDetailField {

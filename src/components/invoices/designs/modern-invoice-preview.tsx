@@ -1,4 +1,4 @@
-import { computeTotals, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { computeTotals, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { InvoicePreviewProps } from "./props";
@@ -96,6 +96,9 @@ export function ModernInvoicePreview({
           {client.gstNumber && (
             <p className="text-xs text-muted-foreground mt-1">GST: {client.gstNumber}</p>
           )}
+          {countryLine(gstType, client.country) && (
+            <p className="text-xs text-muted-foreground mt-1">{countryLine(gstType, client.country)}</p>
+          )}
           {supply && (
             <p className="text-xs text-muted-foreground mt-1">Place of supply: {supply}</p>
           )}
@@ -171,7 +174,7 @@ export function ModernInvoicePreview({
 
       {/* Notes */}
       {gstType === "export_lut" && (
-        <p className="text-[11px] text-muted-foreground mt-4">{exportDeclaration(snapshot.lutArn)}</p>
+        <p className="text-[11px] text-muted-foreground mt-4">{exportDeclaration(snapshot.lutArn, snapshot.purposeCode)}</p>
       )}
       {notes && <p className="text-xs text-muted-foreground mt-3 whitespace-pre-line break-words">{notes}</p>}
     </div>
