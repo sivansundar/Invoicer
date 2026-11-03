@@ -11,6 +11,7 @@ import {
   MAX_LOGO_STORED_BYTES,
   nextUnusedAccentColor,
   validateLogoFile,
+  withBrandAccountType,
 } from "./brands";
 import { BRAND_PALETTE } from "./palette";
 import type { Brand, Invoice } from "./types";
@@ -280,5 +281,29 @@ describe("downsampleImage", () => {
     await expect(downsampleImage(pngFile(), 256)).rejects.toThrow(
       "Logo file could not be read"
     );
+  });
+});
+
+describe("withBrandAccountType", () => {
+  const bank = { accountName: "PEAKAF LABS", accountNumber: "1", bankName: "HDFC", ifscCode: "HDFC0001748" };
+  const liveBrand = { id: "b1", bankDetails: { ...bank, accountType: "current" } } as unknown as Brand;
+  const invoice = (over: Partial<Invoice> = {}) =>
+    ({ id: "i1", brandId: "b1", brandSnapshot: { bankDetails: bank }, ...over }) as unknown as Invoice;
+
+  it("fills the missing IFSC account type and switches it on", () => {
+    const [changed] = withBrandAccountType(liveBrand, [invoice()]);
+    expect(changed.brandSnapshot.bankDetails.accountType).toBe("current");
+    expect(changed.showAchAccountType).toBe(true);
+  });
+
+  it("never overwrites an account type already frozen on the invoice", () => {
+    const frozen = invoice({ brandSnapshot: { bankDetails: { ...bank, accountType: "savings" } } } as Partial<Invoice>);
+    expect(withBrandAccountType(liveBrand, [frozen])).toEqual([]);
+  });
+
+  it("leaves other brands' invoices and ACH invoices' toggle alone", () => {
+    expect(withBrandAccountType(liveBrand, [invoice({ brandId: "b2" })])).toEqual([]);
+    const [ach] = withBrandAccountType(liveBrand, [invoice({ paymentMethod: "ach" })]);
+    expect(ach.showAchAccountType).toBeUndefined();
   });
 });

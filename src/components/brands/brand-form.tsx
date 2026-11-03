@@ -34,7 +34,9 @@ import {
   invoiceUsageLabel,
   nextUnusedAccentColor,
   validateLogoFile,
+  withBrandAccountType,
 } from "@/lib/brands";
+import { formatInvoiceNumber } from "@/lib/numbering";
 import { cn } from "@/lib/utils";
 import type { AchDetails, BankDetails, Brand, InvoiceDesign } from "@/lib/types";
 
@@ -45,7 +47,7 @@ interface BrandFormProps {
 export function BrandForm({ brand }: BrandFormProps) {
   const router = useRouter();
   const { brands, save, remove } = useBrands();
-  const { invoices } = useInvoices();
+  const { invoices, save: saveInvoice } = useInvoices();
   const { brandId: activeBrandId, setBrandId } = useBrandFilter();
   const isEdit = !!brand;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -227,11 +229,13 @@ export function BrandForm({ brand }: BrandFormProps) {
     // take them off the one screen still holding what they typed.
     const persisted = save(record);
     if (!persisted) return;
+    // Existing invoices pick up a newly set account type (see `withBrandAccountType`).
+    for (const invoice of withBrandAccountType(record, invoices)) saveInvoice(invoice);
 
     toast(
       isEdit
         ? `${trimmedName} updated — future invoices use the new details`
-        : `${trimmedName} is ready — first invoice will be ${savedPrefix}-${year}-001`
+        : `${trimmedName} is ready — first invoice will be ${formatInvoiceNumber(savedPrefix, year, 1)}`
     );
     router.push("/brands");
   };
