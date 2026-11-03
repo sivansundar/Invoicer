@@ -129,7 +129,7 @@ export function ModernInvoicePreview({
             <th className="text-left font-medium py-2">#</th>
             <th className="text-left font-medium py-2">Item</th>
             <th className="text-left font-medium py-2">SAC</th>
-            <th className="text-right font-medium py-2">Qty</th>
+            <th className="text-left font-medium py-2">Qty</th>
             <th className="text-right font-medium py-2">Rate ({currency})</th>
             <th className="text-right font-medium py-2">Tax</th>
             <th className="text-right font-medium py-2">Amount ({currency})</th>
@@ -141,7 +141,7 @@ export function ModernInvoicePreview({
               <td className="py-2 text-muted-foreground tabular-nums">{index + 1}.</td>
               <td className="py-2 pr-2 break-words">{item.description}</td>
               <td className="py-2 tabular-nums">{item.sac}</td>
-              <td className="py-2 text-right tabular-nums">{lineQuantity(item)}</td>
+              <td className="py-2 tabular-nums">{lineQuantity(item)}</td>
               <td className="py-2 text-right tabular-nums">{formatCurrencyAmount(lineRate(item), currency)}</td>
               <td className="py-2 text-right tabular-nums text-muted-foreground">{item.tax}%</td>
               <td className="py-2 text-right tabular-nums">{formatCurrencyAmount(item.amount, currency)}</td>

@@ -133,7 +133,7 @@ export function ClassicInvoicePreview({
           <span>#</span>
           <span>Description</span>
           <span>SAC</span>
-          <span className="text-right">Qty</span>
+          <span>Qty</span>
           <span className="text-right">Rate</span>
           <span className="text-right">Tax</span>
           <span className="text-right">Amount</span>
@@ -146,7 +146,7 @@ export function ClassicInvoicePreview({
             <span className="text-muted-foreground tabular-nums">{index + 1}.</span>
             <span className="min-w-0 break-words">{item.description}</span>
             <span className="tabular-nums">{item.sac}</span>
-            <span className="text-right tabular-nums">{lineQuantity(item)}</span>
+            <span className="tabular-nums">{lineQuantity(item)}</span>
             <span className="text-right tabular-nums">{fmt(lineRate(item))}</span>
             <span className="text-right tabular-nums text-muted-foreground">{item.tax}%</span>
             <span className="text-right tabular-nums">{fmt(item.amount)}</span>
