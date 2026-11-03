@@ -125,8 +125,24 @@ describe("migrateToV2 — brands", () => {
 });
 
 describe("migrateToV2 — invoices", () => {
-  it("never rewrites an existing invoice number", () => {
-    expect(migrate().invoices[0].invoiceNumber).toBe("SC2026001");
+  it("rewrites the invoice number to the compact format", () => {
+    expect(migrate().invoices[0].invoiceNumber).toBe("SC-2026001");
+  });
+
+  it("keeps the old number when the compact one is already taken", () => {
+    const result = migrateToV2({
+      brands: [v1Brand],
+      clients: [],
+      invoices: [v1Invoice, { ...v1Invoice, id: "i2", invoiceNumber: "SC-2026001" }],
+      templates: [],
+    });
+    expect(result.invoices.map((i) => i.invoiceNumber)).toEqual(["SC2026001", "SC-2026001"]);
+  });
+
+  it("is idempotent on already-compact numbers", () => {
+    const once = migrate();
+    const twice = migrateToV2({ brands: once.brands, clients: once.clients, invoices: once.invoices, templates: once.templates });
+    expect(twice.invoices[0].invoiceNumber).toBe("SC-2026001");
   });
 
   it("preserves the embedded client snapshot", () => {
@@ -376,7 +392,7 @@ describe("runMigration", () => {
     expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
     const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
     expect(invoices[0].clientId).toBe("c1");
-    expect(invoices[0].invoiceNumber).toBe("SC2026001");
+    expect(invoices[0].invoiceNumber).toBe("SC-2026001");
   });
 
   it("forceMigration re-runs even when the version key is current", () => {
@@ -554,7 +570,7 @@ describe("runMigration", () => {
     expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
     const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
     expect(invoices).toHaveLength(1);
-    expect(invoices[0].invoiceNumber).toBe("SC2026001");
+    expect(invoices[0].invoiceNumber).toBe("SC-2026001");
 
     setItemSpy.mockRestore();
   });
@@ -591,7 +607,7 @@ describe("runMigration", () => {
       runMigration();
       expect(localStorage.getItem("invoicer_schema_version")).toBe(String(SCHEMA_VERSION));
       const invoices = JSON.parse(localStorage.getItem("invoicer_invoices")!);
-      expect(invoices[0].invoiceNumber).toBe("SC2026001");
+      expect(invoices[0].invoiceNumber).toBe("SC-2026001");
     });
 
     it("does not throw out of runMigration when a collection write fails", () => {

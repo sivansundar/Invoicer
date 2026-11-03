@@ -117,7 +117,7 @@ export function brandPreviewBody(
   const prefix = invoicePrefix.trim().toUpperCase();
   return {
     client: PLACEHOLDER_CLIENT,
-    invoiceNumber: `${prefix || "INV"}-2026-001`,
+    invoiceNumber: `${prefix || "INV"}-2026001`,
     billDate: PLACEHOLDER_BILL_DATE,
     dueDate: PLACEHOLDER_DUE_DATE,
     items: PLACEHOLDER_ITEMS,

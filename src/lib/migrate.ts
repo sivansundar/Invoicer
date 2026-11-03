@@ -2,9 +2,11 @@ import { paletteColorForIndex } from "./palette";
 import { SEED_TEMPLATES, defaultFollowupConfig } from "./seed";
 import { writeLocalStorage } from "./local-storage";
 import { DEFAULT_INVOICE_DESIGN, resolveInvoiceDesign } from "./invoice-design";
+import { compactInvoiceNumber } from "./numbering";
 import type { Brand, BrandSnapshot, Client, EmailTemplate, Invoice } from "./types";
 
-export const SCHEMA_VERSION = 2;
+// 3: invoice numbers rewritten to the compact "PL-2026001" format.
+export const SCHEMA_VERSION = 3;
 
 const BRANDS_KEY = "invoicer_brands";
 const CLIENTS_KEY = "invoicer_clients";
@@ -159,10 +161,22 @@ export function migrateToV2(input: RawPayload): V2Payload {
   const brandsById = new Map(brands.map((b) => [b.id, b]));
 
   const invoicesPartition = partitionRecords(input.invoices);
+  // Every number is rewritten to the current "PL-2026001" format (Sivan's
+  // call, 2026-11). A rewrite that would collide with a number already in use
+  // keeps the old one rather than create a duplicate.
+  const takenNumbers = new Set(
+    (invoicesPartition.kept as unknown as Invoice[]).map((invoice) => invoice.invoiceNumber)
+  );
   const invoices = (invoicesPartition.kept as unknown as Invoice[]).map((invoice) => {
     const brand = brandsById.get(invoice.brandId);
-    // Legacy invoice numbers are deliberately left alone — they may already
-    // be in a client's inbox. A snapshot that already exists is backfilled
+    let invoiceNumber = invoice.invoiceNumber;
+    const compact = brand ? compactInvoiceNumber(invoiceNumber, brand.invoicePrefix) : invoiceNumber;
+    if (compact !== invoiceNumber && !takenNumbers.has(compact)) {
+      takenNumbers.delete(invoiceNumber);
+      takenNumbers.add(compact);
+      invoiceNumber = compact;
+    }
+    // A snapshot that already exists is backfilled
     // in place (only `invoiceDesign`, defaulted to how it actually rendered
     // — "modern" — rather than being replaced wholesale), so nothing else
     // frozen on it at issue time changes. Only a wholly missing snapshot is
@@ -175,6 +189,7 @@ export function migrateToV2(input: RawPayload): V2Payload {
       : fallbackSnapshot(invoice.invoiceNumber);
     return {
       ...invoice,
+      invoiceNumber,
       brandSnapshot,
       clientId:
         invoice.clientId ??

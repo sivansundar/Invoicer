@@ -114,7 +114,7 @@ const s = StyleSheet.create({
   colIndex: { width: 18 },
   colItem: { flex: 1, paddingRight: 8 },
   colSac: { width: 50 },
-  colQty: { width: 30, textAlign: "right" },
+  colQty: { width: 30 },
   colRate: { width: 78, textAlign: "right" },
   colTax: { width: 34, textAlign: "right" },
   colAmount: { width: 84, textAlign: "right" },

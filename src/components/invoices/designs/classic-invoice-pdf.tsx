@@ -76,7 +76,7 @@ const s = StyleSheet.create({
   colIndex: { width: 18 },
   colDesc: { flex: 1, minWidth: 0, paddingRight: 6 },
   colSac: { width: 46 },
-  colQty: { width: 28, textAlign: "right" },
+  colQty: { width: 28 },
   colAmount: { width: 84, textAlign: "right" },
   colTax: { width: 34, textAlign: "right" },
   colTotal: { width: 88, textAlign: "right" },

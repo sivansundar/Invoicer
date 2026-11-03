@@ -6,7 +6,7 @@ import { BRAND_PALETTE, paletteColorForIndex } from "./palette";
  * blank: the first letter of each word, first three words, uppercased.
  * A name with no letters to draw from (blank, or whitespace-only) falls back
  * to "INV" — an empty prefix would make every invoice number start with a
- * bare "-2026-001", which `parseInvoiceNumber`'s regex still parses but no
+ * bare "-2026001", which `parseInvoiceNumber`'s regex still parses but no
  * human would recognise as belonging to this brand.
  */
 export function derivePrefix(name: string): string {
