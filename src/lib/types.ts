@@ -5,6 +5,7 @@ export interface BankDetails {
   ifscCode: string;
   branch?: string;
   upiId?: string;
+  accountType?: "current" | "savings";
 }
 
 /**
@@ -194,7 +195,8 @@ export interface Invoice {
    */
   paymentMethod?: PaymentMethod;
   /**
-   * Whether the ACH block prints the brand's account type. A per-invoice
+   * Whether the payment block prints the brand's account type — the ACH one
+   * or, since the IFSC details gained one, the IFSC one (name kept for stored data). A per-invoice
    * choice because the type is useful to some payers and noise to others.
    * Only meaningful when `paymentMethod` is `"ach"`; undefined reads as
    * hidden. Locked together with `paymentMethod` once the invoice leaves

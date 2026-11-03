@@ -125,18 +125,23 @@ export interface PaymentDetailField {
   value: string;
 }
 
-const IFSC_FIELD_ORDER: Array<{ label: string; key: keyof BankDetails }> = [
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+const IFSC_FIELD_ORDER: Array<{
+  label: string;
+  key: keyof BankDetails;
+  format?: (raw: string) => string;
+}> = [
   { label: "Account name", key: "accountName" },
   { label: "Bank", key: "bankName" },
   { label: "Branch", key: "branch" },
   { label: "Account number", key: "accountNumber" },
   { label: "IFSC", key: "ifscCode" },
+  { label: "Account type", key: "accountType", format: capitalize },
   { label: "UPI ID", key: "upiId" },
 ];
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
 
 const ACH_FIELD_ORDER: Array<{
   label: string;
@@ -185,10 +190,10 @@ export function paymentDetailFields(
     }).filter((field) => field.value !== "");
   }
   if (!bankDetails) return [];
-  return IFSC_FIELD_ORDER.map(({ label, key }) => ({
-    label,
-    value: (bankDetails[key] ?? "").trim(),
-  })).filter((field) => field.value !== "");
+  return IFSC_FIELD_ORDER.filter(({ key }) => key !== "accountType" || showAchAccountType).map(({ label, key, format }) => {
+    const raw = (bankDetails[key] ?? "").trim();
+    return { label, value: raw && format ? format(raw) : raw };
+  }).filter((field) => field.value !== "");
 }
 
 /**
