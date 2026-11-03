@@ -125,16 +125,16 @@ describe("brandPreviewBody — with a real invoice", () => {
 
 describe("brandPreviewBody — placeholder", () => {
   it("builds its number from the live prefix", () => {
-    expect(brandPreviewBody(null, "SDC").invoiceNumber).toBe("SDC-2026-001");
+    expect(brandPreviewBody(null, "SDC").invoiceNumber).toBe("SDC-2026001");
   });
 
   it("normalises a prefix that is still being typed", () => {
-    expect(brandPreviewBody(null, " sdc ").invoiceNumber).toBe("SDC-2026-001");
+    expect(brandPreviewBody(null, " sdc ").invoiceNumber).toBe("SDC-2026001");
   });
 
   it("falls back to INV when no prefix has been entered", () => {
-    expect(brandPreviewBody(null, "").invoiceNumber).toBe("INV-2026-001");
-    expect(brandPreviewBody(null, "   ").invoiceNumber).toBe("INV-2026-001");
+    expect(brandPreviewBody(null, "").invoiceNumber).toBe("INV-2026001");
+    expect(brandPreviewBody(null, "   ").invoiceNumber).toBe("INV-2026001");
   });
 
   it("includes both a taxed and an untaxed line so every design renders its tax column", () => {

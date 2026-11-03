@@ -312,7 +312,7 @@ describe("BrandForm — invoice preview", () => {
 
     await user.type(screen.getByPlaceholderText("auto"), "acme");
 
-    expect(screen.getByText("ACME-2026-001")).toBeInTheDocument();
+    expect(screen.getByText("ACME-2026001")).toBeInTheDocument();
   });
 
   it("previews sample contents for a brand that has never invoiced", () => {

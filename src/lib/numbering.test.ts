@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatInvoiceNumber, nextInvoiceNumber, parseInvoiceNumber } from "./numbering";
+import { compactInvoiceNumber, formatInvoiceNumber, nextInvoiceNumber, parseInvoiceNumber } from "./numbering";
 import type { Brand, Invoice } from "./types";
 
 const brand = { id: "b1", invoicePrefix: "SC" } as Brand;
@@ -37,31 +37,45 @@ describe("parseInvoiceNumber", () => {
 
 describe("formatInvoiceNumber", () => {
   it("pads the sequence to three digits", () => {
-    expect(formatInvoiceNumber("SC", 2026, 7)).toBe("SC-2026-007");
+    expect(formatInvoiceNumber("SC", 2026, 7)).toBe("SC-2026007");
   });
 
   it("does not truncate sequences past 999", () => {
-    expect(formatInvoiceNumber("SC", 2026, 1041)).toBe("SC-2026-1041");
+    expect(formatInvoiceNumber("SC", 2026, 1041)).toBe("SC-20261041");
   });
 });
 
 describe("nextInvoiceNumber", () => {
   it("starts at 001 when the brand has no invoices", () => {
-    expect(nextInvoiceNumber(brand, [], 2026)).toBe("SC-2026-001");
+    expect(nextInvoiceNumber(brand, [], 2026)).toBe("SC-2026001");
   });
 
   it("continues from the highest sequence across both formats", () => {
     const invoices = [inv("SC2026001"), inv("SC-2026-014"), inv("SC2026009")];
-    expect(nextInvoiceNumber(brand, invoices, 2026)).toBe("SC-2026-015");
+    expect(nextInvoiceNumber(brand, invoices, 2026)).toBe("SC-2026015");
   });
 
   it("ignores invoices belonging to other brands", () => {
     const invoices = [inv("SC-2026-003"), inv("NL-2026-099", "b2")];
-    expect(nextInvoiceNumber(brand, invoices, 2026)).toBe("SC-2026-004");
+    expect(nextInvoiceNumber(brand, invoices, 2026)).toBe("SC-2026004");
   });
 
   it("restarts numbering in a new year", () => {
     const invoices = [inv("SC-2026-014")];
-    expect(nextInvoiceNumber(brand, invoices, 2027)).toBe("SC-2027-001");
+    expect(nextInvoiceNumber(brand, invoices, 2027)).toBe("SC-2027001");
+  });
+});
+
+describe("compactInvoiceNumber", () => {
+  it("rewrites every past format to PREFIX-YYYYNNN", () => {
+    expect(compactInvoiceNumber("PL-2026-001", "PL")).toBe("PL-2026001");
+    expect(compactInvoiceNumber("PL2026001", "PL")).toBe("PL-2026001");
+    expect(compactInvoiceNumber("PL-2026001", "PL")).toBe("PL-2026001");
+  });
+  it("leaves numbers for another prefix alone", () => {
+    expect(compactInvoiceNumber("NL-2026-001", "PL")).toBe("NL-2026-001");
+  });
+  it("still parses its own output", () => {
+    expect(parseInvoiceNumber("PL-2026014", "PL")).toEqual({ year: 2026, seq: 14 });
   });
 });

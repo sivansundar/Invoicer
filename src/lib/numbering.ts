@@ -5,9 +5,10 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * Understands both the legacy hyphen-free format ("SC2026001") and the v2
- * format ("SC-2026-014"). Legacy numbers are never rewritten, so both shapes
- * coexist and both must be considered when picking the next sequence.
+ * Understands every format the app has issued: legacy "SC2026001", v2
+ * "SC-2026-014" and the current "SC-2026014". Older numbers are rewritten to
+ * the current format by `migrate.ts` (see `compactInvoiceNumber`), but
+ * imported backups may still carry them.
  */
 export function parseInvoiceNumber(
   value: string,
@@ -20,7 +21,13 @@ export function parseInvoiceNumber(
 }
 
 export function formatInvoiceNumber(prefix: string, year: number, seq: number): string {
-  return `${prefix}-${year}-${String(seq).padStart(3, "0")}`;
+  return `${prefix}-${year}${String(seq).padStart(3, "0")}`;
+}
+
+/** Rewrites any parseable number for `prefix` into the current format; anything else is returned unchanged. */
+export function compactInvoiceNumber(value: string, prefix: string): string {
+  const parsed = parseInvoiceNumber(value, prefix);
+  return parsed ? formatInvoiceNumber(prefix, parsed.year, parsed.seq) : value;
 }
 
 export function nextInvoiceNumber(
