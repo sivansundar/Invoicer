@@ -36,7 +36,7 @@ import {
   validateLogoFile,
 } from "@/lib/brands";
 import { cn } from "@/lib/utils";
-import type { AchDetails, Brand, InvoiceDesign } from "@/lib/types";
+import type { AchDetails, BankDetails, Brand, InvoiceDesign } from "@/lib/types";
 
 interface BrandFormProps {
   brand?: Brand;
@@ -73,6 +73,9 @@ export function BrandForm({ brand }: BrandFormProps) {
   const [accountNumber, setAccountNumber] = useState(brand?.bankDetails.accountNumber ?? "");
   const [ifscCode, setIfscCode] = useState(brand?.bankDetails.ifscCode ?? "");
   const [upiId, setUpiId] = useState(brand?.bankDetails.upiId ?? "");
+  const [bankAccountType, setBankAccountType] = useState<BankDetails["accountType"] | "">(
+    brand?.bankDetails.accountType ?? ""
+  );
   const [achAccountName, setAchAccountName] = useState(brand?.achDetails?.accountName ?? "");
   const [achBankName, setAchBankName] = useState(brand?.achDetails?.bankName ?? "");
   const [achAccountNumber, setAchAccountNumber] = useState(brand?.achDetails?.accountNumber ?? "");
@@ -138,6 +141,7 @@ export function BrandForm({ brand }: BrandFormProps) {
       ifscCode,
       branch: branch || undefined,
       upiId: upiId || undefined,
+      accountType: bankAccountType || undefined,
     },
     // `undefined`, not an object of empty strings, when nothing was typed —
     // mirrors `logo`/`phone` above rather than `bankDetails` (which is
@@ -516,6 +520,22 @@ export function BrandForm({ brand }: BrandFormProps) {
                   placeholder="you@okbank"
                   className="text-sm"
                 />
+              </div>
+              {/* Sized to one of three columns so it doesn't stretch across its own row. */}
+              <div className="flex-[0_1_calc((100%-1.5rem)/3)] min-w-[160px] space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Account type</Label>
+                <Select
+                  value={bankAccountType || undefined}
+                  onValueChange={(v) => setBankAccountType(v as BankDetails["accountType"])}
+                >
+                  <SelectTrigger className="w-full text-sm">
+                    <SelectValue placeholder="Optional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">Current</SelectItem>
+                    <SelectItem value="savings">Savings</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

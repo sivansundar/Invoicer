@@ -261,3 +261,15 @@ describe("line pricing", () => {
     expect(lineAmount(0.1, 0.3)).toBe(0.03);
   });
 });
+
+describe("IFSC account type", () => {
+  const bank: BankDetails = { accountName: "PEAKAF LABS", accountNumber: "1", bankName: "HDFC Bank", ifscCode: "HDFC0001748", accountType: "current" };
+  it("prints after IFSC when the invoice opts in", () => {
+    const fields = paymentDetailFields(bank, undefined, "ifsc", true);
+    expect(fields.map((f) => f.label)).toEqual(["Account name", "Bank", "Account number", "IFSC", "Account type"]);
+    expect(fields.at(-1)?.value).toBe("Current");
+  });
+  it("stays hidden when the invoice doesn't opt in", () => {
+    expect(paymentDetailFields(bank, undefined, undefined, undefined).map((f) => f.label)).not.toContain("Account type");
+  });
+});

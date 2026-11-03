@@ -203,9 +203,11 @@ export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}
   // type) would silently change payment instructions the client may
   // already be acting on. Editable only while the invoice is a draft.
   const paymentLocked = isEdit && existingInvoice.status !== "draft";
-  const achAccountTypeAvailable = !!(isEdit
-    ? existingInvoice.brandSnapshot.achDetails?.accountType
-    : brand?.achDetails?.accountType);
+  // The account-type toggle shows when the chosen rail's details carry one.
+  const railSource = isEdit ? existingInvoice.brandSnapshot : brand;
+  const accountTypeAvailable = !!(effectivePaymentMethod === "ach"
+    ? railSource?.achDetails?.accountType
+    : railSource?.bankDetails?.accountType);
 
   // Which of the selected saved client's invoice-relevant fields it doesn't
   // actually have — surfaced inline (below) for completion rather than
@@ -373,7 +375,7 @@ export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}
         : undefined,
       showAchAccountType: paymentLocked
         ? existingInvoice.showAchAccountType
-        : effectivePaymentMethod === "ach" && showAchAccountType
+        : accountTypeAvailable && showAchAccountType
         ? true
         : undefined,
     };
@@ -853,7 +855,7 @@ export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}
                   <p className="text-xs text-muted-foreground">Add ACH details on the brand</p>
                 )
               )}
-              {effectivePaymentMethod === "ach" && achAccountTypeAvailable && (
+              {accountTypeAvailable && (
                 <div className="flex items-center gap-2 pt-1">
                   <Checkbox
                     id="show-ach-account-type"
