@@ -34,7 +34,7 @@ import {
   invoiceUsageLabel,
   nextUnusedAccentColor,
   validateLogoFile,
-  withBrandAccountType,
+  withBrandPaymentUpdates,
 } from "@/lib/brands";
 import { formatInvoiceNumber } from "@/lib/numbering";
 import { cn } from "@/lib/utils";
@@ -229,8 +229,8 @@ export function BrandForm({ brand }: BrandFormProps) {
     // take them off the one screen still holding what they typed.
     const persisted = save(record);
     if (!persisted) return;
-    // Existing invoices pick up a newly set account type (see `withBrandAccountType`).
-    for (const invoice of withBrandAccountType(record, invoices)) saveInvoice(invoice);
+    // Existing invoices pick up payment changes (see `withBrandPaymentUpdates`).
+    for (const invoice of withBrandPaymentUpdates(record, invoices)) saveInvoice(invoice);
 
     toast(
       isEdit

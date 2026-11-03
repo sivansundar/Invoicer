@@ -216,32 +216,44 @@ export async function downsampleImage(
 }
 
 /**
- * Invoices of `brand` whose frozen bank/ACH details lack an account type the
- * brand now has, with that one field filled in (never overwritten). IFSC
- * invoices that hadn't decided whether to show it are switched to show it,
- * so existing invoices pick the account type up once it's set on the brand.
+ * Invoices are frozen at issue time, with two exceptions applied when a brand
+ * is saved, so existing invoices pick up payment changes:
+ * - unpaid ACH invoices take the brand's current ACH details (a changed
+ *   account must reach invoices the client hasn't paid yet);
+ * - a newly set account type is filled into frozen bank/ACH details that lack
+ *   one (never overwritten), and switched on for IFSC invoices that hadn't decided.
  * Returns only the invoices that changed.
  */
-export function withBrandAccountType(brand: Brand, invoices: Invoice[]): Invoice[] {
-  const bankType = brand.bankDetails.accountType;
-  const achType = brand.achDetails?.accountType;
+export function withBrandPaymentUpdates(brand: Brand, invoices: Invoice[]): Invoice[] {
   return invoices.flatMap((invoice) => {
     if (invoice.brandId !== brand.id) return [];
-    const snapshot = invoice.brandSnapshot;
-    const fillBank = !!bankType && !snapshot.bankDetails.accountType;
-    const fillAch = !!achType && !!snapshot.achDetails && !snapshot.achDetails.accountType;
-    if (!fillBank && !fillAch) return [];
-    const isIfsc = invoice.paymentMethod !== "ach";
-    return [
-      {
-        ...invoice,
-        brandSnapshot: {
-          ...snapshot,
-          bankDetails: fillBank ? { ...snapshot.bankDetails, accountType: bankType } : snapshot.bankDetails,
-          achDetails: fillAch && snapshot.achDetails ? { ...snapshot.achDetails, accountType: achType } : snapshot.achDetails,
-        },
-        showAchAccountType: isIfsc && fillBank ? invoice.showAchAccountType ?? true : invoice.showAchAccountType,
-      },
-    ];
+    const updated = fillAccountType(brand, syncAchDetails(brand, invoice));
+    return updated === invoice ? [] : [updated];
   });
+}
+
+function syncAchDetails(brand: Brand, invoice: Invoice): Invoice {
+  const ach = brand.achDetails;
+  if (!ach || invoice.paymentMethod !== "ach" || invoice.status === "paid") return invoice;
+  if (JSON.stringify(invoice.brandSnapshot.achDetails) === JSON.stringify(ach)) return invoice;
+  return { ...invoice, brandSnapshot: { ...invoice.brandSnapshot, achDetails: ach } };
+}
+
+function fillAccountType(brand: Brand, invoice: Invoice): Invoice {
+  const bankType = brand.bankDetails.accountType;
+  const achType = brand.achDetails?.accountType;
+  const snapshot = invoice.brandSnapshot;
+  const fillBank = !!bankType && !snapshot.bankDetails.accountType;
+  const fillAch = !!achType && !!snapshot.achDetails && !snapshot.achDetails.accountType;
+  if (!fillBank && !fillAch) return invoice;
+  const isIfsc = invoice.paymentMethod !== "ach";
+  return {
+    ...invoice,
+    brandSnapshot: {
+      ...snapshot,
+      bankDetails: fillBank ? { ...snapshot.bankDetails, accountType: bankType } : snapshot.bankDetails,
+      achDetails: fillAch && snapshot.achDetails ? { ...snapshot.achDetails, accountType: achType } : snapshot.achDetails,
+    },
+    showAchAccountType: isIfsc && fillBank ? invoice.showAchAccountType ?? true : invoice.showAchAccountType,
+  };
 }

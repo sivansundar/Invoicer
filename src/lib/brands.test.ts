@@ -11,7 +11,7 @@ import {
   MAX_LOGO_STORED_BYTES,
   nextUnusedAccentColor,
   validateLogoFile,
-  withBrandAccountType,
+  withBrandPaymentUpdates,
 } from "./brands";
 import { BRAND_PALETTE } from "./palette";
 import type { Brand, Invoice } from "./types";
@@ -284,26 +284,49 @@ describe("downsampleImage", () => {
   });
 });
 
-describe("withBrandAccountType", () => {
+describe("withBrandPaymentUpdates", () => {
   const bank = { accountName: "PEAKAF LABS", accountNumber: "1", bankName: "HDFC", ifscCode: "HDFC0001748" };
   const liveBrand = { id: "b1", bankDetails: { ...bank, accountType: "current" } } as unknown as Brand;
   const invoice = (over: Partial<Invoice> = {}) =>
     ({ id: "i1", brandId: "b1", brandSnapshot: { bankDetails: bank }, ...over }) as unknown as Invoice;
 
   it("fills the missing IFSC account type and switches it on", () => {
-    const [changed] = withBrandAccountType(liveBrand, [invoice()]);
+    const [changed] = withBrandPaymentUpdates(liveBrand, [invoice()]);
     expect(changed.brandSnapshot.bankDetails.accountType).toBe("current");
     expect(changed.showAchAccountType).toBe(true);
   });
 
   it("never overwrites an account type already frozen on the invoice", () => {
     const frozen = invoice({ brandSnapshot: { bankDetails: { ...bank, accountType: "savings" } } } as Partial<Invoice>);
-    expect(withBrandAccountType(liveBrand, [frozen])).toEqual([]);
+    expect(withBrandPaymentUpdates(liveBrand, [frozen])).toEqual([]);
   });
 
   it("leaves other brands' invoices and ACH invoices' toggle alone", () => {
-    expect(withBrandAccountType(liveBrand, [invoice({ brandId: "b2" })])).toEqual([]);
-    const [ach] = withBrandAccountType(liveBrand, [invoice({ paymentMethod: "ach" })]);
+    expect(withBrandPaymentUpdates(liveBrand, [invoice({ brandId: "b2" })])).toEqual([]);
+    const [ach] = withBrandPaymentUpdates(liveBrand, [invoice({ paymentMethod: "ach" })]);
     expect(ach.showAchAccountType).toBeUndefined();
+  });
+});
+
+describe("withBrandPaymentUpdates — ACH details", () => {
+  const oldAch = { accountName: "PEAKAF LABS", accountNumber: "111", routingNumber: "026073150", bankName: "Wise" };
+  const newAch = { accountName: "PEAKAF LABS", accountNumber: "999", routingNumber: "084009519", bankName: "Skydo" };
+  const bank = { accountName: "PEAKAF LABS", accountNumber: "1", bankName: "HDFC", ifscCode: "HDFC0001748" };
+  const brand = { id: "b1", bankDetails: bank, achDetails: newAch } as unknown as Brand;
+  const ach = (status: string, over: Partial<Invoice> = {}) =>
+    ({ id: status, brandId: "b1", status, paymentMethod: "ach", brandSnapshot: { bankDetails: bank, achDetails: oldAch }, ...over }) as unknown as Invoice;
+
+  it("moves unpaid ACH invoices onto the brand's current ACH details", () => {
+    const changed = withBrandPaymentUpdates(brand, [ach("draft"), ach("sent"), ach("overdue")]);
+    expect(changed.map((i) => i.brandSnapshot.achDetails?.accountNumber)).toEqual(["999", "999", "999"]);
+  });
+
+  it("leaves paid and IFSC invoices on what they were issued with", () => {
+    expect(withBrandPaymentUpdates(brand, [ach("paid"), ach("sent", { paymentMethod: undefined })])).toEqual([]);
+  });
+
+  it("never wipes ACH details when the brand has cleared its own", () => {
+    const noAch = { ...brand, achDetails: undefined } as unknown as Brand;
+    expect(withBrandPaymentUpdates(noAch, [ach("sent")])).toEqual([]);
   });
 });
