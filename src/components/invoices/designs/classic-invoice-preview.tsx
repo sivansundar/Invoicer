@@ -1,6 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { computeTotals, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { computeTotals, countryLine, lineQuantity, lineRate, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import { formatCurrency } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
 import type { InvoicePreviewProps } from "./props";
@@ -129,31 +129,29 @@ export function ClassicInvoicePreview({
 
       {/* Line Items */}
       <div>
-        <div className="grid grid-cols-[1fr_100px_80px_100px] gap-2 text-xs uppercase tracking-wider text-muted-foreground font-bold pb-2 border-b border-border">
+        <div className="grid grid-cols-[24px_1fr_64px_40px_100px_48px_108px] gap-2 text-xs uppercase tracking-wider text-muted-foreground font-bold pb-2 border-b border-border">
+          <span>#</span>
           <span>Description</span>
-          <span className="text-right">Amount</span>
+          <span>SAC</span>
+          <span className="text-right">Qty</span>
+          <span className="text-right">Rate</span>
           <span className="text-right">Tax</span>
-          <span className="text-right">Total</span>
+          <span className="text-right">Amount</span>
         </div>
-        {items.map((item) => {
-          const taxAmount = (item.amount * item.tax) / 100;
-          return (
-            <div
-              key={item.id}
-              className="grid grid-cols-[1fr_100px_80px_100px] gap-2 py-2.5 border-b border-border/50 text-xs"
-            >
-              <span className="min-w-0 break-words">
-                {item.description}
-                {item.sac && <span className="text-muted-foreground"> · SAC {item.sac}</span>}
-              </span>
-              <span className="text-right tabular-nums">{fmt(item.amount)}</span>
-              <span className="text-right tabular-nums text-muted-foreground">
-                {item.tax}%
-              </span>
-              <span className="text-right tabular-nums">{fmt(item.amount + taxAmount)}</span>
-            </div>
-          );
-        })}
+        {items.map((item, index) => (
+          <div
+            key={item.id}
+            className="grid grid-cols-[24px_1fr_64px_40px_100px_48px_108px] gap-2 py-2.5 border-b border-border/50 text-[13px]"
+          >
+            <span className="text-muted-foreground tabular-nums">{index + 1}.</span>
+            <span className="min-w-0 break-words">{item.description}</span>
+            <span className="tabular-nums">{item.sac}</span>
+            <span className="text-right tabular-nums">{lineQuantity(item)}</span>
+            <span className="text-right tabular-nums">{fmt(lineRate(item))}</span>
+            <span className="text-right tabular-nums text-muted-foreground">{item.tax}%</span>
+            <span className="text-right tabular-nums">{fmt(item.amount)}</span>
+          </div>
+        ))}
       </div>
 
       {/* Totals */}

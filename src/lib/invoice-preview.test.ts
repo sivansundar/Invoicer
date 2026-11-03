@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunkPaymentFieldRows, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
+import { chunkPaymentFieldRows, countryLine, exportDeclaration, lineAmount, lineQuantity, lineRate, invoiceTitle, paymentDetailFields, placeOfSupply, taxLabel, taxRows } from "./invoice-preview";
 import type { AchDetails, BankDetails, LineItem } from "./types";
 import type { PaymentDetailField } from "./invoice-preview";
 
@@ -249,5 +249,17 @@ describe("placeOfSupply / invoiceTitle / exportDeclaration", () => {
     expect(countryLine("export_lut", "Singapore")).toBe("Country: Singapore");
     expect(countryLine("igst", "Singapore")).toBeUndefined();
     expect(countryLine("export_lut", undefined)).toBeUndefined();
+  });
+});
+
+describe("line pricing", () => {
+  it("reads legacy items as quantity 1 at their amount", () => {
+    const legacy: LineItem = { id: "l", description: "x", amount: 1500, tax: 0 };
+    expect(lineQuantity(legacy)).toBe(1);
+    expect(lineRate(legacy)).toBe(1500);
+  });
+  it("multiplies quantity by rate to the paise", () => {
+    expect(lineAmount(3, 3333.33)).toBe(9999.99);
+    expect(lineAmount(0.1, 0.3)).toBe(0.03);
   });
 });

@@ -232,10 +232,10 @@ describe("BrandForm — invoice preview", () => {
   });
 
   // The two designs are told apart by a label only one of them renders:
-  // "Billed to" is Modern's client heading, "Description" is Classic's item
+  // "Bill to" is Modern's client heading, "Description" is Classic's item
   // table column header. Asserting on those rather than a test id keeps the
   // check honest — it fails if the design stops rendering its own layout.
-  const MODERN_MARKER = "Billed to";
+  const MODERN_MARKER = "Bill to";
   const CLASSIC_MARKER = "Description";
 
   function seedInvoice(overrides: Partial<Invoice> = {}): Invoice {

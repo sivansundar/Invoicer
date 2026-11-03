@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LineItem, Currency } from "@/lib/types";
 import { getCurrencySymbol, cn } from "@/lib/utils";
+import { lineAmount, lineQuantity, lineRate } from "@/lib/invoice-preview";
 import { Plus, X } from "lucide-react";
 
 interface LineItemsTableProps {
@@ -40,6 +41,18 @@ export function LineItemsTable({
     onChange(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
+  // Rate and quantity both re-derive `amount`, the line total every other screen reads.
+  const updatePricing = (id: string, patch: { rate?: number; quantity?: number }) => {
+    onChange(
+      items.map((item) => {
+        if (item.id !== id) return item;
+        const rate = patch.rate ?? lineRate(item);
+        const quantity = patch.quantity ?? lineQuantity(item);
+        return { ...item, rate, quantity, amount: lineAmount(quantity, rate) };
+      })
+    );
+  };
+
   const removeItem = (id: string) => {
     onChange(items.filter((item) => item.id !== id));
   };
@@ -53,7 +66,8 @@ export function LineItemsTable({
     >
       <div className="h-9 px-3 border-b text-[13px] text-muted-foreground flex items-center gap-2">
         <span className="flex-[1_1_120px]">Description</span>
-        <span className="flex-[0_0_120px]">Amount</span>
+        <span className="flex-[0_0_120px]">Rate</span>
+        <span className="flex-[0_0_56px]">Qty</span>
         <span className="flex-[0_0_64px]">Tax %</span>
         <span className="flex-[0_0_84px]">SAC</span>
         <span className="w-6 shrink-0" />
@@ -71,13 +85,23 @@ export function LineItemsTable({
             <span className="text-muted-foreground text-[13px]">{getCurrencySymbol(currency)}</span>
             <Input
               type="number"
-              value={item.amount || ""}
-              onChange={(e) => updateItem(item.id, "amount", parseFloat(e.target.value) || 0)}
+              value={lineRate(item) || ""}
+              onChange={(e) => updatePricing(item.id, { rate: parseFloat(e.target.value) || 0 })}
               placeholder="0"
+              aria-label="Rate"
               className="h-8 text-sm tabular-nums"
               min={0}
             />
           </div>
+          <Input
+            type="number"
+            value={lineQuantity(item) || ""}
+            onChange={(e) => updatePricing(item.id, { quantity: parseFloat(e.target.value) || 0 })}
+            placeholder="1"
+            aria-label="Quantity"
+            className="flex-[0_0_56px] h-8 text-sm tabular-nums"
+            min={0}
+          />
           <Input
             type="number"
             value={item.tax || ""}

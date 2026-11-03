@@ -4,7 +4,7 @@ import "./pdf-fonts";
 import { Document, Page, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
 import { getCurrencySymbol, formatCurrencyAmount } from "@/lib/utils";
 import { formatStoredDate } from "@/lib/dates";
-import { chunkPaymentFieldRows, countryLine, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
+import { chunkPaymentFieldRows, countryLine, lineQuantity, lineRate, exportDeclaration, invoiceTitle, paymentDetailFields, placeOfSupply, taxRows } from "@/lib/invoice-preview";
 import type { InvoicePDFProps } from "./props";
 
 const s = StyleSheet.create({
@@ -20,7 +20,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 24,
   },
-  brandSection: { flexDirection: "row", alignItems: "flex-start", gap: 8, minWidth: 0 },
+  brandSection: { flexDirection: "row", alignItems: "flex-start", gap: 8, flex: 1, minWidth: 0, paddingRight: 16 },
   logo: { width: 32, height: 32, objectFit: "contain" },
   logoFallback: {
     width: 32,
@@ -32,7 +32,7 @@ const s = StyleSheet.create({
   logoFallbackText: { color: "#fafafa", fontFamily: "Noto Sans", fontSize: 13, fontWeight: 700 },
   brandName: { fontSize: 11, fontWeight: 700 },
   brandDetail: { fontSize: 7, color: "#666", marginTop: 1 },
-  invoiceTitle: { fontSize: 16, fontWeight: 700, letterSpacing: 2 },
+  invoiceTitle: { fontSize: 16, fontWeight: 700, letterSpacing: 1, textAlign: "right" },
   invoiceNumber: { fontSize: 10, fontWeight: 700, marginTop: 2, textAlign: "right" },
   paidPill: {
     marginTop: 6,
@@ -68,14 +68,18 @@ const s = StyleSheet.create({
   tableHeaderText: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 4,
+    fontSize: 9,
+    paddingVertical: 6,
     borderBottomWidth: 0.5,
     borderBottomColor: "#f0f0f0",
   },
-  colDesc: { flex: 1, minWidth: 0 },
-  colAmount: { width: 100, textAlign: "right" },
-  colTax: { width: 70, textAlign: "right" },
-  colTotal: { width: 100, textAlign: "right" },
+  colIndex: { width: 18 },
+  colDesc: { flex: 1, minWidth: 0, paddingRight: 6 },
+  colSac: { width: 46 },
+  colQty: { width: 28, textAlign: "right" },
+  colAmount: { width: 84, textAlign: "right" },
+  colTax: { width: 34, textAlign: "right" },
+  colTotal: { width: 88, textAlign: "right" },
   totalsRow: { flexDirection: "row", justifyContent: "flex-end", marginTop: 2 },
   totalsLabel: { fontSize: 9, color: "#666", width: 80 },
   totalsValue: { fontSize: 9, width: 160, textAlign: "right" },
@@ -149,7 +153,7 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
                 </Text>
               </View>
             )}
-            <View style={{ minWidth: 0 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={s.brandName}>{snapshot.name}</Text>
               <Text style={s.brandDetail}>{snapshot.address}</Text>
               {snapshot.phone && <Text style={s.brandDetail}>{snapshot.phone}</Text>}
@@ -170,7 +174,7 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
               )}
             </View>
           </View>
-          <View>
+          <View style={{ flexShrink: 0, alignItems: "flex-end" }}>
             <Text style={s.invoiceTitle}>{invoiceTitle(invoice.gstType, snapshot.gstNumber)}</Text>
             <Text style={s.invoiceNumber}>{invoice.invoiceNumber}</Text>
             {isPaid && <Text style={s.paidPill}>Paid</Text>}
@@ -219,25 +223,25 @@ export function ClassicInvoicePDF({ invoice, snapshot }: InvoicePDFProps) {
 
         {/* Line Items Table */}
         <View style={s.tableHeader}>
+          <Text style={[s.tableHeaderText, s.colIndex]}>#</Text>
           <Text style={[s.tableHeaderText, s.colDesc]}>Description</Text>
-          <Text style={[s.tableHeaderText, s.colAmount]}>Amount</Text>
+          <Text style={[s.tableHeaderText, s.colSac]}>SAC</Text>
+          <Text style={[s.tableHeaderText, s.colQty]}>Qty</Text>
+          <Text style={[s.tableHeaderText, s.colAmount]}>Rate</Text>
           <Text style={[s.tableHeaderText, s.colTax]}>Tax</Text>
-          <Text style={[s.tableHeaderText, s.colTotal]}>Total</Text>
+          <Text style={[s.tableHeaderText, s.colTotal]}>Amount</Text>
         </View>
-        {invoice.items.map((item) => {
-          const taxAmt = (item.amount * item.tax) / 100;
-          return (
-            <View key={item.id} style={s.tableRow}>
-              <Text style={s.colDesc}>
-                {item.description}
-                {item.sac && <Text style={{ color: "#888" }}> · SAC {item.sac}</Text>}
-              </Text>
-              <Text style={s.colAmount}>{amountRun(item.amount, cur)}</Text>
-              <Text style={[s.colTax, { color: "#888" }]}>{item.tax}%</Text>
-              <Text style={s.colTotal}>{amountRun(item.amount + taxAmt, cur)}</Text>
-            </View>
-          );
-        })}
+        {invoice.items.map((item, index) => (
+          <View key={item.id} style={s.tableRow} wrap={false}>
+            <Text style={[s.colIndex, { color: "#888" }]}>{index + 1}.</Text>
+            <Text style={s.colDesc}>{item.description}</Text>
+            <Text style={s.colSac}>{item.sac ?? ""}</Text>
+            <Text style={s.colQty}>{lineQuantity(item)}</Text>
+            <Text style={s.colAmount}>{amountRun(lineRate(item), cur)}</Text>
+            <Text style={[s.colTax, { color: "#888" }]}>{item.tax}%</Text>
+            <Text style={s.colTotal}>{amountRun(item.amount, cur)}</Text>
+          </View>
+        ))}
 
         {/* Totals */}
         <View style={{ marginTop: 12, alignItems: "flex-end" }}>
