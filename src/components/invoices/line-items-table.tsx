@@ -66,11 +66,11 @@ export function LineItemsTable({
       className={cn("border rounded-xl bg-card overflow-hidden", invalid && "border-destructive")}
     >
       <div className="h-9 px-3 border-b text-[13px] text-muted-foreground flex items-center gap-2">
-        <span className="flex-[1_1_120px]">Description</span>
-        <span className="flex-[0_0_120px]">Rate</span>
-        <span className="flex-[0_0_56px]">Qty</span>
-        <span className="flex-[0_0_64px]">Tax %</span>
+        <span className="flex-[1_1_120px]">Item</span>
         <span className="flex-[0_0_84px]">SAC</span>
+        <span className="flex-[0_0_56px]">Qty</span>
+        <span className="flex-[0_0_120px]">Rate</span>
+        <span className="flex-[0_0_64px]">Tax %</span>
         <span className="w-6 shrink-0" />
       </div>
 
@@ -83,6 +83,22 @@ export function LineItemsTable({
             placeholder="What did you do?"
             rows={1}
             className="flex-[1_1_120px] min-h-8 py-1.5 text-sm resize-none"
+          />
+          <Input
+            value={item.sac ?? ""}
+            onChange={(e) => updateItem(item.id, "sac", e.target.value)}
+            placeholder="998314"
+            aria-label="SAC code"
+            className="flex-[0_0_84px] h-8 text-sm tabular-nums"
+          />
+          <Input
+            type="number"
+            value={lineQuantity(item) || ""}
+            onChange={(e) => updatePricing(item.id, { quantity: parseFloat(e.target.value) || 0 })}
+            placeholder="1"
+            aria-label="Quantity"
+            className="flex-[0_0_56px] h-8 text-sm tabular-nums"
+            min={0}
           />
           <div className="flex-[0_0_120px] flex items-center gap-1">
             <span className="text-muted-foreground text-[13px]">{getCurrencySymbol(currency)}</span>
@@ -98,29 +114,14 @@ export function LineItemsTable({
           </div>
           <Input
             type="number"
-            value={lineQuantity(item) || ""}
-            onChange={(e) => updatePricing(item.id, { quantity: parseFloat(e.target.value) || 0 })}
-            placeholder="1"
-            aria-label="Quantity"
-            className="flex-[0_0_56px] h-8 text-sm tabular-nums"
-            min={0}
-          />
-          <Input
-            type="number"
             value={item.tax || ""}
             onChange={(e) => updateItem(item.id, "tax", parseFloat(e.target.value) || 0)}
             placeholder="0"
+            aria-label="Tax %"
             className="flex-[0_0_64px] h-8 text-sm tabular-nums"
             min={0}
             max={100}
             disabled={taxDisabled}
-          />
-          <Input
-            value={item.sac ?? ""}
-            onChange={(e) => updateItem(item.id, "sac", e.target.value)}
-            placeholder="998314"
-            aria-label="SAC code"
-            className="flex-[0_0_84px] h-8 text-sm tabular-nums"
           />
           <Button
             type="button"
