@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { LineItem, Currency } from "@/lib/types";
 import { getCurrencySymbol, cn } from "@/lib/utils";
 import { lineAmount, lineQuantity, lineRate } from "@/lib/invoice-preview";
@@ -74,12 +75,14 @@ export function LineItemsTable({
       </div>
 
       {items.map((item) => (
-        <div key={item.id} className="flex gap-2 items-center px-3 py-2 border-b">
-          <Input
+        <div key={item.id} className="flex gap-2 items-start px-3 py-2 border-b">
+          {/* Grows with its content; Enter adds a line break that the invoice and PDF keep. */}
+          <Textarea
             value={item.description}
             onChange={(e) => updateItem(item.id, "description", e.target.value)}
             placeholder="What did you do?"
-            className="flex-[1_1_120px] h-8 text-sm"
+            rows={1}
+            className="flex-[1_1_120px] min-h-8 py-1.5 text-sm resize-none"
           />
           <div className="flex-[0_0_120px] flex items-center gap-1">
             <span className="text-muted-foreground text-[13px]">{getCurrencySymbol(currency)}</span>
@@ -123,7 +126,7 @@ export function LineItemsTable({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-6 text-muted-foreground hover:text-destructive"
+            className="size-6 mt-1 text-muted-foreground hover:text-destructive"
             title="Remove line"
             onClick={() => removeItem(item.id)}
           >

@@ -190,7 +190,7 @@ describe("InvoiceForm", () => {
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
-    const amountInput = row.querySelectorAll("input")[1];
+    const amountInput = row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!;
     await user.type(amountInput, "5000");
     fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
       target: { value: "2026-07-20" },
@@ -247,7 +247,7 @@ describe("InvoiceForm", () => {
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
-    await user.type(row.querySelectorAll("input")[1], "5000");
+    await user.type(row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!, "5000");
     fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
       target: { value: "2026-07-20" },
     });
@@ -304,7 +304,7 @@ describe("InvoiceForm", () => {
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
-    const amountInput = row.querySelectorAll("input")[1];
+    const amountInput = row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!;
     await user.type(amountInput, "5000");
 
     await user.click(screen.getByRole("button", { name: "Create invoice" }));
@@ -393,7 +393,7 @@ describe("InvoiceForm", () => {
       const descriptionInput = screen.getByPlaceholderText("What did you do?");
       await user.type(descriptionInput, "Website redesign");
       const row = descriptionInput.parentElement as HTMLElement;
-      await user.type(row.querySelectorAll("input")[1], "5000");
+      await user.type(row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!, "5000");
 
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
@@ -428,7 +428,7 @@ describe("InvoiceForm", () => {
       const descriptionInput = screen.getByPlaceholderText("What did you do?");
       await user.type(descriptionInput, "Website redesign");
       const row = descriptionInput.parentElement as HTMLElement;
-      await user.type(row.querySelectorAll("input")[1], "5000");
+      await user.type(row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!, "5000");
 
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
@@ -477,7 +477,7 @@ describe("InvoiceForm", () => {
       const descriptionInput = screen.getByPlaceholderText("What did you do?");
       await user.type(descriptionInput, "Website redesign");
       const row = descriptionInput.parentElement as HTMLElement;
-      await user.type(row.querySelectorAll("input")[1], "5000");
+      await user.type(row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!, "5000");
 
       await user.click(screen.getByRole("button", { name: "Create invoice" }));
 
@@ -613,7 +613,7 @@ describe("InvoiceForm — payment method (IFSC / ACH)", () => {
     const descriptionInput = screen.getByPlaceholderText("What did you do?");
     await user.type(descriptionInput, "Website redesign");
     const row = descriptionInput.parentElement as HTMLElement;
-    await user.type(row.querySelectorAll("input")[1], "5000");
+    await user.type(row.querySelector<HTMLInputElement>('input[aria-label="Rate"]')!, "5000");
     fireEvent.change(document.getElementById("field-due-date")!.querySelector("input")!, {
       target: { value: "2026-07-20" },
     });
