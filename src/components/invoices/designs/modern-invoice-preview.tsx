@@ -136,7 +136,7 @@ export function ModernInvoicePreview({
           {items.map((item, index) => (
             <tr key={item.id} className="border-b last:border-b-0 align-top">
               <td className="py-2 text-muted-foreground tabular-nums">{index + 1}.</td>
-              <td className="py-2 pr-2 break-words">{item.description}</td>
+              <td className="py-2 pr-2 break-words whitespace-pre-line">{item.description}</td>
               <td className="py-2 tabular-nums">{item.sac}</td>
               <td className="py-2 tabular-nums">{lineQuantity(item)}</td>
               <td className="py-2 text-right tabular-nums">{formatCurrencyAmount(lineRate(item), currency)}</td>

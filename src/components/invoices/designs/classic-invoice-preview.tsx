@@ -141,7 +141,7 @@ export function ClassicInvoicePreview({
             className="grid grid-cols-[24px_1fr_64px_40px_100px_48px_108px] gap-2 py-2.5 border-b border-border/50 text-[13px]"
           >
             <span className="text-muted-foreground tabular-nums">{index + 1}.</span>
-            <span className="min-w-0 break-words">{item.description}</span>
+            <span className="min-w-0 break-words whitespace-pre-line">{item.description}</span>
             <span className="tabular-nums">{item.sac}</span>
             <span className="tabular-nums">{lineQuantity(item)}</span>
             <span className="text-right tabular-nums">{fmt(lineRate(item))}</span>

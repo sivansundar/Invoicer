@@ -364,7 +364,7 @@ export default function InvoiceDetailPage() {
             </div>
             {invoice.items.map((item) => (
               <div key={item.id} className="flex items-center px-4 py-3 border-b last:border-b-0 text-sm">
-                <span className="flex-1">{item.description}</span>
+                <span className="flex-1 whitespace-pre-line">{item.description}</span>
                 <span className="w-20 text-right text-muted-foreground tabular-nums">{item.tax}%</span>
                 <span className="w-28 text-right tabular-nums">
                   {formatCurrency(item.amount, currency)}
