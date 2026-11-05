@@ -33,3 +33,6 @@ Font.register({
     { src: "/fonts/NotoSans-Bold.ttf", fontWeight: 700 },
   ],
 });
+
+// react-pdf hyphenates long words by default ("work-ing"); wrap whole words instead.
+Font.registerHyphenationCallback((word) => [word]);
