@@ -40,6 +40,11 @@ const PDFDownloadButton = dynamic(
   { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Loading PDF…</Button> }
 );
 
+const PDFPreviewDialog = dynamic(
+  () => import("./pdf-preview-dialog").then((m) => ({ default: m.PDFPreviewDialog })),
+  { ssr: false, loading: () => <Button variant="outline" size="sm" disabled>Full screen</Button> }
+);
+
 // A brand-less follow-up config (only reachable if the brand backing this
 // invoice was deleted after the invoice was issued — deleteBrand doesn't
 // cascade). Disabled so resolveFollowupState falls through to "off" rather
@@ -394,9 +399,12 @@ export default function InvoiceDetailPage() {
 
         {/* Right pane: client-facing preview */}
         <div className="flex-[1_1_508px] min-w-[508px] bg-muted border-l p-6">
-          <div className="mb-4">
-            <p className="text-sm font-medium">Preview</p>
-            <p className="text-[13px] text-muted-foreground">What your client sees</p>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Preview</p>
+              <p className="text-[13px] text-muted-foreground">What your client sees</p>
+            </div>
+            <PDFPreviewDialog invoice={invoice} snapshot={invoice.brandSnapshot} />
           </div>
           <InvoicePreview
             snapshot={invoice.brandSnapshot}
