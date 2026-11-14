@@ -32,7 +32,7 @@ function table() {
 }
 
 function fakeDb() {
-  const tables = { brand: table(), client: table(), invoice: table() };
+  const tables = { brand: table(), client: table(), invoice: table(), brandAccess: table() };
   return { db: tables as unknown as Db, tables };
 }
 
@@ -121,5 +121,91 @@ describe("server data rules", () => {
     const { db } = fakeDb();
     expect((await putRecord(db, "sivan", "brands", "b1", { id: "b1" })).status).toBe(400);
     expect((await putRecord(db, "sivan", "brands", "b1", brand("b2"))).status).toBe(400);
+  });
+});
+
+describe("sharing a brand", () => {
+  async function shared(invoices: string, expenses = "none") {
+    const { db, tables } = fakeDb();
+    // The fake's upsert/findFirst key rows by `id`; shares have none, so seed directly.
+    const share = (row: Record<string, unknown>) =>
+      (tables as unknown as { brandAccess: ReturnType<typeof table> }).brandAccess.rows.push(row as Row);
+    // updateMany for claimShares.
+    Object.assign((tables as unknown as { brandAccess: object }).brandAccess, {
+      updateMany: async ({ where, data }: { where: { email: { in: string[] } }; data: Row }) => {
+        for (const r of (tables as unknown as { brandAccess: ReturnType<typeof table> }).brandAccess.rows) {
+          if (r.userId === null && where.email.in.includes(r.email as string)) Object.assign(r, data);
+        }
+      },
+    });
+    await putRecord(db, "sivan", "brands", "b1", brand("b1"));
+    await putRecord(db, "sivan", "brands", "b2", brand("b2"));
+    await putRecord(db, "sivan", "invoices", "i1", invoice("i1", "b1", "SC-2026-001"));
+    await putRecord(db, "sivan", "invoices", "i2", invoice("i2", "b2", "SC-2026-002"));
+    share({ id: "s1", brandId: "b1", email: "ca@firm.in", userId: null, invoices, expenses });
+    return { db, tables };
+  }
+
+  it("shows a guest only the shared brand and its invoices, never clients or other brands", async () => {
+    const { db } = await shared("view");
+    await putRecord(db, "sivan", "clients", "c1", {
+      id: "c1",
+      companyName: "Acme",
+      address: "2 Road",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    const data = await loadData(db, "ca", ["CA@firm.in"]);
+
+    expect(data.brands.map((b) => b.id)).toEqual(["b1"]);
+    expect(data.invoices.map((i) => i.id)).toEqual(["i1"]);
+    expect(data.clients).toEqual([]);
+    expect(data.permissions).toEqual({ b1: { invoices: "view", expenses: "none" } });
+  });
+
+  it("gives nothing to someone whose email is not verified as the invited one", async () => {
+    const { db } = await shared("view");
+    const data = await loadData(db, "stranger", ["someone@else.in"]);
+    expect(data.brands).toEqual([]);
+    expect(data.invoices).toEqual([]);
+  });
+
+  it("hides invoices when the share's invoice access is none", async () => {
+    const { db } = await shared("none", "view");
+    const data = await loadData(db, "ca", ["ca@firm.in"]);
+    expect(data.brands.map((b) => b.id)).toEqual(["b1"]);
+    expect(data.invoices).toEqual([]);
+  });
+
+  it("refuses a view-only guest's edit and delete", async () => {
+    const { db, tables } = await shared("view");
+    await loadData(db, "ca", ["ca@firm.in"]);
+
+    const result = await putRecord(db, "ca", "invoices", "i1", {
+      ...invoice("i1", "b1", "SC-2026-001"),
+      status: "paid",
+    });
+    await deleteRecord(db, "ca", "invoices", "i1");
+
+    expect(result.status).toBe(404);
+    expect(JSON.parse(tables.invoice.rows.find((r) => r.id === "i1")!.data as string).status).toBe("draft");
+  });
+
+  it("lets a guest with edit access change invoices in that brand only, owned by the brand's owner", async () => {
+    const { db, tables } = await shared("edit");
+    await loadData(db, "ca", ["ca@firm.in"]);
+
+    const edit = await putRecord(db, "ca", "invoices", "i1", { ...invoice("i1", "b1", "SC-2026-001"), status: "sent" });
+    const created = await putRecord(db, "ca", "invoices", "i3", invoice("i3", "b1", "SC-2026-003"));
+    const otherBrand = await putRecord(db, "ca", "invoices", "i2", { ...invoice("i2", "b2", "SC-2026-002"), status: "paid" });
+    const moved = await putRecord(db, "ca", "invoices", "i1", invoice("i1", "b2", "SC-2026-009"));
+    const brandEdit = await putRecord(db, "ca", "brands", "b1", { ...brand("b1"), name: "Hijacked" });
+
+    expect(edit.status).toBe(200);
+    expect(created.status).toBe(200);
+    expect(tables.invoice.rows.find((r) => r.id === "i3")!.ownerId).toBe("sivan");
+    expect(otherBrand.status).toBe(404);
+    expect(moved.status).toBe(403);
+    expect(brandEdit.status).toBe(404);
   });
 });

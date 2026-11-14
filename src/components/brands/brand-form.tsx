@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBrands } from "@/hooks/use-brands";
+import { BrandSharing } from "./brand-sharing";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
 import { nextInvoiceNumber } from "@/lib/storage";
@@ -639,6 +640,8 @@ export function BrandForm({ brand }: BrandFormProps) {
             </Button>
           </div>
         )}
+
+        {brand && <BrandSharing brandId={brand.id} brandName={brand.name} />}
       </div>
 
       {/* Right pane: how this brand's invoices actually look. Sticky because

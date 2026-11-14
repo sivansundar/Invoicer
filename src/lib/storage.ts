@@ -181,9 +181,21 @@ function invalidatePlan(): void {
 // root layout loaded, reads are synchronous, and a save shows up here at once
 // and is taken back if the server refuses it.
 type ServerKind = "brands" | "clients" | "invoices";
-type ServerData = { brands: Brand[]; clients: Client[]; invoices: Invoice[] };
+export type Level = "none" | "view" | "edit";
+export type BrandPermissions = { invoices: Level; expenses: Level };
+type ServerData = {
+  brands: Brand[];
+  clients: Client[];
+  invoices: Invoice[];
+  /** Brands shared with the user, by id. A brand they own has no entry. */
+  permissions?: Record<string, BrandPermissions>;
+};
 
-const server: ServerData = { brands: EMPTY, clients: EMPTY, invoices: EMPTY };
+const NO_PERMISSIONS: Record<string, BrandPermissions> = {};
+let permissions = NO_PERMISSIONS;
+export const getPermissionsSnapshot = (): Record<string, BrandPermissions> => permissions;
+
+const server: Required<Omit<ServerData, "permissions">> = { brands: EMPTY, clients: EMPTY, invoices: EMPTY };
 
 /**
  * `announce: false` is for calling during a React render, where telling
@@ -196,6 +208,7 @@ export function hydrate(data: ServerData, announce = true): void {
   server.brands = data.brands;
   server.clients = data.clients;
   server.invoices = data.invoices;
+  permissions = data.permissions ?? NO_PERMISSIONS;
   if (announce) notify();
 }
 

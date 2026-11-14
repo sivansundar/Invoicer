@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { useInvoices } from "@/hooks/use-invoices";
 import { useBrands } from "@/hooks/use-brands";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useTemplates } from "@/hooks/use-templates";
 import { cadenceLabel, fillTemplate, templateContext } from "@/lib/followups";
 import { taxRows } from "@/lib/invoice-preview";
@@ -68,6 +69,7 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const { invoices, save, remove } = useInvoices();
   const { brands } = useBrands();
+  const { canEdit } = usePermissions();
   const { templates } = useTemplates();
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -102,6 +104,8 @@ export default function InvoiceDetailPage() {
   // actually saved, not what the user just tried to save. "Mark as paid" is
   // the sharpest case: toasting an amount "in the bank" that was never
   // actually recorded is the worst version of this bug.
+  const editable = canEdit(invoice.brandId, "invoices");
+
   const handleMarkSent = async () => {
     if (!canMarkSent(invoice)) {
       toast("Add a due date before marking this sent");
@@ -220,12 +224,12 @@ export default function InvoiceDetailPage() {
           </div>
 
           <div className="flex gap-2 flex-wrap items-center">
-            {invoice.status === "draft" && (
+            {editable && invoice.status === "draft" && (
               <Button size="sm" onClick={handleMarkSent}>
                 Mark as sent
               </Button>
             )}
-            {(invoice.status === "sent" || invoice.status === "overdue") && (
+            {editable && (invoice.status === "sent" || invoice.status === "overdue") && (
               <Button size="sm" onClick={handleMarkPaid}>
                 Mark as paid
               </Button>
@@ -236,22 +240,26 @@ export default function InvoiceDetailPage() {
                 brand snapshot and reminder history are untouched either
                 way, so surfacing Edit here for every status just makes an
                 already-safe transition reachable without typing the URL. */}
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/invoices/create?from=${invoice.id}`}>Duplicate</Link>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/invoices/${invoice.id}/edit`}>
-                {invoice.status === "draft" ? "Edit draft" : "Edit"}
-              </Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
-              Delete
-            </Button>
+            {editable && (
+              <>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/invoices/create?from=${invoice.id}`}>Duplicate</Link>
+                </Button>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/invoices/${invoice.id}/edit`}>
+                    {invoice.status === "draft" ? "Edit draft" : "Edit"}
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  Delete
+                </Button>
+              </>
+            )}
           </div>
 
           {showFollowups && (
@@ -349,6 +357,7 @@ export default function InvoiceDetailPage() {
                     min={invoice.billDate || undefined}
                     max={format(new Date(), "yyyy-MM-dd")}
                     onChange={(e) => handlePaidOnChange(e.target.value)}
+                    disabled={!editable}
                     className="text-sm h-8"
                   />
                 </div>

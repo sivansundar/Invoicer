@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProDialog } from "@/components/layout/pro-dialog";
 import { useBrands } from "@/hooks/use-brands";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useInvoices } from "@/hooks/use-invoices";
 import { usePlan } from "@/hooks/use-plan";
 import { useBrandFilter } from "@/components/brand-filter/brand-filter-provider";
@@ -111,6 +112,7 @@ function BrandCard({ brand, invoices, onViewInvoices }: BrandCardProps) {
     brandInvoices.filter((invoice) => invoice.status === "paid")
   );
   const followupOn = brand.followup.enabled;
+  const owned = usePermissions().isOwner(brand.id);
 
   return (
     <div className="border rounded-[14px] bg-card shadow-sm p-6 flex flex-col gap-3">
@@ -120,6 +122,11 @@ function BrandCard({ brand, invoices, onViewInvoices }: BrandCardProps) {
           style={{ backgroundColor: brand.accentColor }}
         />
         <span className="text-base font-semibold flex-1 truncate">{brand.name}</span>
+        {!owned && (
+          <Badge variant="secondary" className="text-[10px] font-normal">
+            Shared with you
+          </Badge>
+        )}
         <span className="font-mono text-xs border rounded-full px-2 py-0.5 text-muted-foreground">
           {brand.invoicePrefix}
         </span>
@@ -152,9 +159,11 @@ function BrandCard({ brand, invoices, onViewInvoices }: BrandCardProps) {
         <Button variant="outline" size="sm" onClick={onViewInvoices}>
           View invoices
         </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/brands/${brand.id}/edit`}>Edit</Link>
-        </Button>
+        {owned && (
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/brands/${brand.id}/edit`}>Edit</Link>
+          </Button>
+        )}
       </div>
     </div>
   );

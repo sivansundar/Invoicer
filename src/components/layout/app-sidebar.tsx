@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { BrandSwitcher } from "./brand-switcher";
 import { PlanCard } from "./plan-card";
 import { FEATURES } from "@/lib/features";
+import { useCanCreateInvoices } from "@/hooks/use-permissions";
 
 const ALL_NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -54,18 +55,21 @@ function isNavItemActive(pathname: string, href: string): boolean {
 export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
+  const canCreate = useCanCreateInvoices();
 
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <BrandSwitcher />
         <div className="flex items-center gap-2 px-0">
-          <Link href="/invoices/create" className="flex-1">
-            <Button size="sm" className="h-8 w-full gap-1.5">
-              <CirclePlus className="h-4 w-4" />
-              Quick create
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/invoices/create" className="flex-1">
+              <Button size="sm" className="h-8 w-full gap-1.5">
+                <CirclePlus className="h-4 w-4" />
+                Quick create
+              </Button>
+            </Link>
+          )}
           <Button
             type="button"
             variant="outline"

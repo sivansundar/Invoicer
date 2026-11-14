@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { shadcn } from "@clerk/ui/themes";
-import { auth } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { DataHydrator } from "@/components/data-hydrator";
 import { db } from "@/lib/server/db";
 import { loadData } from "@/lib/server/data";
@@ -41,8 +41,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { userId } = await auth();
-  const data = userId ? await loadData(db(), userId) : null;
+  const user = await currentUser();
+  // Only verified addresses can pick up a brand shared by email.
+  const emails = (user?.emailAddresses ?? [])
+    .filter((e) => e.verification?.status === "verified")
+    .map((e) => e.emailAddress);
+  const data = user ? await loadData(db(), user.id, emails) : null;
 
   return (
     <html lang="en" suppressHydrationWarning>

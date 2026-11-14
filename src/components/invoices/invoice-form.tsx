@@ -22,6 +22,7 @@ import {
 import { InvoicePreview } from "./invoice-preview";
 import { LineItemsTable } from "./line-items-table";
 import { useBrands } from "@/hooks/use-brands";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
 import {
@@ -100,7 +101,10 @@ const MANUAL_CLIENT_VALUE = "manual";
 
 export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}) {
   const router = useRouter();
-  const { brands } = useBrands();
+  const { brands: allBrands } = useBrands();
+  const { canEdit } = usePermissions();
+  // Only brands this user may file invoices under.
+  const brands = allBrands.filter((b) => canEdit(b.id, "invoices"));
   const { clients } = useClients();
   const { invoices, save } = useInvoices();
   const isEdit = !!existingInvoice;
