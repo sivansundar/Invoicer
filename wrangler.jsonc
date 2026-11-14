@@ -1,16 +1,16 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "invoicer",
-  "account_id": "786f1539a9f990644a9d305420c71b1c",
+  "account_id": "f210ee7ef36638fbe0ee7064b3b775a4",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "observability": { "enabled": true },
+  "routes": [{ "pattern": "invoicejunkie.com", "custom_domain": true }],
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "invoicer" }],
-  // database_id is a placeholder until `wrangler d1 create invoicer`; local dev ignores it.
   "d1_databases": [
-    { "binding": "DB", "database_name": "invoicer", "database_id": "00000000-0000-0000-0000-000000000000" }
+    { "binding": "DB", "database_name": "invoicer", "database_id": "51e5d588-261a-4447-b6a0-6d198ebfc062" }
   ],
   "vars": {
     "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in",
