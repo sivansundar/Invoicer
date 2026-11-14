@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
       "node_modules/typescript/**",
       "node_modules/@img/**",
       "node_modules/sharp/**",
+      // Open Graph image rendering, which this app never does.
+      "node_modules/next/dist/compiled/@vercel/og/**",
     ],
   },
 };
