@@ -32,7 +32,7 @@ function table() {
 }
 
 function fakeDb() {
-  const tables = { brand: table(), client: table(), invoice: table(), brandAccess: table() };
+  const tables = { brand: table(), client: table(), invoice: table(), brandAccess: table(), expense: table() };
   return { db: tables as unknown as Db, tables };
 }
 

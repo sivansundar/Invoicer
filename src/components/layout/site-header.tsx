@@ -25,6 +25,8 @@ export function getCrumb(pathname: string): string {
   if (pathname === "/followups") return "Follow-ups";
   if (pathname.startsWith("/followups/templates/")) return "Email template";
   if (pathname === "/reports") return "Reports";
+  if (pathname === "/expenses") return "Expenses";
+  if (pathname.startsWith("/expenses/")) return "Expense";
   // Unmapped route (e.g. hit directly, or a route this map hasn't caught up
   // with yet) — fall back to the app name rather than an empty heading.
   return "Invoicer";

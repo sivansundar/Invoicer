@@ -62,3 +62,20 @@ model BrandAccess {
   @@index([email])
   @@map("brand_access")
 }
+
+/// An uploaded purchase invoice. Belongs to a brand; who may see or change it
+/// follows that brand's sharing.
+model Expense {
+  id          String   @id
+  brandId     String   @map("brand_id")
+  status      String
+  expenseDate String?  @map("expense_date")
+  total       Float    @default(0)
+  fileKey     String   @map("file_key")
+  uploadedBy  String   @map("uploaded_by")
+  data        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([brandId])
+  @@map("expenses")
+}

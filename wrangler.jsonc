@@ -12,6 +12,7 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "invoicer", "database_id": "51e5d588-261a-4447-b6a0-6d198ebfc062" }
   ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "invoicer-files" }],
   "vars": {
     "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in",
     "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/"

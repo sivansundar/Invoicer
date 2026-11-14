@@ -40,6 +40,6 @@ export async function PUT(req: Request, ctx: Ctx) {
 export async function DELETE(_req: Request, ctx: Ctx) {
   const r = await resolve(ctx);
   if (r instanceof Response) return r;
-  await deleteRecord(db(), r.userId, r.kind, r.id);
-  return Response.json({ ok: true });
+  const blocked = await deleteRecord(db(), r.userId, r.kind, r.id);
+  return blocked ? fail(409, blocked) : Response.json({ ok: true });
 }

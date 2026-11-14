@@ -1,4 +1,5 @@
 import type { Brand, Client, Invoice } from "@/lib/types";
+import type { Expense } from "@/lib/expenses";
 import {
   isValidBrandRecord,
   isValidClientRecord,
@@ -14,6 +15,7 @@ export interface AppData {
   brands: Brand[];
   clients: Client[];
   invoices: Invoice[];
+  expenses: Expense[];
   /** Brands shared with this user, by brand id. A brand they own is absent. */
   permissions: Record<string, BrandPermissions>;
 }
@@ -49,11 +51,15 @@ export async function loadData(db: Db, userId: string, verifiedEmails: string[] 
   const permissions: AppData["permissions"] = {};
   const sharedBrands: { data: string }[] = [];
   const sharedInvoices: { data: string }[] = [];
+  // Expenses hang off a brand: all of them for a brand you own, and a shared
+  // brand's when the share allows.
+  const expenseBrandIds = brands.map((b) => (JSON.parse(b.data) as Brand).id);
   for (const share of shares) {
     const brand = await db.brand.findUnique({ where: { id: share.brandId } });
     if (!brand || brand.ownerId === userId) continue;
     permissions[brand.id] = { invoices: share.invoices as Level, expenses: share.expenses as Level };
     sharedBrands.push(brand);
+    if (share.expenses !== "none") expenseBrandIds.push(brand.id);
     if (share.invoices !== "none") {
       // ownerId too: only the invoices the brand's owner actually holds.
       sharedInvoices.push(
@@ -62,7 +68,10 @@ export async function loadData(db: Db, userId: string, verifiedEmails: string[] 
     }
   }
 
+  const expenses = await db.expense.findMany({ where: { brandId: { in: expenseBrandIds } }, select });
+
   return {
+    expenses: parseAll<Expense>(expenses),
     brands: parseAll<Brand>([...brands, ...sharedBrands]),
     clients: parseAll<Client>(clients),
     invoices: parseAll<Invoice>([...invoices, ...sharedInvoices]),
@@ -145,9 +154,15 @@ export async function putRecord(
   return { status: 200 };
 }
 
-export async function deleteRecord(db: Db, userId: string, kind: Kind, id: string): Promise<void> {
+/** Resolves to a reason the record can't be deleted, or null once it is gone (or was never theirs). */
+export async function deleteRecord(db: Db, userId: string, kind: Kind, id: string): Promise<string | null> {
   const where = { id, ownerId: userId };
   if (kind === "brands") {
+    // Its expenses (and their files) would be stranded with no way to reach them.
+    const owned = await db.brand.findUnique({ where: { id }, select: { ownerId: true } });
+    if (owned?.ownerId === userId && (await db.expense.findFirst({ where: { brandId: id } }))) {
+      return "Delete this brand's expenses first.";
+    }
     await db.brand.deleteMany({ where });
     // Shares of a brand that is gone (no-op if the brand wasn't theirs to delete).
     if (!(await db.brand.findUnique({ where: { id } }))) {
@@ -157,9 +172,10 @@ export async function deleteRecord(db: Db, userId: string, kind: Kind, id: strin
     await db.client.deleteMany({ where });
   } else {
     const invoice = await db.invoice.findUnique({ where: { id }, select: { ownerId: true, brandId: true } });
-    if (!invoice) return;
+    if (!invoice) return null;
     if (invoice.ownerId === userId || (await can(db, userId, invoice.brandId, "invoices", "edit"))) {
       await db.invoice.deleteMany({ where: { id } });
     }
   }
+  return null;
 }

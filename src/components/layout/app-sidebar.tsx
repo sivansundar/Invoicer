@@ -12,6 +12,7 @@ import {
   FileText,
   LayoutDashboard,
   Mail,
+  Receipt,
   Users,
 } from "lucide-react";
 import {
@@ -32,6 +33,7 @@ import { useCanCreateInvoices } from "@/hooks/use-permissions";
 const ALL_NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Invoices", icon: FileText, href: "/invoices/create" },
+  { label: "Expenses", icon: Receipt, href: "/expenses" },
   { label: "Brands", icon: Building2, href: "/brands" },
   { label: "Clients", icon: Users, href: "/clients" },
   { label: "Follow-ups", icon: Bell, href: "/followups", flag: "followups" as const },

@@ -5,6 +5,8 @@ import {
 } from "./migrate";
 import { writeLocalStorage } from "./local-storage";
 import { send } from "./api";
+import { toast } from "sonner";
+import type { Expense } from "./expenses";
 
 export { nextInvoiceNumber } from "./numbering";
 
@@ -180,13 +182,14 @@ function invalidatePlan(): void {
 // signed-in user's copy in memory: `hydrate` fills it once from the data the
 // root layout loaded, reads are synchronous, and a save shows up here at once
 // and is taken back if the server refuses it.
-type ServerKind = "brands" | "clients" | "invoices";
+type ServerKind = "brands" | "clients" | "invoices" | "expenses";
 export type Level = "none" | "view" | "edit";
 export type BrandPermissions = { invoices: Level; expenses: Level };
 type ServerData = {
   brands: Brand[];
   clients: Client[];
   invoices: Invoice[];
+  expenses?: Expense[];
   /** Brands shared with the user, by id. A brand they own has no entry. */
   permissions?: Record<string, BrandPermissions>;
 };
@@ -195,7 +198,12 @@ const NO_PERMISSIONS: Record<string, BrandPermissions> = {};
 let permissions = NO_PERMISSIONS;
 export const getPermissionsSnapshot = (): Record<string, BrandPermissions> => permissions;
 
-const server: Required<Omit<ServerData, "permissions">> = { brands: EMPTY, clients: EMPTY, invoices: EMPTY };
+const server: Required<Omit<ServerData, "permissions">> = {
+  brands: EMPTY,
+  clients: EMPTY,
+  invoices: EMPTY,
+  expenses: EMPTY,
+};
 
 /**
  * `announce: false` is for calling during a React render, where telling
@@ -208,6 +216,7 @@ export function hydrate(data: ServerData, announce = true): void {
   server.brands = data.brands;
   server.clients = data.clients;
   server.invoices = data.invoices;
+  server.expenses = data.expenses ?? EMPTY;
   permissions = data.permissions ?? NO_PERMISSIONS;
   if (announce) notify();
 }
@@ -271,6 +280,38 @@ export const getInvoices = getInvoicesSnapshot;
 export const getInvoice = (id: string): Invoice | null => server.invoices.find((i) => i.id === id) ?? null;
 export const saveInvoice = (invoice: Invoice): Promise<boolean> => save("invoices", invoice);
 export const deleteInvoice = (id: string): Promise<boolean> => remove("invoices", id);
+
+// Expenses
+export const getExpensesSnapshot = (): Expense[] => server.expenses;
+export const saveExpense = (expense: Expense): Promise<boolean> => save("expenses", expense);
+export const deleteExpense = (id: string): Promise<boolean> => remove("expenses", id);
+
+async function expenseRequest(path: string, init: RequestInit): Promise<Expense | null> {
+  try {
+    const res = await fetch(`/api/expenses${path}`, init);
+    const body = (await res.json().catch(() => null)) as { expense?: Expense; error?: string } | null;
+    if (res.ok && body?.expense) {
+      put("expenses", body.expense);
+      return body.expense;
+    }
+    toast(body?.error ?? "That didn't work. Please try again.");
+  } catch {
+    toast("Can't reach the server. Check your connection and try again.");
+  }
+  return null;
+}
+
+/** Uploads a purchase invoice; the server stores it, reads it and returns the new expense. */
+export function uploadExpense(file: File, brandId: string): Promise<Expense | null> {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("brandId", brandId);
+  return expenseRequest("", { method: "POST", body: form });
+}
+
+/** Has the server read the stored file again, replacing the expense's fields. */
+export const rereadExpense = (id: string): Promise<Expense | null> =>
+  expenseRequest(`/${encodeURIComponent(id)}/extract`, { method: "POST" });
 
 // Templates
 export function getTemplates(): EmailTemplate[] {
