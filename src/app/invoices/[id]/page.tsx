@@ -102,17 +102,17 @@ export default function InvoiceDetailPage() {
   // actually saved, not what the user just tried to save. "Mark as paid" is
   // the sharpest case: toasting an amount "in the bank" that was never
   // actually recorded is the worst version of this bug.
-  const handleMarkSent = () => {
+  const handleMarkSent = async () => {
     if (!canMarkSent(invoice)) {
       toast("Add a due date before marking this sent");
       return;
     }
     const updated: Invoice = { ...invoice, status: "sent", updatedAt: new Date().toISOString() };
-    if (!save(updated)) return;
+    if (!(await save(updated))) return;
     toast(`${invoice.invoiceNumber} marked as sent`);
   };
 
-  const handleMarkPaid = () => {
+  const handleMarkPaid = async () => {
     // Defaults `paidOn` to today — one click, no friction. Editable
     // afterwards from the "Paid on" field below: you mark an invoice paid
     // when you *notice*, not necessarily when the money actually landed.
@@ -122,7 +122,7 @@ export default function InvoiceDetailPage() {
       paidOn: format(new Date(), "yyyy-MM-dd"),
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    if (!(await save(updated))) return;
     const amount = formatCurrency(invoice.total, currency);
     toast(
       invoice.reminders.length > 0
@@ -137,7 +137,7 @@ export default function InvoiceDetailPage() {
   // than clamped: a rejected edit leaves the field showing the last
   // persisted value (it's a controlled input bound to `invoice.paidOn`, not
   // local state), so there's nothing to revert.
-  const handlePaidOnChange = (value: string) => {
+  const handlePaidOnChange = async (value: string) => {
     if (value) {
       const result = validatePaidOn(value, invoice.billDate);
       if (!result.ok) {
@@ -150,20 +150,20 @@ export default function InvoiceDetailPage() {
       paidOn: value || undefined,
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    if (!(await save(updated))) return;
     toast(value ? "Payment date updated" : "Payment date cleared");
   };
 
   // Unreachable while FEATURES.followups is off — the follow-ups card below
   // (the only UI that calls this) doesn't render. Left in place so it works
   // the moment the flag flips back on.
-  const handleTogglePause = () => {
+  const handleTogglePause = async () => {
     const updated: Invoice = {
       ...invoice,
       followupsPaused: !invoice.followupsPaused,
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    if (!(await save(updated))) return;
     toast(
       updated.followupsPaused
         ? `Follow-ups paused for ${invoice.invoiceNumber}`
@@ -174,18 +174,18 @@ export default function InvoiceDetailPage() {
   // MOCK: no email is ever sent. This only records today's date on the
   // invoice's reminder history and toasts as if it had gone out.
   // Also unreachable while FEATURES.followups is off — see handleTogglePause.
-  const handleSendNow = () => {
+  const handleSendNow = async () => {
     const updated: Invoice = {
       ...invoice,
       reminders: [...invoice.reminders, format(new Date(), "yyyy-MM-dd")],
       updatedAt: new Date().toISOString(),
     };
-    if (!save(updated)) return;
+    if (!(await save(updated))) return;
     toast(`"${template?.name ?? "Reminder"}" sent to ${invoice.client.companyName}`);
   };
 
-  const handleDelete = () => {
-    if (!remove(invoice.id)) return;
+  const handleDelete = async () => {
+    if (!(await remove(invoice.id))) return;
     setDeleteOpen(false);
     toast(`${invoice.invoiceNumber} deleted`);
     router.push("/");

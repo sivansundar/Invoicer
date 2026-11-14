@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 import { SiteHeader } from "./site-header";
 import { BrandFilterProvider } from "@/components/brand-filter/brand-filter-provider";
+import { LocalDataUpload } from "@/components/local-data-upload";
 import { runMigration } from "@/lib/storage";
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <SidebarInset>
           <SiteHeader />
+          <LocalDataUpload />
           <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
         </SidebarInset>
       </SidebarProvider>

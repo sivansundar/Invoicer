@@ -27,3 +27,12 @@ vi.mock("@clerk/nextjs", () => ({
   }),
   UserButton: () => null,
 }));
+
+// No server in tests. A write "reaches the server" exactly when a
+// localStorage write would succeed, so the existing way of simulating a
+// failed save (making `localStorage.setItem` throw a quota error) still
+// works, toast included.
+vi.mock("@/lib/api", async () => {
+  const { writeLocalStorage } = await import("@/lib/local-storage");
+  return { send: async () => writeLocalStorage("invoicer_test_api", "1") };
+});

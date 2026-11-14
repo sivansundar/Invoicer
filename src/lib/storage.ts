@@ -4,12 +4,10 @@ import {
   runMigration as runMigrationInternal,
 } from "./migrate";
 import { writeLocalStorage } from "./local-storage";
+import { send } from "./api";
 
 export { nextInvoiceNumber } from "./numbering";
 
-const BRANDS_KEY = "invoicer_brands";
-const CLIENTS_KEY = "invoicer_clients";
-const INVOICES_KEY = "invoicer_invoices";
 const TEMPLATES_KEY = "invoicer_templates";
 const PLAN_KEY = "invoicer_plan";
 
@@ -143,18 +141,6 @@ export function forceMigration(): void {
   notify();
 }
 
-export function getBrandsSnapshot(): Brand[] {
-  return getSnapshot<Brand>(BRANDS_KEY);
-}
-
-export function getClientsSnapshot(): Client[] {
-  return getSnapshot<Client>(CLIENTS_KEY);
-}
-
-export function getInvoicesSnapshot(): Invoice[] {
-  return getSnapshot<Invoice>(INVOICES_KEY);
-}
-
 export function getTemplatesSnapshot(): EmailTemplate[] {
   return getSnapshot<EmailTemplate>(TEMPLATES_KEY);
 }
@@ -190,86 +176,83 @@ function invalidatePlan(): void {
   notify();
 }
 
-// Brands
-export function getBrands(): Brand[] {
-  return getItem<Brand>(BRANDS_KEY);
+// Brands, clients and invoices live on the server. This module keeps the
+// signed-in user's copy in memory: `hydrate` fills it once from the data the
+// root layout loaded, reads are synchronous, and a save shows up here at once
+// and is taken back if the server refuses it.
+type ServerKind = "brands" | "clients" | "invoices";
+type ServerData = { brands: Brand[]; clients: Client[]; invoices: Invoice[] };
+
+const server: ServerData = { brands: EMPTY, clients: EMPTY, invoices: EMPTY };
+
+export function hydrate(data: ServerData): void {
+  // Never on the server: this module's state would be shared across requests.
+  if (typeof window === "undefined") return;
+  server.brands = data.brands;
+  server.clients = data.clients;
+  server.invoices = data.invoices;
+  notify();
 }
 
-export function getBrand(id: string): Brand | null {
-  return getBrands().find((b) => b.id === id) ?? null;
+function put<T extends { id: string }>(kind: ServerKind, record: T): void {
+  const list = server[kind] as unknown as T[];
+  const index = list.findIndex((r) => r.id === record.id);
+  const next = index >= 0 ? list.map((r, i) => (i === index ? record : r)) : [...list, record];
+  (server[kind] as unknown) = next;
+  notify();
 }
 
-export function saveBrand(brand: Brand): boolean {
-  const brands = getBrands();
-  const index = brands.findIndex((b) => b.id === brand.id);
-  if (index >= 0) {
-    brands[index] = brand;
-  } else {
-    brands.push(brand);
-  }
-  return setItem(BRANDS_KEY, brands);
+function drop(kind: ServerKind, id: string): void {
+  (server[kind] as unknown) = (server[kind] as { id: string }[]).filter((r) => r.id !== id);
+  notify();
 }
 
-export function deleteBrand(id: string): boolean {
-  return setItem(
-    BRANDS_KEY,
-    getBrands().filter((b) => b.id !== id)
-  );
+/**
+ * Resolves to whether the server accepted the write, so a caller can hold
+ * its "saved" message and navigation until it has.
+ */
+// shortcut: a failed save restores the record as it was before *this* save,
+// which is wrong if a second save of the same record landed in between.
+// Upgrade to per-record versions if saves ever overlap in practice.
+function save<T extends { id: string }>(kind: ServerKind, record: T): Promise<boolean> {
+  const before = (server[kind] as unknown as T[]).find((r) => r.id === record.id);
+  put(kind, record);
+  return send("PUT", `${kind}/${encodeURIComponent(record.id)}`, record).then((ok) => {
+    if (!ok) {
+      if (before) put(kind, before);
+      else drop(kind, record.id);
+    }
+    return ok;
+  });
 }
 
-// Clients
-export function getClients(): Client[] {
-  return getItem<Client>(CLIENTS_KEY);
+function remove(kind: ServerKind, id: string): Promise<boolean> {
+  const before = (server[kind] as { id: string }[]).find((r) => r.id === id);
+  drop(kind, id);
+  return send("DELETE", `${kind}/${encodeURIComponent(id)}`).then((ok) => {
+    if (!ok && before) put(kind, before);
+    return ok;
+  });
 }
 
-export function getClient(id: string): Client | null {
-  return getClients().find((c) => c.id === id) ?? null;
-}
+export const getBrandsSnapshot = (): Brand[] => server.brands;
+export const getClientsSnapshot = (): Client[] => server.clients;
+export const getInvoicesSnapshot = (): Invoice[] => server.invoices;
 
-export function saveClient(client: Client): boolean {
-  const clients = getClients();
-  const index = clients.findIndex((c) => c.id === client.id);
-  if (index >= 0) {
-    clients[index] = client;
-  } else {
-    clients.push(client);
-  }
-  return setItem(CLIENTS_KEY, clients);
-}
+export const getBrands = getBrandsSnapshot;
+export const getBrand = (id: string): Brand | null => server.brands.find((b) => b.id === id) ?? null;
+export const saveBrand = (brand: Brand): Promise<boolean> => save("brands", brand);
+export const deleteBrand = (id: string): Promise<boolean> => remove("brands", id);
 
-export function deleteClient(id: string): boolean {
-  return setItem(
-    CLIENTS_KEY,
-    getClients().filter((c) => c.id !== id)
-  );
-}
+export const getClients = getClientsSnapshot;
+export const getClient = (id: string): Client | null => server.clients.find((c) => c.id === id) ?? null;
+export const saveClient = (client: Client): Promise<boolean> => save("clients", client);
+export const deleteClient = (id: string): Promise<boolean> => remove("clients", id);
 
-// Invoices
-export function getInvoices(): Invoice[] {
-  return getItem<Invoice>(INVOICES_KEY);
-}
-
-export function getInvoice(id: string): Invoice | null {
-  return getInvoices().find((i) => i.id === id) ?? null;
-}
-
-export function saveInvoice(invoice: Invoice): boolean {
-  const invoices = getInvoices();
-  const index = invoices.findIndex((i) => i.id === invoice.id);
-  if (index >= 0) {
-    invoices[index] = invoice;
-  } else {
-    invoices.push(invoice);
-  }
-  return setItem(INVOICES_KEY, invoices);
-}
-
-export function deleteInvoice(id: string): boolean {
-  return setItem(
-    INVOICES_KEY,
-    getInvoices().filter((i) => i.id !== id)
-  );
-}
+export const getInvoices = getInvoicesSnapshot;
+export const getInvoice = (id: string): Invoice | null => server.invoices.find((i) => i.id === id) ?? null;
+export const saveInvoice = (invoice: Invoice): Promise<boolean> => save("invoices", invoice);
+export const deleteInvoice = (id: string): Promise<boolean> => remove("invoices", id);
 
 // Templates
 export function getTemplates(): EmailTemplate[] {

@@ -13,11 +13,11 @@ const MAX_ROWS = 6;
 interface FollowupQueueProps {
   entries: FollowupQueueEntry[];
   templates: EmailTemplate[];
-  onSaveInvoice: (invoice: Invoice) => boolean;
+  onSaveInvoice: (invoice: Invoice) => Promise<boolean>;
 }
 
 export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQueueProps) {
-  const handlePause = (invoice: Invoice) => {
+  const handlePause = async (invoice: Invoice) => {
     const updated: Invoice = {
       ...invoice,
       followupsPaused: true,
@@ -28,7 +28,7 @@ export function FollowupQueue({ entries, templates, onSaveInvoice }: FollowupQue
     // `storage.ts` has already toasted its own failure message for). Toasting
     // "paused" regardless would tell the user it worked when the invoice's
     // queue row hasn't actually gone anywhere.
-    if (!onSaveInvoice(updated)) return;
+    if (!(await onSaveInvoice(updated))) return;
     toast(`Follow-ups paused for ${invoice.invoiceNumber}`);
   };
 

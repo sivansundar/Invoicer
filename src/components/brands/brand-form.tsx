@@ -206,7 +206,7 @@ export function BrandForm({ brand }: BrandFormProps) {
 
   const handleRemoveLogo = () => setLogo("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -227,10 +227,10 @@ export function BrandForm({ brand }: BrandFormProps) {
     // its own clear failure message for). Toasting success and navigating
     // away regardless would tell the user this worked when it didn't, and
     // take them off the one screen still holding what they typed.
-    const persisted = save(record);
+    const persisted = await save(record);
     if (!persisted) return;
     // Existing invoices pick up payment changes (see `withBrandPaymentUpdates`).
-    for (const invoice of withBrandPaymentUpdates(record, invoices)) saveInvoice(invoice);
+    await Promise.all(withBrandPaymentUpdates(record, invoices).map(saveInvoice));
 
     toast(
       isEdit
@@ -240,14 +240,14 @@ export function BrandForm({ brand }: BrandFormProps) {
     router.push("/brands");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!brand) return;
     const guard = brandDeleteGuard(brand, invoices);
     if (!guard.allowed) {
       toast(`Move or delete its ${guard.count} invoices first`);
       return;
     }
-    if (!remove(brand.id)) return;
+    if (!(await remove(brand.id))) return;
     if (activeBrandId === brand.id) {
       setBrandId(null);
     }

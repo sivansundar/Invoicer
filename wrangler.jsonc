@@ -8,6 +8,10 @@
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "observability": { "enabled": true },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "invoicer" }],
+  // database_id is a placeholder until `wrangler d1 create invoicer`; local dev ignores it.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "invoicer", "database_id": "00000000-0000-0000-0000-000000000000" }
+  ],
   "vars": {
     "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in",
     "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/"

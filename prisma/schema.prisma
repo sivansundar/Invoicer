@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "cloudflare"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Each row keeps the app's own object (src/lib/types.ts) whole in `data`, as
+// JSON text. Real columns exist only for what the server filters or constrains.
+// Tables are created by the SQL files in /migrations (wrangler applies them);
+// keep the two in step by hand.
+
+model Brand {
+  id        String   @id
+  ownerId   String   @map("owner_id") // Clerk user id
+  data      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId])
+  @@map("brands")
+}
+
+model Client {
+  id        String   @id
+  ownerId   String   @map("owner_id")
+  data      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId])
+  @@map("clients")
+}
+
+model Invoice {
+  id            String   @id
+  ownerId       String   @map("owner_id")
+  brandId       String   @map("brand_id")
+  invoiceNumber String   @map("invoice_number")
+  status        String
+  data          String
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([brandId, invoiceNumber])
+  @@index([ownerId])
+  @@map("invoices")
+}

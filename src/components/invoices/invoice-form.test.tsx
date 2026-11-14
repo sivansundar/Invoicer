@@ -105,6 +105,7 @@ describe("InvoiceForm", () => {
     // underlying localStorage mock) so no fixture from a previous test can
     // leak into this one — see runMigration's cache-clearing contract.
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
   });
@@ -585,6 +586,7 @@ describe("InvoiceForm — payment method (IFSC / ACH)", () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
   });

@@ -22,7 +22,7 @@ interface BrandFollowupCardProps {
   brand: Brand;
   invoices: Invoice[];
   templates: EmailTemplate[];
-  onSaveBrand: (brand: Brand) => boolean;
+  onSaveBrand: (brand: Brand) => Promise<boolean>;
 }
 
 export function BrandFollowupCard({

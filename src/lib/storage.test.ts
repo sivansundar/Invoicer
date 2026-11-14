@@ -22,63 +22,25 @@ const v1Brand = {
   },
 };
 
-describe("storage — runMigration cache invalidation", () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
-
+describe("storage — server-backed brands", () => {
   beforeEach(() => {
     localStorage.clear();
-    // The quarantine path (irrelevant here, but shared with migrate.test.ts)
-    // calls console.warn by design — stub it so the run stays pristine.
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // Each test gets a fresh module instance, and therefore a fresh,
-    // empty snapshot cache — otherwise a snapshot cached by an earlier
-    // test in this file would leak into the next one.
     vi.resetModules();
+    toast.mockClear();
   });
 
   afterEach(() => {
-    warnSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
-  it("drops a snapshot cached before migration so the next read reflects migrated data", async () => {
+  it("shows a save in getBrands immediately and resolves true", async () => {
     const storage = await import("./storage");
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
 
-    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
-
-    // Simulate a hook reading its snapshot during the same first render
-    // that Shell's `useEffect(() => runMigration())` will run in — the
-    // cache gets populated with pre-migration data before migration runs.
-    const before = storage.getBrandsSnapshot();
-    expect(before[0].accentColor).toBeUndefined();
-    expect(before[0].followup).toBeUndefined();
-
-    storage.runMigration();
-
-    const after = storage.getBrandsSnapshot();
-    expect(after).not.toBe(before);
-    expect(after[0].accentColor).toBeDefined();
-    expect(after[0].followup).toBeDefined();
-    expect(after[0].followup.mode).toBe("weekly");
-  });
-
-  it("forceMigration drops a cached snapshot even when the version key is already current", async () => {
-    const storage = await import("./storage");
-
-    localStorage.setItem("invoicer_schema_version", "2");
-    localStorage.setItem("invoicer_brands", JSON.stringify([v1Brand]));
-
-    // Same scenario as an import: the version key already matches, so a
-    // plain `runMigration()` would no-op and this stale, pre-migration
-    // snapshot would never get dropped.
-    const before = storage.getBrandsSnapshot();
-    expect(before[0].accentColor).toBeUndefined();
-
-    storage.forceMigration();
-
-    const after = storage.getBrandsSnapshot();
-    expect(after).not.toBe(before);
-    expect(after[0].accentColor).toBeDefined();
-    expect(after[0].followup).toBeDefined();
+    const pending = storage.saveBrand(fullBrand());
+    expect(storage.getBrands()).toHaveLength(1);
+    expect(await pending).toBe(true);
+    expect(storage.getBrands()).toHaveLength(1);
   });
 });
 
@@ -145,16 +107,43 @@ describe("storage — quota exceeded", () => {
     vi.restoreAllMocks();
   });
 
-  it("surfaces a QuotaExceededError as a toast instead of throwing", async () => {
+  function failWrites(storage: typeof import("./storage")) {
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+  }
+
+  it("surfaces a QuotaExceededError as a toast and removes a refused new record", async () => {
     const storage = await import("./storage");
+    failWrites(storage);
+
+    expect(await storage.saveBrand(fullBrand())).toBe(false);
+    expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
+    // The failed write must not be treated as if it succeeded.
+    expect(storage.getBrands()).toHaveLength(0);
+  });
+
+  it("restores an edited record to its previous value when the save is refused", async () => {
+    const storage = await import("./storage");
+    storage.hydrate({ brands: [fullBrand()], clients: [], invoices: [] });
     vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
     });
 
-    expect(() => storage.saveBrand(fullBrand())).not.toThrow();
-    expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
-    // The failed write must not be treated as if it succeeded.
-    expect(storage.getBrands()).toHaveLength(0);
+    expect(await storage.saveBrand(fullBrand({ name: "Renamed" }))).toBe(false);
+    expect(storage.getBrand("b1")?.name).toBe("Sivan Studio");
+  });
+
+  it("puts a record back when its delete is refused", async () => {
+    const storage = await import("./storage");
+    storage.hydrate({ brands: [fullBrand()], clients: [], invoices: [] });
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+
+    expect(await storage.deleteBrand("b1")).toBe(false);
+    expect(storage.getBrands()).toHaveLength(1);
   });
 
   it("surfaces the older Firefox quota error name the same way", async () => {
@@ -163,7 +152,7 @@ describe("storage — quota exceeded", () => {
       throw new DOMException("Persistent storage maxed out", "NS_ERROR_DOM_QUOTA_REACHED");
     });
 
-    expect(() => storage.saveBrand(fullBrand())).not.toThrow();
+    expect(await storage.saveBrand(fullBrand())).toBe(false);
     expect(toast).toHaveBeenCalledWith(expect.stringContaining("Storage is full"));
   });
 
@@ -173,7 +162,7 @@ describe("storage — quota exceeded", () => {
       throw new Error("some unrelated failure");
     });
 
-    expect(() => storage.saveBrand(fullBrand())).toThrow("some unrelated failure");
+    await expect(storage.saveBrand(fullBrand())).rejects.toThrow("some unrelated failure");
     expect(toast).not.toHaveBeenCalled();
   });
 

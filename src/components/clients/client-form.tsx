@@ -52,7 +52,7 @@ export function ClientForm({ client }: ClientFormProps) {
 
   const clientInvoices = isEdit ? invoicesToUnlink(client.id, invoices) : [];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = companyName.trim();
     if (!trimmedName) {
@@ -86,7 +86,7 @@ export function ClientForm({ client }: ClientFormProps) {
     // own clear failure message for). Toasting success and navigating away
     // regardless would tell the user this worked when it didn't, and take
     // them off the one screen still holding what they typed.
-    const persisted = save(record);
+    const persisted = await save(record);
     if (!persisted) return;
 
     toast(
@@ -97,7 +97,7 @@ export function ClientForm({ client }: ClientFormProps) {
     router.push("/clients");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!client) return;
 
     // Unlike a brand — whose invoices carry only a live `brandId`, nothing
@@ -125,10 +125,12 @@ export function ClientForm({ client }: ClientFormProps) {
     // write, and silently telling the user "removed" while an invoice is
     // left with a dangling `clientId` is exactly the false-success bug this
     // pattern exists to prevent.
-    if (!remove(client.id)) return;
+    if (!(await remove(client.id))) return;
 
-    const results = clientInvoices.map((invoice) =>
-      saveInvoice({ ...invoice, clientId: null, updatedAt: new Date().toISOString() })
+    const results = await Promise.all(
+      clientInvoices.map((invoice) =>
+        saveInvoice({ ...invoice, clientId: null, updatedAt: new Date().toISOString() })
+      )
     );
     const failures = results.filter((persisted) => !persisted).length;
 
