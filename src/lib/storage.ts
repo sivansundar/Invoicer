@@ -185,13 +185,18 @@ type ServerData = { brands: Brand[]; clients: Client[]; invoices: Invoice[] };
 
 const server: ServerData = { brands: EMPTY, clients: EMPTY, invoices: EMPTY };
 
-export function hydrate(data: ServerData): void {
+/**
+ * `announce: false` is for calling during a React render, where telling
+ * already-mounted subscribers to update is not allowed; follow it with a
+ * plain `hydrate(data)` from an effect.
+ */
+export function hydrate(data: ServerData, announce = true): void {
   // Never on the server: this module's state would be shared across requests.
   if (typeof window === "undefined") return;
   server.brands = data.brands;
   server.clients = data.clients;
   server.invoices = data.invoices;
-  notify();
+  if (announce) notify();
 }
 
 function put<T extends { id: string }>(kind: ServerKind, record: T): void {
