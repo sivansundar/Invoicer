@@ -49,3 +49,6 @@ next-env.d.ts
 .wrangler/
 .dev.vars
 !.env.example
+
+# clerk
+.clerk/
