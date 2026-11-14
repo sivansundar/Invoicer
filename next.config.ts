@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-const nextConfig: NextConfig = {
-  output: "standalone",
-};
+// Makes the Cloudflare bindings in wrangler.jsonc available under `next dev`.
+initOpenNextCloudflareForDev();
+
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

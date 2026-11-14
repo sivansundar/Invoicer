@@ -43,3 +43,9 @@ next-env.d.ts
 
 # agent worktrees
 .claude/worktrees/
+
+# cloudflare
+.open-next/
+.wrangler/
+.dev.vars
+!.env.example

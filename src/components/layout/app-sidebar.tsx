@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
+import { UserButton, useUser } from "@clerk/nextjs";
 import {
   Bell,
   Building2,
@@ -38,9 +39,6 @@ const ALL_NAV_ITEMS = [
 
 const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.flag || FEATURES[item.flag]);
 
-// The current user is a static local record — there is no auth in this build.
-const LOCAL_USER = { name: "Sivan", email: "hello@sivansundar.com" };
-
 function isNavItemActive(pathname: string, href: string): boolean {
   if (href === "/") {
     if (pathname === "/") return true;
@@ -55,6 +53,7 @@ function isNavItemActive(pathname: string, href: string): boolean {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useUser();
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -98,12 +97,12 @@ export function AppSidebar() {
       <SidebarFooter>
         {FEATURES.billing && <PlanCard />}
         <div className="flex items-center gap-2 p-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-accent text-xs font-medium">
-            {LOCAL_USER.name.charAt(0)}
-          </span>
+          <UserButton />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-medium">{LOCAL_USER.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{LOCAL_USER.email}</span>
+            <span className="truncate text-sm font-medium">{user?.fullName ?? user?.firstName}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {user?.primaryEmailAddress?.emailAddress}
+            </span>
           </span>
         </div>
       </SidebarFooter>
