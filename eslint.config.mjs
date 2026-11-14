@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated: Cloudflare build output, binding types, Prisma client.
+    ".open-next/**",
+    ".wrangler/**",
+    "cloudflare-env.d.ts",
+    "src/generated/**",
   ]),
   {
     // These files render a user-uploaded brand logo that is stored (and

@@ -6,22 +6,6 @@ vi.mock("sonner", () => ({
   toast: (...args: unknown[]) => toast(...args),
 }));
 
-const v1Brand = {
-  id: "b1",
-  name: "Sivan Studio",
-  address: "44, 100 Feet Rd, Indiranagar, Bengaluru 560038",
-  email: "billing@sivan.studio",
-  invoicePrefix: "SC",
-  nextInvoiceNumber: 15,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  bankDetails: {
-    accountName: "Sivan Studio",
-    accountNumber: "50100234914210",
-    bankName: "HDFC Bank",
-    ifscCode: "HDFC0001234",
-  },
-};
-
 describe("storage — server-backed brands", () => {
   beforeEach(() => {
     localStorage.clear();
