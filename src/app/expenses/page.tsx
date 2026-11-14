@@ -15,12 +15,36 @@ import { useExpenses } from "@/hooks/use-expenses";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
   EXPENSE_FILE_TYPES,
+  MAX_EXPENSE_FILE_BYTES,
   expenseFileProblem,
   expenseFyStartYear,
   formatExpenseAmount,
   reviewReasons,
 } from "@/lib/expenses";
 import { fyLabel } from "@/lib/reports";
+
+/**
+ * Phone photos are often 5 MB or more, over the upload limit. Redrawing one
+ * at up to 2400 px as JPEG keeps printed text readable at a fraction of the
+ * size. PDFs and already-small images pass through untouched.
+ */
+async function fitPhoto(file: File): Promise<File> {
+  if (!file.type.startsWith("image/") || file.size <= MAX_EXPENSE_FILE_BYTES / 2) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    // Couldn't decode it here; let the size check decide.
+    return file;
+  }
+}
 
 export default function ExpensesPage() {
   return (
@@ -75,7 +99,8 @@ function ExpensesContent() {
 
   const handleFiles = async (list: FileList | null) => {
     if (!list || !uploadBrandId) return;
-    for (const file of Array.from(list)) {
+    for (const original of Array.from(list)) {
+      const file = await fitPhoto(original);
       const problem = expenseFileProblem(file);
       if (problem) {
         toast(`${file.name}: ${problem}`);

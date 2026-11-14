@@ -1,12 +1,13 @@
-import { files, findExpense } from "@/lib/server/expenses";
+import { findExpense } from "@/lib/server/expenses";
+import { files } from "@/lib/server/files";
 
 /** The uploaded file itself, for anyone allowed to view the expense. */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const r = await findExpense(ctx, "view");
   if (r instanceof Response) return r;
-  const object = await files().get(r.row.fileKey);
+  const object = await files.get(r.row.fileKey);
   if (!object) return Response.json({ error: "The file is missing." }, { status: 404 });
-  return new Response(object.body as unknown as BodyInit, {
+  return new Response(object.body, {
     headers: {
       "content-type": r.expense.fileType,
       "content-disposition": `inline; filename="${r.expense.fileName.replace(/[^\w.\- ]/g, "_")}"`,

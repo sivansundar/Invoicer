@@ -1,5 +1,6 @@
 import { ExpenseFields, type Expense } from "@/lib/expenses";
-import { expenseColumns, files, findExpense, type ExpenseCtx as Ctx } from "@/lib/server/expenses";
+import { expenseColumns, findExpense, type ExpenseCtx as Ctx } from "@/lib/server/expenses";
+import { files } from "@/lib/server/files";
 
 const fail = (status: number, error: string) => Response.json({ error }, { status });
 
@@ -25,6 +26,6 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   const r = await findExpense(ctx, "edit");
   if (r instanceof Response) return r;
   await r.d.expense.delete({ where: { id: r.row.id } });
-  await files().delete(r.row.fileKey);
+  await files.delete(r.row.fileKey);
   return Response.json({ ok: true });
 }

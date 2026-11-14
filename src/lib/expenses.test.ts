@@ -45,11 +45,11 @@ describe("reviewReasons", () => {
 });
 
 describe("expense helpers", () => {
-  it("accepts PDFs and common images up to 10 MB only", () => {
+  it("accepts PDFs and common images up to 4 MB only", () => {
     expect(expenseFileProblem({ type: "application/pdf", size: 1000 })).toBeNull();
     expect(expenseFileProblem({ type: "image/heic", size: 1000 })).toMatch(/PDF/);
     expect(expenseFileProblem({ type: "image/png", size: 0 })).toMatch(/empty/);
-    expect(expenseFileProblem({ type: "image/png", size: 11 * 1024 * 1024 })).toMatch(/10 MB/);
+    expect(expenseFileProblem({ type: "image/png", size: 5 * 1024 * 1024 })).toMatch(/4 MB/);
   });
 
   it("puts January to March in the financial year that started the year before", () => {

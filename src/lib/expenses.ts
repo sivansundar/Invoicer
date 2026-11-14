@@ -60,7 +60,9 @@ export const EMPTY_EXPENSE_FIELDS: ExpenseFields = {
 };
 
 export const EXPENSE_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
-export const MAX_EXPENSE_FILE_BYTES = 10 * 1024 * 1024;
+// Vercel rejects a request body over 4.5 MB before it reaches the app.
+// shortcut: larger files would need a direct browser-to-R2 upload (presigned URL).
+export const MAX_EXPENSE_FILE_BYTES = 4 * 1024 * 1024;
 
 /** Why a file can't be uploaded, or null if it can. */
 export function expenseFileProblem(file: { type: string; size: number }): string | null {
@@ -68,7 +70,7 @@ export function expenseFileProblem(file: { type: string; size: number }): string
     return "Upload a PDF, JPEG, PNG or WebP file.";
   }
   if (file.size === 0) return "That file is empty.";
-  if (file.size > MAX_EXPENSE_FILE_BYTES) return "That file is over 10 MB.";
+  if (file.size > MAX_EXPENSE_FILE_BYTES) return "That file is over 4 MB.";
   return null;
 }
 

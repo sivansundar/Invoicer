@@ -2,7 +2,11 @@ import { auth } from "@clerk/nextjs/server";
 import { expenseFileProblem, type Expense } from "@/lib/expenses";
 import { can } from "@/lib/server/access";
 import { db } from "@/lib/server/db";
-import { expenseColumns, fileKey, files, readFields } from "@/lib/server/expenses";
+import { expenseColumns, fileKey, readFields } from "@/lib/server/expenses";
+import { files } from "@/lib/server/files";
+
+// Reading an invoice with Claude can take longer than Vercel's default limit.
+export const maxDuration = 60;
 
 const fail = (status: number, error: string) => Response.json({ error }, { status });
 
@@ -25,7 +29,7 @@ export async function POST(req: Request) {
 
   const id = crypto.randomUUID();
   const bytes = await file.arrayBuffer();
-  await files().put(fileKey(brandId, id), bytes, { httpMetadata: { contentType: file.type } });
+  await files.put(fileKey(brandId, id), bytes, file.type);
 
   const { status, fields } = await readFields(bytes, file.type);
   const now = new Date().toISOString();

@@ -1,5 +1,4 @@
 import { auth } from "@clerk/nextjs/server";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Expense, ExpenseFields } from "@/lib/expenses";
 import { EMPTY_EXPENSE_FIELDS } from "@/lib/expenses";
 import { can, type Level } from "./access";
@@ -9,9 +8,6 @@ import { extractExpense } from "./extract-expense";
 export type ExpenseCtx = { params: Promise<{ id: string }> };
 
 const fail = (status: number, error: string) => Response.json({ error }, { status });
-
-/** The private R2 bucket holding uploaded invoices. Never public: files are served through the API. */
-export const files = () => getCloudflareContext().env.FILES;
 
 export const fileKey = (brandId: string, id: string) => `expenses/${brandId}/${id}`;
 
