@@ -3,7 +3,9 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 // Keeps signed-out visitors off the pages. Data is guarded separately: every
 // API route checks the session itself.
 export default clerkMiddleware(async (auth, req) => {
-  if (!/^\/sign-(in|up)(\/|$)/.test(req.nextUrl.pathname)) await auth.protect();
+  // /export is public so people from before accounts existed can still download
+  // what their browser holds; it reads nothing from the server.
+  if (!/^\/(sign-in|sign-up|export)(\/|$)/.test(req.nextUrl.pathname)) await auth.protect();
 });
 
 export const config = {

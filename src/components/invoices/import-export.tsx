@@ -20,6 +20,7 @@ import {
   validateImportedBackup,
   type CollectionValidation,
 } from "@/lib/import-validation";
+import { downloadBackup, upgradeImported } from "@/lib/backup";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -173,25 +174,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     // and handle this shape without guessing; existing `invoices-<date>.json`
     // files (a bare array, no envelope) predate this and are still read by
     // `handleFileChange`'s legacy path below, unaffected by this change.
-    const backup = {
-      version: 2,
-      exportedAt: new Date().toISOString(),
+    downloadBackup({
       brands: getBrands(),
       clients: getClients(),
       templates: getTemplates(),
       invoices: getInvoices(),
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], {
-      type: "application/json",
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `invoicer-backup-${new Date().toISOString().split("T")[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   /**
@@ -266,7 +254,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
-    const { valid: incoming, skipped: invalidSkipped } = result;
+    const { skipped: invalidSkipped } = result;
+    // Files from older versions of the site hold invoices in an older format.
+    const incoming = upgradeImported(
+      { brands: getBrands(), clients: getClients() },
+      { brands: [], clients: [], invoices: result.valid }
+    ).invoices;
     if (incoming.length === 0) {
       toast(
         invalidSkipped > 0
@@ -290,6 +283,14 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     }
 
     const { brands, clients, templates, invoices } = result;
+    // Files from older versions of the site hold records in an older format.
+    const upgraded = upgradeImported(
+      { brands: getBrands(), clients: getClients() },
+      { brands: brands.valid, clients: clients.valid, invoices: invoices.valid }
+    );
+    brands.valid = upgraded.brands;
+    clients.valid = upgraded.clients;
+    invoices.valid = upgraded.invoices;
     const totalValid =
       brands.valid.length + clients.valid.length + templates.valid.length + invoices.valid.length;
 
