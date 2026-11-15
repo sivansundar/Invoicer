@@ -20,6 +20,7 @@ import {
   validateImportedBackup,
   type CollectionValidation,
 } from "@/lib/import-validation";
+import { downloadBackup, upgradeImported } from "@/lib/backup";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -105,11 +106,11 @@ function hasAnyCollectionWrite(collections: ImportedCollections): boolean {
  * an export into a populated app never clobbers a local edit. Every skip and
  * every failed write is counted, never silently dropped.
  */
-function importCollection<T extends { id: string }>(
+async function importCollection<T extends { id: string }>(
   validation: CollectionValidation<T>,
   existingIds: Set<string>,
-  save: (item: T) => boolean
-): CollectionImportResult {
+  save: (item: T) => boolean | Promise<boolean>
+): Promise<CollectionImportResult> {
   const seenThisBatch = new Set<string>();
   let imported = 0;
   let skippedExisting = 0;
@@ -121,7 +122,7 @@ function importCollection<T extends { id: string }>(
       continue;
     }
     seenThisBatch.add(item.id);
-    if (save(item)) imported++;
+    if (await save(item)) imported++;
     else failed++;
   }
 
@@ -173,25 +174,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     // and handle this shape without guessing; existing `invoices-<date>.json`
     // files (a bare array, no envelope) predate this and are still read by
     // `handleFileChange`'s legacy path below, unaffected by this change.
-    const backup = {
-      version: 2,
-      exportedAt: new Date().toISOString(),
+    downloadBackup({
       brands: getBrands(),
       clients: getClients(),
       templates: getTemplates(),
       invoices: getInvoices(),
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], {
-      type: "application/json",
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `invoicer-backup-${new Date().toISOString().split("T")[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   /**
@@ -200,7 +188,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
    * exactly the invoice conflict-detection and dialog flow this component
    * had before full backups existed, untouched in behaviour either way.
    */
-  const beginInvoiceReconciliation = (
+  const beginInvoiceReconciliation = async (
     incoming: Invoice[],
     invalidSkipped: number,
     collections: ImportedCollections
@@ -237,7 +225,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       let saved = 0;
       let failed = 0;
       for (const inv of newNonConflicting) {
-        if (saveInvoice(inv)) saved++;
+        if (await saveInvoice(inv)) saved++;
         else failed++;
       }
       if (saved > 0 || hasAnyCollectionWrite(collections)) forceMigration();
@@ -266,7 +254,12 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       return;
     }
 
-    const { valid: incoming, skipped: invalidSkipped } = result;
+    const { skipped: invalidSkipped } = result;
+    // Files from older versions of the site hold invoices in an older format.
+    const incoming = upgradeImported(
+      { brands: getBrands(), clients: getClients() },
+      { brands: [], clients: [], invoices: result.valid }
+    ).invoices;
     if (incoming.length === 0) {
       toast(
         invalidSkipped > 0
@@ -280,7 +273,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
   };
 
   /** The full-backup envelope shape: `{ version, exportedAt, brands, clients, templates, invoices }`. */
-  const importBackupEnvelope = (parsed: unknown) => {
+  const importBackupEnvelope = async (parsed: unknown) => {
     const result = validateImportedBackup(parsed);
     if (!result.ok) {
       toast(
@@ -290,6 +283,14 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     }
 
     const { brands, clients, templates, invoices } = result;
+    // Files from older versions of the site hold records in an older format.
+    const upgraded = upgradeImported(
+      { brands: getBrands(), clients: getClients() },
+      { brands: brands.valid, clients: clients.valid, invoices: invoices.valid }
+    );
+    brands.valid = upgraded.brands;
+    clients.valid = upgraded.clients;
+    invoices.valid = upgraded.invoices;
     const totalValid =
       brands.valid.length + clients.valid.length + templates.valid.length + invoices.valid.length;
 
@@ -311,17 +312,17 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     // Written before invoices are even looked at, so an imported invoice's
     // brandId/clientId resolve against records that already exist by the
     // time forceMigration (and every screen after it) reads them.
-    const brandsResult = importCollection(
+    const brandsResult = await importCollection(
       brands,
       new Set(getBrands().map((b) => b.id)),
       saveBrand
     );
-    const clientsResult = importCollection(
+    const clientsResult = await importCollection(
       clients,
       new Set(getClients().map((c) => c.id)),
       saveClient
     );
-    const templatesResult = importCollection(
+    const templatesResult = await importCollection(
       templates,
       new Set(getTemplates().map((t) => t.id)),
       saveTemplate
@@ -413,7 +414,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
     onImportDone();
   };
 
-  const applyResolution = (resolution: ConflictResolution) => {
+  const applyResolution = async (resolution: ConflictResolution) => {
     const newResolutions = [...resolutions, resolution];
 
     if (conflictIndex < conflicts.length - 1) {
@@ -427,7 +428,7 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
       let saved = 0;
       let failed = 0;
       for (const inv of nonConflicting) {
-        if (saveInvoice(inv)) saved++;
+        if (await saveInvoice(inv)) saved++;
         else failed++;
       }
 
@@ -440,25 +441,22 @@ export function ImportExport({ onImportDone }: { onImportDone: () => void }) {
         const res = newResolutions[i];
 
         if (res.action === "overwrite") {
-          // Save the incoming record before touching the existing one — if
-          // the write fails (e.g. a full quota), the existing invoice is
-          // still there rather than being deleted out from under a save
-          // that never landed.
-          if (!saveInvoice(incoming)) {
+          // The server allows one invoice per number within a brand, so an
+          // existing record under a different id has to go first. If the
+          // incoming save then fails, the existing one is put back.
+          const replacesOther = existing.id !== incoming.id;
+          if (replacesOther && !(await deleteInvoice(existing.id))) {
             failed++;
             continue;
           }
-          // If the old record under a different id can't be deleted (e.g. a
-          // full quota mid-import), both records now sit in storage under
-          // the same invoiceNumber — that's a failed overwrite, not a clean
-          // one, even though the new invoice did persist.
-          if (existing.id !== incoming.id && !deleteInvoice(existing.id)) {
+          if (!(await saveInvoice(incoming))) {
+            if (replacesOther) await saveInvoice(existing);
             failed++;
             continue;
           }
           overwritten++;
         } else if (res.action === "rename") {
-          if (saveInvoice({ ...incoming, invoiceNumber: res.newNumber })) {
+          if (await saveInvoice({ ...incoming, invoiceNumber: res.newNumber })) {
             renamed++;
           } else {
             failed++;

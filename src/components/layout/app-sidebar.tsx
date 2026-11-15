@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
+import { UserButton, useUser } from "@clerk/nextjs";
 import {
   Bell,
   Building2,
@@ -11,6 +12,7 @@ import {
   FileText,
   LayoutDashboard,
   Mail,
+  Receipt,
   Users,
 } from "lucide-react";
 import {
@@ -26,10 +28,12 @@ import { Button } from "@/components/ui/button";
 import { BrandSwitcher } from "./brand-switcher";
 import { PlanCard } from "./plan-card";
 import { FEATURES } from "@/lib/features";
+import { useCanCreateInvoices } from "@/hooks/use-permissions";
 
 const ALL_NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "Invoices", icon: FileText, href: "/invoices/create" },
+  { label: "Expenses", icon: Receipt, href: "/expenses" },
   { label: "Brands", icon: Building2, href: "/brands" },
   { label: "Clients", icon: Users, href: "/clients" },
   { label: "Follow-ups", icon: Bell, href: "/followups", flag: "followups" as const },
@@ -37,9 +41,6 @@ const ALL_NAV_ITEMS = [
 ];
 
 const NAV_ITEMS = ALL_NAV_ITEMS.filter((item) => !item.flag || FEATURES[item.flag]);
-
-// The current user is a static local record — there is no auth in this build.
-const LOCAL_USER = { name: "Sivan", email: "hello@sivansundar.com" };
 
 function isNavItemActive(pathname: string, href: string): boolean {
   if (href === "/") {
@@ -55,18 +56,22 @@ function isNavItemActive(pathname: string, href: string): boolean {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const canCreate = useCanCreateInvoices();
 
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader>
         <BrandSwitcher />
         <div className="flex items-center gap-2 px-0">
-          <Link href="/invoices/create" className="flex-1">
-            <Button size="sm" className="h-8 w-full gap-1.5">
-              <CirclePlus className="h-4 w-4" />
-              Quick create
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/invoices/create" className="flex-1">
+              <Button size="sm" className="h-8 w-full gap-1.5">
+                <CirclePlus className="h-4 w-4" />
+                Quick create
+              </Button>
+            </Link>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -98,12 +103,12 @@ export function AppSidebar() {
       <SidebarFooter>
         {FEATURES.billing && <PlanCard />}
         <div className="flex items-center gap-2 p-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-accent text-xs font-medium">
-            {LOCAL_USER.name.charAt(0)}
-          </span>
+          <UserButton />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-sm font-medium">{LOCAL_USER.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{LOCAL_USER.email}</span>
+            <span className="truncate text-sm font-medium">{user?.fullName ?? user?.firstName}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {user?.primaryEmailAddress?.emailAddress}
+            </span>
           </span>
         </div>
       </SidebarFooter>

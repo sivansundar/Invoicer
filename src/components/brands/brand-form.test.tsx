@@ -95,6 +95,7 @@ describe("BrandForm — logo, phone, PAN", () => {
   beforeEach(() => {
     window.localStorage.clear();
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
 
@@ -206,7 +207,7 @@ describe("BrandForm — logo, phone, PAN", () => {
     // already toasted by `storage.ts` itself) used to be ignored here —
     // `handleSubmit` toasted success and navigated to `/brands` regardless,
     // which told the user their brand was created when it silently wasn't.
-    vi.spyOn(storage, "saveBrand").mockReturnValue(false);
+    vi.spyOn(storage, "saveBrand").mockResolvedValue(false);
     const user = userEvent.setup();
     renderForm();
 
@@ -227,6 +228,7 @@ describe("BrandForm — invoice preview", () => {
   beforeEach(() => {
     window.localStorage.clear();
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
   });
@@ -363,11 +365,12 @@ describe("BrandForm — invoice preview", () => {
 describe("BrandForm — ACH details", () => {
   beforeEach(() => {
     // Restores `storage.saveBrand`'s mock from the "logo, phone, PAN" block
-    // above (`mockReturnValue(false)`, never itself restored) — without
+    // above (`mockResolvedValue(false)`, never itself restored) — without
     // this every save in this block would silently fail the same way.
     vi.restoreAllMocks();
     window.localStorage.clear();
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
   });

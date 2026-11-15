@@ -1,0 +1,18 @@
+{
+  // The app runs on Vercel. This file exists only so wrangler can apply the
+  // SQL files in /migrations to the D1 databases:
+  //   npm run db:migrate        (production)
+  //   npm run db:migrate:dev    (the database local development uses)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "invoicer",
+  "account_id": "f210ee7ef36638fbe0ee7064b3b775a4",
+  "compatibility_date": "2026-10-19",
+  "d1_databases": [
+    { "binding": "DB", "database_name": "invoicer", "database_id": "51e5d588-261a-4447-b6a0-6d198ebfc062" }
+  ],
+  "env": {
+    "dev": {
+      "d1_databases": [{ "binding": "DB", "database_name": "invoicer-dev", "database_id": "a18617c1-fe17-4501-b3ca-0994bcd8b5b9" }]
+    }
+  }
+}

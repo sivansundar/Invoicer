@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useCanCreateInvoices } from "@/hooks/use-permissions";
 
 const INVOICE_DETAIL_RE = /^\/invoices\/[^/]+$/;
 const INVOICE_EDIT_RE = /^\/invoices\/[^/]+\/edit$/;
@@ -24,6 +25,8 @@ export function getCrumb(pathname: string): string {
   if (pathname === "/followups") return "Follow-ups";
   if (pathname.startsWith("/followups/templates/")) return "Email template";
   if (pathname === "/reports") return "Reports";
+  if (pathname === "/expenses") return "Expenses";
+  if (pathname.startsWith("/expenses/")) return "Expense";
   // Unmapped route (e.g. hit directly, or a route this map hasn't caught up
   // with yet) — fall back to the app name rather than an empty heading.
   return "Invoicer";
@@ -39,6 +42,7 @@ export function showNewInvoiceAction(pathname: string): boolean {
 export function SiteHeader() {
   const pathname = usePathname();
   const crumb = getCrumb(pathname);
+  const canCreate = useCanCreateInvoices();
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b px-6">
@@ -47,7 +51,7 @@ export function SiteHeader() {
       <h1 className="text-base font-medium">{crumb}</h1>
       <div className="flex-1" />
       <ThemeToggle />
-      {showNewInvoiceAction(pathname) && (
+      {canCreate && showNewInvoiceAction(pathname) && (
         <Button asChild variant="ghost" size="sm">
           <Link href="/invoices/create">
             <Plus className="size-3.5" />

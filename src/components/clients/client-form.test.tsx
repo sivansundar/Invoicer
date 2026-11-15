@@ -71,6 +71,7 @@ describe("ClientForm", () => {
   beforeEach(() => {
     window.localStorage.clear();
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
     vi.restoreAllMocks();
@@ -88,7 +89,7 @@ describe("ClientForm", () => {
   });
 
   it("does not show a success toast or navigate away when the save itself fails", async () => {
-    vi.spyOn(storage, "saveClient").mockReturnValue(false);
+    vi.spyOn(storage, "saveClient").mockResolvedValue(false);
     const user = userEvent.setup();
     render(<ClientForm />);
 
@@ -141,7 +142,7 @@ describe("ClientForm", () => {
     it("does not touch any invoice when the client record itself fails to delete", async () => {
       storage.saveClient(client());
       storage.saveInvoice(invoice({ id: "i1", clientId: "c1" }));
-      vi.spyOn(storage, "deleteClient").mockReturnValue(false);
+      vi.spyOn(storage, "deleteClient").mockResolvedValue(false);
       const saveInvoiceSpy = vi.spyOn(storage, "saveInvoice");
 
       const user = userEvent.setup();
@@ -168,7 +169,7 @@ describe("ClientForm", () => {
       // through the cascade).
       const realSaveInvoice = storage.saveInvoice;
       let invoiceWriteCount = 0;
-      vi.spyOn(storage, "saveInvoice").mockImplementation((inv) => {
+      vi.spyOn(storage, "saveInvoice").mockImplementation(async (inv) => {
         invoiceWriteCount += 1;
         if (invoiceWriteCount === 2) return false;
         return realSaveInvoice(inv);
@@ -198,6 +199,7 @@ describe("ClientForm — default payment method", () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     storage.runMigration();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     push.mockClear();
     toast.mockClear();
   });

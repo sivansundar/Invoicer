@@ -64,7 +64,7 @@ function isValidLineItem(value: unknown): boolean {
  * cannot reach `formatStoredDate`, a currency formatter, or a property
  * access on `client.companyName` with a shape those call sites don't expect.
  */
-function isValidInvoiceRecord(value: unknown): value is Invoice {
+export function isValidInvoiceRecord(value: unknown): value is Invoice {
   if (!isRecord(value)) return false;
   if (!isNonEmptyString(value.id)) return false;
   if (!isNonEmptyString(value.invoiceNumber)) return false;
@@ -155,7 +155,7 @@ function isValidAchDetails(value: unknown): boolean {
  * missing them is patched before anything renders it. `nextInvoiceNumber` is
  * documented dead state (nothing reads it) and is not required either.
  */
-function isValidBrandRecord(value: unknown): value is Brand {
+export function isValidBrandRecord(value: unknown): value is Brand {
   if (!isRecord(value)) return false;
   if (!isNonEmptyString(value.id)) return false;
   if (!isNonEmptyString(value.name)) return false;
@@ -178,7 +178,7 @@ function isValidBrandRecord(value: unknown): value is Brand {
  * `gstNumber` are optional on the type and already tolerate being absent
  * (`client.name || "—"`).
  */
-function isValidClientRecord(value: unknown): value is Client {
+export function isValidClientRecord(value: unknown): value is Client {
   if (!isRecord(value)) return false;
   if (!isNonEmptyString(value.id)) return false;
   if (!isNonEmptyString(value.companyName)) return false;

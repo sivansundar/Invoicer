@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated: wrangler state, Prisma client.
+    ".wrangler/**",
+    "src/generated/**",
   ]),
   {
     // These files render a user-uploaded brand logo that is stored (and

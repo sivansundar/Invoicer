@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Each row keeps the app's own object (src/lib/types.ts) whole in `data`, as
+// JSON text. Real columns exist only for what the server filters or constrains.
+// Tables are created by the SQL files in /migrations (wrangler applies them);
+// keep the two in step by hand.
+
+model Brand {
+  id        String   @id
+  ownerId   String   @map("owner_id") // Clerk user id
+  data      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId])
+  @@map("brands")
+}
+
+model Client {
+  id        String   @id
+  ownerId   String   @map("owner_id")
+  data      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId])
+  @@map("clients")
+}
+
+model Invoice {
+  id            String   @id
+  ownerId       String   @map("owner_id")
+  brandId       String   @map("brand_id")
+  invoiceNumber String   @map("invoice_number")
+  status        String
+  data          String
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([brandId, invoiceNumber])
+  @@index([ownerId])
+  @@map("invoices")
+}
+
+/// A brand shared with someone else. `invoices` / `expenses` are each
+/// "none" | "view" | "edit".
+model BrandAccess {
+  brandId   String   @map("brand_id")
+  email     String
+  userId    String?  @map("user_id")
+  invoices  String   @default("view")
+  expenses  String   @default("view")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([brandId, email])
+  @@index([userId])
+  @@index([email])
+  @@map("brand_access")
+}
+
+/// An uploaded purchase invoice. Belongs to a brand; who may see or change it
+/// follows that brand's sharing.
+model Expense {
+  id          String   @id
+  brandId     String   @map("brand_id")
+  status      String
+  expenseDate String?  @map("expense_date")
+  total       Float    @default(0)
+  fileKey     String   @map("file_key")
+  uploadedBy  String   @map("uploaded_by")
+  data        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([brandId])
+  @@map("expenses")
+}

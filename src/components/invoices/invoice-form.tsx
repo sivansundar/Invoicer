@@ -22,6 +22,7 @@ import {
 import { InvoicePreview } from "./invoice-preview";
 import { LineItemsTable } from "./line-items-table";
 import { useBrands } from "@/hooks/use-brands";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useClients } from "@/hooks/use-clients";
 import { useInvoices } from "@/hooks/use-invoices";
 import {
@@ -100,7 +101,10 @@ const MANUAL_CLIENT_VALUE = "manual";
 
 export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}) {
   const router = useRouter();
-  const { brands } = useBrands();
+  const { brands: allBrands } = useBrands();
+  const { canEdit } = usePermissions();
+  // Only brands this user may file invoices under.
+  const brands = allBrands.filter((b) => canEdit(b.id, "invoices"));
   const { clients } = useClients();
   const { invoices, save } = useInvoices();
   const isEdit = !!existingInvoice;
@@ -264,7 +268,7 @@ export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}
     ? snapshotFromBrand(brand)
     : EMPTY_SNAPSHOT;
 
-  const handleSave = (asDraft: boolean) => {
+  const handleSave = async (asDraft: boolean) => {
     // Same mandatory-field gate for the primary save action whether this is
     // a brand-new invoice ("Create invoice") or an existing one ("Save
     // changes") — an invoice missing, say, a billing address is exactly as
@@ -386,7 +390,7 @@ export function InvoiceForm({ existingInvoice, template }: InvoiceFormProps = {}
     // own clear failure message for). Toasting success and navigating away
     // regardless would tell the user this worked when it didn't, and take
     // them off the one screen still holding what they typed.
-    const persisted = save(invoice);
+    const persisted = await save(invoice);
     if (!persisted) return;
 
     toast(

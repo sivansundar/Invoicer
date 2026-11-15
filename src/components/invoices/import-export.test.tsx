@@ -100,6 +100,7 @@ function uploadFile(container: HTMLElement, payload: unknown, name = "invoices.j
 describe("ImportExport — rename conflict resolution", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     toast.mockClear();
   });
 
@@ -168,6 +169,7 @@ describe("ImportExport — rename conflict resolution", () => {
 describe("ImportExport — full backup envelope", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    storage.hydrate({ brands: [], clients: [], invoices: [] });
     toast.mockClear();
   });
 
